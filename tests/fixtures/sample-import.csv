@@ -1,0 +1,8 @@
+full_name,phone,email,postcode,registration,make,model,year,notes
+"John Smith","07911 123456","john@example.com","B63 3TT","AB12 CDE","Ford","Focus",2019,"Regular service customer"
+"Jane Doe","07922 123456","jane@example.com","DY1 1LQ","XY34 FGH","VW","Golf",2021,""
+"Bob Wilson","07933 123456","","B65 8JJ","","","","","Walk-in MOT only"
+"","07944 123456","","","","","","","Missing name - should skip"
+"Alice Brown","","alice@example.com","","CD56 IJK","Toyota","Yaris",2020,"Missing phone - should skip"
+"Charlie Evans","07700 invalid","","","","","","","Invalid phone - should error"
+"Dave Francis","07911 123456","","","","","","","Duplicate phone - should dupe"

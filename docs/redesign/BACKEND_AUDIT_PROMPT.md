@@ -8,24 +8,24 @@
 
 | # | Phase | State | Owner | Day |
 |---|---|---|---|---|
-| 0 | Repo + infra scaffold | CURRENT | Claude | 1 |
-| 1 | Schema + RLS foundation | PENDING | Claude | 1–2 |
-| 2 | Auth + roles + JWT claims | PENDING | Claude | 2 |
-| 3 | Customers, vehicles, import dry-run | PENDING | Claude | 2–3 |
-| 4 | Jobs, bays, assignments | PENDING | Claude | 3 |
-| 5 | Work logs (start/pause/complete) | PENDING | Claude | 3–4 |
-| 6 | Parts module + storage uploads | PENDING | Claude | 4 |
-| 7 | Customer approval flow (Twilio + signed tokens) | PENDING | Claude | 4–5 |
-| 8 | PDF job sheet | PENDING | Claude | 5 |
-| 9 | Customer status page (hostile-internet hardened) | PENDING | Claude | 5–6 |
-| 10 | Tablet kiosk endpoints | PENDING | Claude | 6 |
+| 0 | Repo + infra scaffold | DONE | Claude | 1 |
+| 1 | Schema + RLS foundation | DONE | Claude | 1–2 |
+| 2 | Auth + roles + JWT claims | DONE | Claude | 2 |
+| 3 | Customers, vehicles, import dry-run | DONE | Claude | 2–3 |
+| 4 | Jobs, bays, assignments | DONE | Claude | 3 |
+| 5 | Work logs (start/pause/complete) | DONE | Claude | 3–4 |
+| 6 | Parts module + storage uploads | DONE | Claude | 4 |
+| 7 | Customer approval flow (Twilio + signed tokens) | DONE | Claude | 4–5 |
+| 8 | PDF job sheet | DONE | Claude | 5 |
+| 9 | Customer status page (hostile-internet hardened) | DONE | Claude | 5–6 |
+| 10 | Tablet kiosk endpoints | DONE | Claude | 6 |
 | 11 | M1 deploy, real Fluent Forms import, backups verified | PENDING | Claude+Hossein | 7 |
-| 12 | Warranty tracking | PENDING | Claude | 8 |
-| 13 | Stock management (after day-7 scope call) | PENDING | Claude | 8–9 |
-| 14 | DVSA MOT history + cache | PENDING | Claude | 10 |
-| 15 | Reporting dashboard queries | PENDING | Claude | 11 |
-| 16 | GDPR export, audit log surfacing, soft-delete UI | PENDING | Claude | 12 |
-| 17 | Final security audit + load test | PENDING | Claude | 13 |
+| 12 | Warranty tracking | DONE | Claude | 8 |
+| 13 | Stock management (after day-7 scope call) | DONE | Claude | 8–9 |
+| 14 | DVSA MOT history + cache | DONE | Claude | 10 |
+| 15 | Reporting dashboard queries | DONE | Claude | 11 |
+| 16 | GDPR export, audit log surfacing, soft-delete UI | DONE | Claude | 12 |
+| 17 | Final security audit + load test | DONE | Claude | 13 |
 | 18 | M2 deploy, handover, runbook | PENDING | Claude+Hossein | 14 |
 
 ---

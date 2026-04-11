@@ -1,0 +1,108 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-typecheck-test:
+    name: Lint · Typecheck · Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Unit tests
+        run: pnpm test:unit
+
+  e2e:
+    name: Playwright e2e
+    runs-on: ubuntu-latest
+    needs: lint-typecheck-test
+    env:
+      # Minimal env so the build/start succeeds in CI. None of these are
+      # real secrets — they are placeholders matching .env.example shape.
+      NEXT_PUBLIC_APP_URL: http://127.0.0.1:3000
+      NEXT_PUBLIC_STATUS_URL: http://127.0.0.1:3000/status
+      NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-anon-key
+      SUPABASE_SERVICE_ROLE_KEY: ci-service-role
+      SUPABASE_JWT_SECRET: ci-jwt-secret
+      APPROVAL_HMAC_SECRET: ci-approval-hmac-32-bytes-padding-padding
+      STATUS_PHONE_PEPPER: ci-status-phone-pepper-32-bytes-padding
+      KIOSK_PAIRING_SECRET: ci-kiosk-pairing-32-bytes-padding-padding
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Build
+        run: pnpm build
+
+      - name: E2E tests
+        run: pnpm test:e2e
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report
+          retention-days: 7
+
+  secret-scan:
+    name: Secret scan (gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

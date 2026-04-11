@@ -1,0 +1,253 @@
+import { notFound } from "next/navigation";
+import Link from "next/link";
+
+import { requireStaffSession } from "@/lib/auth/session";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
+import type { JobStatus } from "@/lib/validation/job-schemas";
+
+interface JobDetailProps {
+  params: Promise<{ id: string }>;
+}
+
+function pence(p: number): string {
+  return `£${(p / 100).toFixed(2)}`;
+}
+
+function duration(seconds: number | null): string {
+  if (!seconds) return "—";
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+
+export default async function JobDetailPage({ params }: JobDetailProps) {
+  await requireStaffSession();
+  const { id } = await params;
+  const supabase = await createSupabaseServerClient();
+
+  const { data: job } = await supabase
+    .from("jobs")
+    .select(`
+      id, job_number, status, description, created_at, updated_at,
+      completed_at, estimated_ready_at, source,
+      customers!customer_id ( id, full_name, phone, email ),
+      vehicles!vehicle_id ( id, registration, make, model, year, mileage ),
+      bays!bay_id ( name )
+    `)
+    .eq("id", id)
+    .is("deleted_at", null)
+    .single();
+
+  if (!job) notFound();
+
+  const customer = Array.isArray(job.customers) ? job.customers[0] : job.customers;
+  const vehicle = Array.isArray(job.vehicles) ? job.vehicles[0] : job.vehicles;
+  const bay = Array.isArray(job.bays) ? job.bays[0] : job.bays;
+
+  // Fetch assignments, work logs, parts, approvals in parallel
+  const [assignments, workLogs, parts, approvals] = await Promise.all([
+    supabase
+      .from("job_assignments")
+      .select("staff:staff!staff_id ( id, full_name )")
+      .eq("job_id", id),
+    supabase
+      .from("work_logs")
+      .select("id, task_type, description, started_at, ended_at, duration_seconds, staff:staff!staff_id ( full_name )")
+      .eq("job_id", id)
+      .order("started_at", { ascending: false }),
+    supabase
+      .from("job_parts")
+      .select("id, description, supplier, quantity, unit_price_pence, total_pence, payment_method, invoice_file_path")
+      .eq("job_id", id)
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("approval_requests")
+      .select("id, description, amount_pence, status, created_at, responded_at")
+      .eq("job_id", id)
+      .order("created_at", { ascending: false }),
+  ]);
+
+  const partsTotalPence = (parts.data ?? []).reduce((sum, p) => sum + (p.total_pence ?? 0), 0);
+
+  return (
+    <div className="max-w-4xl">
+      {/* Header */}
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="flex items-center gap-3 text-2xl font-semibold">
+            <span className="font-mono">{job.job_number}</span>
+            <StatusBadge status={job.status as JobStatus} />
+          </h1>
+          {job.description && (
+            <p className="mt-1 text-muted-foreground">{job.description}</p>
+          )}
+        </div>
+        <div className="text-right text-sm text-muted-foreground">
+          <div>Created {new Date(job.created_at).toLocaleDateString("en-GB")}</div>
+          {job.estimated_ready_at && (
+            <div>
+              ETA{" "}
+              {new Date(job.estimated_ready_at).toLocaleDateString("en-GB", {
+                weekday: "short",
+                day: "numeric",
+                month: "short",
+              })}
+            </div>
+          )}
+          <div className="capitalize">Source: {job.source.replace("_", " ")}</div>
+        </div>
+      </div>
+
+      {/* Customer + Vehicle + Bay */}
+      <div className="mt-6 grid gap-4 sm:grid-cols-3">
+        {customer && (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm text-muted-foreground">Customer</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Link href={`/app/customers/${(customer as { id: string }).id}`} className="font-medium hover:underline">
+                {(customer as { full_name: string }).full_name}
+              </Link>
+              <div className="mt-1 text-sm text-muted-foreground">{(customer as { phone: string }).phone}</div>
+            </CardContent>
+          </Card>
+        )}
+        {vehicle && (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm text-muted-foreground">Vehicle</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="font-mono text-lg font-bold">{(vehicle as { registration: string }).registration}</div>
+              <div className="mt-1 text-sm text-muted-foreground">
+                {[(vehicle as { make?: string }).make, (vehicle as { model?: string }).model, (vehicle as { year?: number }).year].filter(Boolean).join(" ")}
+                {(vehicle as { mileage?: number }).mileage != null && ` · ${((vehicle as { mileage: number }).mileage).toLocaleString()} mi`}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-muted-foreground">Bay & Team</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="font-medium">{(bay as { name: string } | null)?.name ?? "Unassigned"}</div>
+            <div className="mt-1 flex flex-wrap gap-1">
+              {(assignments.data ?? []).map((a, i) => {
+                const staff = Array.isArray(a.staff) ? a.staff[0] : a.staff;
+                return (
+                  <Badge key={i} variant="secondary" className="text-xs">
+                    {(staff as { full_name: string })?.full_name}
+                  </Badge>
+                );
+              })}
+              {(assignments.data ?? []).length === 0 && (
+                <span className="text-sm text-muted-foreground">No techs assigned</span>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Separator className="my-6" />
+
+      {/* Work logs */}
+      <h2 className="text-lg font-semibold">Work Log</h2>
+      {(workLogs.data ?? []).length === 0 ? (
+        <p className="mt-2 text-sm text-muted-foreground">No work logged yet.</p>
+      ) : (
+        <div className="mt-3 space-y-2">
+          {workLogs.data!.map((wl) => {
+            const staff = Array.isArray(wl.staff) ? wl.staff[0] : wl.staff;
+            return (
+              <div key={wl.id} className="flex items-center justify-between rounded-lg border p-3">
+                <div>
+                  <span className="text-sm font-medium capitalize">{wl.task_type.replace(/_/g, " ")}</span>
+                  {wl.description && <span className="ml-2 text-sm text-muted-foreground">{wl.description}</span>}
+                  <div className="text-xs text-muted-foreground">
+                    {(staff as { full_name: string } | null)?.full_name} · {new Date(wl.started_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
+                  </div>
+                </div>
+                <div className="text-right">
+                  {wl.ended_at ? (
+                    <span className="text-sm">{duration(wl.duration_seconds)}</span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 text-xs text-success">
+                      <span className="h-2 w-2 animate-pulse rounded-full bg-success" />
+                      Active
+                    </span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <Separator className="my-6" />
+
+      {/* Parts */}
+      <h2 className="text-lg font-semibold">Parts</h2>
+      {(parts.data ?? []).length === 0 ? (
+        <p className="mt-2 text-sm text-muted-foreground">No parts added yet.</p>
+      ) : (
+        <div className="mt-3 rounded-lg border">
+          <div className="divide-y">
+            {parts.data!.map((p) => (
+              <div key={p.id} className="flex items-center justify-between p-3">
+                <div>
+                  <div className="text-sm font-medium">{p.description}</div>
+                  <div className="text-xs text-muted-foreground capitalize">
+                    {p.supplier} · {p.payment_method.replace("_", " ")} · qty {p.quantity}
+                  </div>
+                </div>
+                <div className="text-right font-mono text-sm">{pence(p.total_pence)}</div>
+              </div>
+            ))}
+          </div>
+          <div className="flex justify-between border-t bg-muted/50 p-3">
+            <span className="text-sm font-medium">Parts Total</span>
+            <span className="font-mono font-bold">{pence(partsTotalPence)}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Approvals */}
+      {(approvals.data ?? []).length > 0 && (
+        <>
+          <Separator className="my-6" />
+          <h2 className="text-lg font-semibold">Approval Requests</h2>
+          <div className="mt-3 space-y-2">
+            {approvals.data!.map((a) => (
+              <div key={a.id} className="flex items-center justify-between rounded-lg border p-3">
+                <div>
+                  <div className="text-sm">{a.description}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {pence(a.amount_pence)} · {new Date(a.created_at).toLocaleDateString("en-GB")}
+                  </div>
+                </div>
+                <Badge
+                  variant={
+                    a.status === "approved"
+                      ? "default"
+                      : a.status === "declined"
+                        ? "destructive"
+                        : "secondary"
+                  }
+                  className="capitalize"
+                >
+                  {a.status}
+                </Badge>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}

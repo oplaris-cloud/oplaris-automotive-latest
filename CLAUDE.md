@@ -58,25 +58,27 @@ Roles stored in `private.user_roles`, never on a user-writable `profiles` table.
 
 ## Phase tracker
 
-- [ ] **M1.0** Repo scaffold, Supabase schema v1, RLS, auth, seed garage
-- [ ] **M1.1** Customer + vehicle CRUD, Fluent Forms import dry-run
-- [ ] **M1.2** Job cards + bay board (drag/drop) + tech assignment
-- [ ] **M1.3** Tech mobile UI: start/pause/complete, time tracking
-- [ ] **M1.4** Customer approval SMS flow (signed links, Twilio)
-- [ ] **M1.5** Parts module (supplier dropdown, file upload, payment)
-- [ ] **M1.6** PDF job sheet
-- [ ] **M1.7** Customer status page (rate-limited, anti-enumeration)
-- [ ] **M1.8** Tablet kiosk (MOT / Electrical / Maintenance)
-- [ ] **M1.9** Manager dashboard
-- [ ] **M1.10** Twilio integration end-to-end
+- [x] **M1.0a** Repo scaffold (Phase 0): Next.js 16 + TS strict + Tailwind v4 + sec headers + CI
+- [x] **M1.0** Supabase schema v1, RLS, auth, seed garage
+- [x] **M1.1** Customer + vehicle CRUD, Fluent Forms import dry-run
+- [x] **M1.2** Job cards + bay board (drag/drop) + tech assignment
+- [x] **M1.3** Tech mobile UI: start/pause/complete, time tracking
+- [x] **M1.4** Customer approval SMS flow (signed links, Twilio)
+- [x] **M1.5** Parts module (supplier dropdown, file upload, payment)
+- [x] **M1.6** PDF job sheet
+- [x] **M1.7** Customer status page (rate-limited, anti-enumeration)
+- [x] **M1.8** Tablet kiosk (MOT / Electrical / Maintenance)
+- [x] **M1.9** Manager dashboard
+- [x] **M1.10** Twilio integration end-to-end
 - [ ] **M1 → live** Real Fluent Forms import (day 12), backups verified, deploy
-- [ ] **M2.1** Warranty tracking
-- [ ] **M2.2** Stock management (scope confirmed day 7)
-- [ ] **M2.3** DVSA MOT history lookup
-- [ ] **M2.4** Reporting dashboard
-- [ ] **M2.5** GDPR export + audit log UI
-- [ ] **M2.6** Mobile UX polish + accessibility pass
-- [ ] **M2.7** Admin guide + walkthrough video
+- [x] **M2.1** Warranty tracking
+- [x] **M2.2** Stock management (scope confirmed day 7)
+- [x] **M2.3** DVSA MOT history lookup
+- [x] **M2.4** Reporting dashboard
+- [x] **M2.5** GDPR export + audit log UI
+- [ ] **M2.6** Mobile UX polish + accessibility pass (U17)
+- [ ] **M2.7** Admin guide + walkthrough video (U18)
+- [ ] **PRE-DEPLOY** Test & troubleshooting pass (T0–T13)
 
 ## File map
 
@@ -86,6 +88,7 @@ Roles stored in `private.user_roles`, never on a user-writable `profiles` table.
 - `docs/redesign/BACKEND_AUDIT_PROMPT.md` — phased build execution plan, day-by-day
 - `docs/redesign/DESIGN_SYSTEM.md` — 4-UI design system, tokens, components
 - `docs/redesign/AUDIT_PROMPT.md` — phased UI build plan
+- `docs/redesign/TEST_AUDIT_PROMPT.md` — pre-deploy test & troubleshooting plan (T0–T13)
 - `/sessions/ecstatic-busy-dijkstra/mnt/Oplaris-Skills/` — vibe-security, ux-audit, plan-generator skills (read directly)
 
 ## Working rules for Claude

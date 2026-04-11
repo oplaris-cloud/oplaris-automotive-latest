@@ -1,0 +1,127 @@
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { Car, Phone, Mail, MapPin } from "lucide-react";
+
+import { requireManagerOrTester } from "@/lib/auth/session";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import { EmptyState } from "@/components/ui/empty-state";
+
+interface CustomerDetailProps {
+  params: Promise<{ id: string }>;
+}
+
+export default async function CustomerDetailPage({ params }: CustomerDetailProps) {
+  await requireManagerOrTester();
+  const { id } = await params;
+  const supabase = await createSupabaseServerClient();
+
+  const { data: customer } = await supabase
+    .from("customers")
+    .select("*")
+    .eq("id", id)
+    .is("deleted_at", null)
+    .single();
+
+  if (!customer) notFound();
+
+  const { data: vehicles } = await supabase
+    .from("vehicles")
+    .select("id, registration, make, model, year")
+    .eq("customer_id", id)
+    .is("deleted_at", null)
+    .order("created_at", { ascending: false });
+
+  const { data: jobs } = await supabase
+    .from("jobs")
+    .select("id, job_number, status, description, created_at")
+    .eq("customer_id", id)
+    .is("deleted_at", null)
+    .order("created_at", { ascending: false })
+    .limit(10);
+
+  return (
+    <div className="max-w-3xl">
+      <h1 className="text-2xl font-semibold">{customer.full_name}</h1>
+
+      <div className="mt-4 flex flex-wrap gap-4 text-sm text-muted-foreground">
+        <span className="flex items-center gap-1.5">
+          <Phone className="h-4 w-4" /> {customer.phone}
+        </span>
+        {customer.email && (
+          <span className="flex items-center gap-1.5">
+            <Mail className="h-4 w-4" /> {customer.email}
+          </span>
+        )}
+        {customer.postcode && (
+          <span className="flex items-center gap-1.5">
+            <MapPin className="h-4 w-4" /> {customer.postcode}
+          </span>
+        )}
+      </div>
+
+      {customer.notes && (
+        <p className="mt-3 text-sm text-muted-foreground">{customer.notes}</p>
+      )}
+
+      <Separator className="my-6" />
+
+      {/* Vehicles */}
+      <h2 className="text-lg font-semibold">Vehicles</h2>
+      {!vehicles || vehicles.length === 0 ? (
+        <EmptyState
+          icon={Car}
+          title="No vehicles"
+          description="Add a vehicle to this customer."
+          className="mt-4"
+        />
+      ) : (
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          {vehicles.map((v) => (
+            <Link key={v.id} href={`/app/vehicles/${v.id}`}>
+              <Card className="transition-shadow hover:shadow-md">
+                <CardContent className="p-4">
+                  <div className="font-mono text-lg font-bold">{v.registration}</div>
+                  <div className="mt-1 text-sm text-muted-foreground">
+                    {[v.make, v.model, v.year].filter(Boolean).join(" ") || "—"}
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+          ))}
+        </div>
+      )}
+
+      <Separator className="my-6" />
+
+      {/* Recent jobs */}
+      <h2 className="text-lg font-semibold">Recent Jobs</h2>
+      {!jobs || jobs.length === 0 ? (
+        <EmptyState title="No jobs" description="No jobs for this customer yet." className="mt-4" />
+      ) : (
+        <div className="mt-3 space-y-2">
+          {jobs.map((j) => (
+            <Link key={j.id} href={`/app/jobs/${j.id}`}>
+              <Card className="transition-shadow hover:shadow-md">
+                <CardContent className="flex items-center justify-between p-4">
+                  <div>
+                    <span className="font-mono text-sm font-medium">{j.job_number}</span>
+                    {j.description && (
+                      <span className="ml-2 text-sm text-muted-foreground">
+                        {j.description.slice(0, 60)}
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-xs capitalize text-muted-foreground">
+                    {j.status.replace(/_/g, " ")}
+                  </span>
+                </CardContent>
+              </Card>
+            </Link>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
