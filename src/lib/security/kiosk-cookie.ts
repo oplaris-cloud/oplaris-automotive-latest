@@ -20,23 +20,35 @@ export async function verifyKioskCookie(): Promise<string | null> {
   const [payloadB64, sig] = parts;
   if (!payloadB64 || !sig) return null;
 
-  let payload: { garage_id: string; paired_at: string };
+  // Verify HMAC over the raw payload bytes BEFORE parsing. Never trust a
+  // parser with unauthenticated input, and never re-stringify a parsed
+  // object to check a signature — JSON.stringify key-ordering is
+  // environment-dependent.
+  let rawPayload: string;
   try {
-    payload = JSON.parse(Buffer.from(payloadB64, "base64url").toString());
+    rawPayload = Buffer.from(payloadB64, "base64url").toString("utf8");
   } catch {
     return null;
   }
 
-  if (!payload.garage_id) return null;
-
   const expectedSig = createHmac("sha256", env.KIOSK_PAIRING_SECRET)
-    .update(JSON.stringify(payload))
+    .update(rawPayload)
     .digest("base64url");
 
   const a = Buffer.from(expectedSig, "utf8");
   const b = Buffer.from(sig, "utf8");
   if (a.length !== b.length) return null;
   if (!timingSafeEqual(a, b)) return null;
+
+  // Signature valid — now safe to parse the payload.
+  let payload: { garage_id: string; paired_at: string };
+  try {
+    payload = JSON.parse(rawPayload);
+  } catch {
+    return null;
+  }
+
+  if (!payload.garage_id) return null;
 
   return payload.garage_id;
 }

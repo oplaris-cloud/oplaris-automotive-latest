@@ -35,20 +35,31 @@ export async function GET(): Promise<NextResponse> {
     return NextResponse.json({ error: "Invalid session" }, { status: 401 });
   }
 
-  let payload: { vehicle_id: string; exp: number };
+  // Verify HMAC over the *raw* payload bytes, not over a re-stringified
+  // object. JSON.stringify's key order is Node-specific for plain objects
+  // and we don't want the verifier to silently drift from the signer.
+  let rawPayload: string;
   try {
-    payload = JSON.parse(Buffer.from(payloadB64, "base64url").toString());
+    rawPayload = Buffer.from(payloadB64, "base64url").toString("utf8");
   } catch {
     return NextResponse.json({ error: "Invalid session" }, { status: 401 });
   }
 
   const expectedSig = createHmac("sha256", env.STATUS_PHONE_PEPPER)
-    .update(JSON.stringify(payload))
+    .update(rawPayload)
     .digest("base64url");
 
   const sigBuf = Buffer.from(sig, "utf8");
   const expectedBuf = Buffer.from(expectedSig, "utf8");
   if (sigBuf.length !== expectedBuf.length || !timingSafeEqual(sigBuf, expectedBuf)) {
+    return NextResponse.json({ error: "Invalid session" }, { status: 401 });
+  }
+
+  // Signature valid — NOW it's safe to parse the payload.
+  let payload: { vehicle_id: string; exp: number };
+  try {
+    payload = JSON.parse(rawPayload);
+  } catch {
     return NextResponse.json({ error: "Invalid session" }, { status: 401 });
   }
 

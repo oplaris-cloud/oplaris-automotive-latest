@@ -105,7 +105,7 @@ export async function updateStockItem(
 export async function recordStockMovement(
   input: z.infer<typeof stockMovementSchema>,
 ): Promise<ActionResult> {
-  const session = await requireStaffSession();
+  await requireStaffSession();
   const parsed = stockMovementSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Validation failed" };
 
@@ -113,34 +113,25 @@ export async function recordStockMovement(
 
   const supabase = await createSupabaseServerClient();
 
-  // Insert the movement record
-  const { error: moveErr } = await supabase
-    .from("stock_movements")
-    .insert({
-      garage_id: session.garageId,
-      stock_item_id: parsed.data.stockItemId,
-      job_id: parsed.data.jobId ?? null,
-      delta: parsed.data.delta,
-      reason: parsed.data.reason || null,
-      staff_id: session.userId,
-    });
+  // One atomic RPC: inserts the movement row and updates
+  // `stock_items.quantity_on_hand` in a single transaction, protected by
+  // the `stock_items_quantity_non_negative` CHECK constraint. Fixes the
+  // read-then-write race the pre-deploy audit flagged.
+  const { error } = await supabase.rpc("apply_stock_movement", {
+    p_stock_item_id: parsed.data.stockItemId,
+    p_delta: parsed.data.delta,
+    p_job_id: parsed.data.jobId ?? null,
+    p_reason: parsed.data.reason || null,
+  });
 
-  if (moveErr) return { ok: false, error: moveErr.message };
-
-  // Update quantity_on_hand
-  // Read current, add delta, write back (RLS scopes this to own garage)
-  const { data: item } = await supabase
-    .from("stock_items")
-    .select("quantity_on_hand")
-    .eq("id", parsed.data.stockItemId)
-    .single();
-
-  if (item) {
-    const newQty = Math.max(0, (item.quantity_on_hand ?? 0) + parsed.data.delta);
-    await supabase
-      .from("stock_items")
-      .update({ quantity_on_hand: newQty })
-      .eq("id", parsed.data.stockItemId);
+  if (error) {
+    if (error.code === "23514") {
+      return {
+        ok: false,
+        error: "This movement would take stock below zero. Check the quantity.",
+      };
+    }
+    return { ok: false, error: error.message };
   }
 
   revalidatePath("/app/settings/stock");

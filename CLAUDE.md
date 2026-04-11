@@ -78,7 +78,7 @@ Roles stored in `private.user_roles`, never on a user-writable `profiles` table.
 - [x] **M2.5** GDPR export + audit log UI
 - [ ] **M2.6** Mobile UX polish + accessibility pass (U17)
 - [ ] **M2.7** Admin guide + walkthrough video (U18)
-- [ ] **PRE-DEPLOY** Test & troubleshooting pass (T0–T13)
+- [~] **PRE-DEPLOY** Test & troubleshooting pass (T0–T13) — *local static audit complete (T0, T1, T10, T12 dynamic green; T2–T9 static PASS with 4 major fixes applied; T11, T13 and dynamic portions of T2–T9 SKIPPED for lack of Docker/Postgres/Twilio/DVSA/staging on the audit host). See `docs/redesign/TEST_AUDIT_PROMPT.md` Findings Log and the T13 re-run checklist — must be executed against staging on deploy day before flipping this to [x].*
 
 ## File map
 

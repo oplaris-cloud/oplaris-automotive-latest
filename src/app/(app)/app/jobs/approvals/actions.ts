@@ -10,6 +10,7 @@ import {
 } from "@/lib/security/approval-tokens";
 import { sendSms } from "@/lib/sms/twilio";
 import { serverEnv } from "@/lib/env";
+import { isValidTransition, type JobStatus } from "@/lib/validation/job-schemas";
 
 import type { ActionResult } from "../../customers/actions";
 
@@ -39,15 +40,24 @@ export async function requestApproval(
   const supabase = await createSupabaseServerClient();
   const env = serverEnv();
 
-  // Look up the job + customer phone
+  // Look up the job + customer phone. We also need the current status so
+  // we can reject state-machine violations server-side (e.g. a mechanic
+  // trying to request approval on a draft or completed job).
   const { data: job, error: jobErr } = await supabase
     .from("jobs")
-    .select("id, customer_id, customers!customer_id ( phone )")
+    .select("id, status, customer_id, customers!customer_id ( phone )")
     .eq("id", parsed.data.jobId)
     .single();
 
   if (jobErr || !job) {
     return { ok: false, error: "Job not found" };
+  }
+
+  if (!isValidTransition(job.status as JobStatus, "awaiting_customer_approval")) {
+    return {
+      ok: false,
+      error: `Cannot request approval on a job with status "${job.status}"`,
+    };
   }
 
   const customers = job.customers as unknown as { phone: string } | { phone: string }[] | null;

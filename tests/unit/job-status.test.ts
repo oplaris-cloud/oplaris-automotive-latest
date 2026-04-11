@@ -4,6 +4,7 @@ import {
   isValidTransition,
   JOB_STATUSES,
   STATUS_TRANSITIONS,
+  type JobStatus,
 } from "@/lib/validation/job-schemas";
 
 describe("job status state machine", () => {
@@ -51,5 +52,11 @@ describe("job status state machine", () => {
         expect(statusSet.has(to), `${from} → ${to} references unknown status`).toBe(true);
       }
     }
+  });
+
+  it("returns false for a `from` status that is not in the transition map", () => {
+    // Defensive nullish fallback — exercises the `?? false` branch on the
+    // optional-chain lookup. Cast because TS alone rejects the malformed input.
+    expect(isValidTransition("nonsense" as unknown as JobStatus, "completed")).toBe(false);
   });
 });

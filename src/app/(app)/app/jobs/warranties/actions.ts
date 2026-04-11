@@ -76,9 +76,20 @@ export async function voidWarranty(
 
   if (error) return { ok: false, error: error.message };
 
-  // Write audit log via service role (audit_log INSERT is locked for authenticated)
-  // For now, use the authenticated client — the audit_log table needs an INSERT
-  // policy for managers. We'll add it.
+  // Audit log write goes through the SECURITY DEFINER `write_audit_log`
+  // RPC introduced in migration 011 — authenticated users can't INSERT
+  // into `audit_log` directly, so the RPC is the only path. Failing to
+  // write the audit entry is logged but does not roll back the void;
+  // the business action is already committed.
+  const { error: auditErr } = await supabase.rpc("write_audit_log", {
+    p_action: "void_warranty",
+    p_target_table: "warranties",
+    p_target_id: parsed.data.warrantyId,
+    p_meta: { reason: parsed.data.reason },
+  });
+  if (auditErr) {
+    console.error("[void_warranty] audit log write failed:", auditErr.message);
+  }
 
   revalidatePath("/app/jobs");
   return { ok: true };
