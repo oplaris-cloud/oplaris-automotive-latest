@@ -8,6 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import type { JobStatus } from "@/lib/validation/job-schemas";
+import { StatusActions } from "./StatusActions";
+import { ApprovalDialog } from "./ApprovalDialog";
 
 interface JobDetailProps {
   params: Promise<{ id: string }>;
@@ -102,6 +104,11 @@ export default async function JobDetailPage({ params }: JobDetailProps) {
         </div>
       </div>
 
+      {/* Status actions */}
+      <div className="mt-4">
+        <StatusActions jobId={job.id} currentStatus={job.status as JobStatus} />
+      </div>
+
       {/* Customer + Vehicle + Bay */}
       <div className="mt-6 grid gap-4 sm:grid-cols-3">
         {customer && (
@@ -118,18 +125,22 @@ export default async function JobDetailPage({ params }: JobDetailProps) {
           </Card>
         )}
         {vehicle && (
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm text-muted-foreground">Vehicle</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="font-mono text-lg font-bold">{(vehicle as { registration: string }).registration}</div>
-              <div className="mt-1 text-sm text-muted-foreground">
-                {[(vehicle as { make?: string }).make, (vehicle as { model?: string }).model, (vehicle as { year?: number }).year].filter(Boolean).join(" ")}
-                {(vehicle as { mileage?: number }).mileage != null && ` · ${((vehicle as { mileage: number }).mileage).toLocaleString()} mi`}
-              </div>
-            </CardContent>
-          </Card>
+          <Link href={`/app/vehicles/${(vehicle as { id: string }).id}`}>
+            <Card className="transition-shadow hover:shadow-md">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm text-muted-foreground">Vehicle</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="inline-block rounded bg-yellow-400 px-2 py-0.5 font-mono text-base font-bold text-black">
+                  {(vehicle as { registration: string }).registration}
+                </div>
+                <div className="mt-1 text-sm text-muted-foreground">
+                  {[(vehicle as { make?: string }).make, (vehicle as { model?: string }).model, (vehicle as { year?: number }).year].filter(Boolean).join(" ")}
+                  {(vehicle as { mileage?: number }).mileage != null && ` · ${((vehicle as { mileage: number }).mileage).toLocaleString()} mi`}
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
         )}
         <Card>
           <CardHeader className="pb-2">
@@ -215,6 +226,14 @@ export default async function JobDetailPage({ params }: JobDetailProps) {
             <span className="font-mono font-bold">{pence(partsTotalPence)}</span>
           </div>
         </div>
+      )}
+
+      {/* Approval request */}
+      {(job.status === "in_diagnosis" || job.status === "in_repair") && (
+        <>
+          <Separator className="my-6" />
+          <ApprovalDialog jobId={job.id} />
+        </>
       )}
 
       {/* Approvals */}

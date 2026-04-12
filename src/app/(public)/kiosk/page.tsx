@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
+import { RegPlateInput } from "@/components/ui/reg-plate";
 
 type Service = "mot" | "electrical" | "maintenance";
 type Step = "service" | "details" | "confirm" | "done";
@@ -131,7 +132,9 @@ export default function KioskPage() {
             </div>
             <div>
               <Label htmlFor="kiosk-reg" className="text-base">Registration</Label>
-              <Input id="kiosk-reg" value={reg} onChange={(e) => setReg(e.target.value)} className="mt-1 font-mono text-lg uppercase" placeholder="AB12 CDE" autoComplete="off" />
+              <div className="mt-1">
+                <RegPlateInput id="kiosk-reg" value={reg} onChange={(e) => setReg(e.target.value)} placeholder="AB12 CDE" variant="rear" />
+              </div>
             </div>
             <div>
               <Label htmlFor="kiosk-notes" className="text-base">Notes (optional)</Label>
@@ -154,7 +157,7 @@ export default function KioskPage() {
               <div><strong>Service:</strong> {SERVICES.find((s) => s.value === service)?.label}</div>
               <div><strong>Name:</strong> {name}</div>
               <div><strong>Phone:</strong> {phone}</div>
-              <div><strong>Registration:</strong> <span className="font-mono uppercase">{reg}</span></div>
+              <div><strong>Registration:</strong> <span className="inline-block rounded border-2 border-black bg-[#FFD307] px-2 py-0.5 font-mono text-sm font-black uppercase tracking-wider">{reg}</span></div>
               {notes && <div><strong>Notes:</strong> {notes}</div>}
             </div>
             {error && <p className="text-sm text-destructive">{error}</p>}

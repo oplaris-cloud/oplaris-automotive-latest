@@ -24,15 +24,19 @@ interface Bay {
 export function NewJobForm({
   customers,
   bays,
+  defaultCustomerId,
+  defaultVehicleId,
 }: {
   customers: Customer[];
   bays: Bay[];
+  defaultCustomerId?: string;
+  defaultVehicleId?: string;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-  const [customerId, setCustomerId] = useState("");
+  const [customerId, setCustomerId] = useState(defaultCustomerId ?? "");
 
   const selectedCustomer = customers.find((c) => c.id === customerId);
   const vehicles = selectedCustomer?.vehicles ?? [];
@@ -109,6 +113,7 @@ export function NewJobForm({
           id="vehicleId"
           name="vehicleId"
           disabled={!customerId}
+          defaultValue={defaultVehicleId ?? ""}
           className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus:border-ring focus:ring-2 focus:ring-ring focus:outline-none disabled:opacity-50"
         >
           <option value="">

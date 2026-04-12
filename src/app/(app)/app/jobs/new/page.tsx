@@ -2,8 +2,13 @@ import { requireManager } from "@/lib/auth/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { NewJobForm } from "./NewJobForm";
 
-export default async function NewJobPage() {
+interface NewJobPageProps {
+  searchParams: Promise<{ vehicleId?: string; customerId?: string }>;
+}
+
+export default async function NewJobPage({ searchParams }: NewJobPageProps) {
   await requireManager();
+  const { vehicleId: urlVehicleId, customerId: urlCustomerId } = await searchParams;
   const supabase = await createSupabaseServerClient();
 
   const [{ data: customers }, { data: bays }] = await Promise.all([
@@ -25,6 +30,8 @@ export default async function NewJobPage() {
         Select a customer and vehicle to create a job card.
       </p>
       <NewJobForm
+        defaultCustomerId={urlCustomerId}
+        defaultVehicleId={urlVehicleId}
         customers={(customers ?? []).map((c) => ({
           id: c.id,
           fullName: c.full_name,

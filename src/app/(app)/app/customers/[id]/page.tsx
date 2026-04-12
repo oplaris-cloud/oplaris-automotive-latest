@@ -5,8 +5,11 @@ import { Car, Phone, Mail, MapPin } from "lucide-react";
 import { requireManagerOrTester } from "@/lib/auth/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CarImage } from "@/components/ui/car-image";
 import { Separator } from "@/components/ui/separator";
 import { EmptyState } from "@/components/ui/empty-state";
+import { AddVehicleForm } from "./AddVehicleForm";
+import { EditCustomerDialog } from "./EditCustomerDialog";
 
 interface CustomerDetailProps {
   params: Promise<{ id: string }>;
@@ -28,7 +31,7 @@ export default async function CustomerDetailPage({ params }: CustomerDetailProps
 
   const { data: vehicles } = await supabase
     .from("vehicles")
-    .select("id, registration, make, model, year")
+    .select("id, registration, make, model, year, colour")
     .eq("customer_id", id)
     .is("deleted_at", null)
     .order("created_at", { ascending: false });
@@ -43,7 +46,10 @@ export default async function CustomerDetailPage({ params }: CustomerDetailProps
 
   return (
     <div className="max-w-3xl">
-      <h1 className="text-2xl font-semibold">{customer.full_name}</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-semibold">{customer.full_name}</h1>
+        <EditCustomerDialog customer={customer} />
+      </div>
 
       <div className="mt-4 flex flex-wrap gap-4 text-sm text-muted-foreground">
         <span className="flex items-center gap-1.5">
@@ -68,7 +74,9 @@ export default async function CustomerDetailPage({ params }: CustomerDetailProps
       <Separator className="my-6" />
 
       {/* Vehicles */}
-      <h2 className="text-lg font-semibold">Vehicles</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold">Vehicles</h2>
+      </div>
       {!vehicles || vehicles.length === 0 ? (
         <EmptyState
           icon={Car}
@@ -80,9 +88,21 @@ export default async function CustomerDetailPage({ params }: CustomerDetailProps
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
           {vehicles.map((v) => (
             <Link key={v.id} href={`/app/vehicles/${v.id}`}>
-              <Card className="transition-shadow hover:shadow-md">
+              <Card className="overflow-hidden transition-shadow hover:shadow-md">
+                <div className="bg-muted/30 px-3 py-2">
+                  <CarImage
+                    make={v.make}
+                    model={v.model}
+                    year={v.year}
+                    colour={v.colour}
+                    className="mx-auto h-[80px]"
+                    width={400}
+                  />
+                </div>
                 <CardContent className="p-4">
-                  <div className="font-mono text-lg font-bold">{v.registration}</div>
+                  <div className="inline-block rounded bg-yellow-400 px-2 py-0.5 font-mono text-sm font-bold text-black">
+                    {v.registration}
+                  </div>
                   <div className="mt-1 text-sm text-muted-foreground">
                     {[v.make, v.model, v.year].filter(Boolean).join(" ") || "—"}
                   </div>
@@ -92,6 +112,9 @@ export default async function CustomerDetailPage({ params }: CustomerDetailProps
           ))}
         </div>
       )}
+      <div className="mt-4">
+        <AddVehicleForm customerId={id} />
+      </div>
 
       <Separator className="my-6" />
 

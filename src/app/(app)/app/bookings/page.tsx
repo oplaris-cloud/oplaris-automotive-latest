@@ -5,6 +5,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { PromoteButton } from "./PromoteButton";
 
 export default async function BookingsPage() {
   await requireManager();
@@ -62,13 +63,16 @@ export default async function BookingsPage() {
                       <p className="mt-2 text-sm">{b.notes}</p>
                     )}
                   </div>
-                  <div className="text-right text-xs text-muted-foreground">
-                    {new Date(b.created_at).toLocaleDateString("en-GB", {
-                      day: "numeric",
-                      month: "short",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
+                  <div className="flex flex-col items-end gap-2">
+                    <div className="text-xs text-muted-foreground">
+                      {new Date(b.created_at).toLocaleDateString("en-GB", {
+                        day: "numeric",
+                        month: "short",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </div>
+                    <PromoteButton bookingId={b.id} />
                   </div>
                 </div>
               </CardContent>

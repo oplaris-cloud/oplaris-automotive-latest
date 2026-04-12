@@ -37,12 +37,14 @@ const serverEnvSchema = z.object({
   TWILIO_FROM_NUMBER: optionalNonEmpty,
   TWILIO_WEBHOOK_BASE_URL: optionalNonEmpty,
 
-  // DVSA
-  DVSA_API_KEY: optionalNonEmpty,
+  // DVSA Trade API — OAuth2 + API key
   DVSA_CLIENT_ID: optionalNonEmpty,
   DVSA_CLIENT_SECRET: optionalNonEmpty,
-  DVSA_TOKEN_URL: optionalNonEmpty,
-  DVSA_API_BASE_URL: optionalNonEmpty,
+  DVSA_TENANT_ID: optionalNonEmpty,
+  DVSA_SCOPE: optionalNonEmpty,
+  DVSA_API_KEY: optionalNonEmpty,              // x-api-key header
+  DVSA_BASE_URL: optionalNonEmpty,             // Trade API (vehicle info + MOT)
+  DVSA_HISTORY_BASE_URL: optionalNonEmpty,     // MOT history (if separate)
 
   // Crypto
   APPROVAL_HMAC_SECRET: nonEmpty,

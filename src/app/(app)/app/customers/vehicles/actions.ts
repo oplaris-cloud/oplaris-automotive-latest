@@ -117,3 +117,29 @@ export async function updateVehicle(
   revalidatePath("/app/customers");
   return { ok: true, id: parsed.data.id };
 }
+
+// ------------------------------------------------------------------
+// Soft-delete
+// ------------------------------------------------------------------
+
+export async function softDeleteVehicle(
+  vehicleId: string,
+): Promise<ActionResult> {
+  await requireManagerOrTester();
+
+  if (!vehicleId || !/^[0-9a-f-]{36}$/.test(vehicleId)) {
+    return { ok: false, error: "Invalid vehicle ID" };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase
+    .from("vehicles")
+    .update({ deleted_at: new Date().toISOString() })
+    .eq("id", vehicleId);
+
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/app/vehicles");
+  revalidatePath("/app/customers");
+  return { ok: true };
+}

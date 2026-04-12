@@ -3,6 +3,8 @@ import { Shield, Package, ScrollText } from "lucide-react";
 
 import { requireManager } from "@/lib/auth/session";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import { PairTabletButton } from "./PairTabletButton";
 
 export default async function SettingsPage() {
   await requireManager();
@@ -32,6 +34,16 @@ export default async function SettingsPage() {
             </Card>
           </Link>
         ))}
+      </div>
+
+      <Separator className="my-8" />
+
+      <h2 className="text-lg font-semibold">Kiosk Tablet</h2>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Pair this browser as the reception kiosk. Run this once on the tablet in reception.
+      </p>
+      <div className="mt-4">
+        <PairTabletButton />
       </div>
     </div>
   );

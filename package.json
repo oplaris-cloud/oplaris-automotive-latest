@@ -21,6 +21,7 @@
     "audit:secrets": "tsx scripts/audit-public-env.ts"
   },
   "dependencies": {
+    "@hello-pangea/dnd": "^18.0.1",
     "@base-ui/react": "^1.3.0",
     "@hookform/resolvers": "^5.2.2",
     "@react-pdf/renderer": "^4.4.0",

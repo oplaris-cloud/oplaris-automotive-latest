@@ -4,6 +4,7 @@ import { z } from "zod";
 import { requireManager } from "@/lib/auth/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { serverEnv } from "@/lib/env";
+import { getDvsaAccessToken } from "@/lib/dvla/token";
 
 const refreshSchema = z.object({
   vehicleId: z.string().uuid(),
@@ -11,13 +12,11 @@ const refreshSchema = z.object({
 });
 
 /**
- * POST /api/dvsa/refresh — fetch MOT history from DVSA and cache it.
+ * POST /api/dvsa/refresh — fetch full MOT history and cache it.
  *
- * Manager-only. The DVSA API key never leaves the server. Cached 24h —
- * if a fresh fetch was done within 24h, return the cached version.
- *
- * DVSA rate limits are tight (per-key), so respecting the cache is
- * critical. We never bypass it.
+ * Manager-only. Uses DVSA OAuth2 token + x-api-key.
+ * Endpoint: GET /v1/trade/vehicles/registration/{registration}
+ * Cached 24h — if a fresh fetch was done within 24h, return the cached version.
  */
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const session = await requireManager();
@@ -51,10 +50,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
   }
 
-  // Fetch from DVSA
-  if (!env.DVSA_API_KEY) {
+  if (!env.DVSA_CLIENT_ID || !env.DVSA_API_KEY || !env.DVSA_BASE_URL) {
     return NextResponse.json(
-      { error: "DVSA API key not configured" },
+      { error: "DVSA API not configured" },
       { status: 503 },
     );
   }
@@ -62,13 +60,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const reg = parsed.data.registration.replace(/\s+/g, "").toUpperCase();
 
   try {
-    const baseUrl = env.DVSA_API_BASE_URL ?? "https://beta.check-mot.service.gov.uk";
+    const token = await getDvsaAccessToken();
+
     const res = await fetch(
-      `${baseUrl}/trade/vehicles/mot-tests?registration=${encodeURIComponent(reg)}`,
+      `${env.DVSA_BASE_URL}v1/trade/vehicles/registration/${encodeURIComponent(reg)}`,
       {
         headers: {
-          "x-api-key": env.DVSA_API_KEY,
-          Accept: "application/json",
+          Authorization: `Bearer ${token}`,
+          "X-API-Key": env.DVSA_API_KEY,
         },
       },
     );
@@ -77,7 +76,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       const text = await res.text();
       console.error(`[dvsa] API error ${res.status}: ${text}`);
       return NextResponse.json(
-        { error: "DVSA lookup failed. Please try again later." },
+        { error: "MOT history lookup failed. Please try again later." },
         { status: 502 },
       );
     }
@@ -99,7 +98,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   } catch (err) {
     console.error("[dvsa] fetch error:", err);
     return NextResponse.json(
-      { error: "DVSA lookup failed. Please try again later." },
+      { error: "MOT history lookup failed. Please try again later." },
       { status: 502 },
     );
   }

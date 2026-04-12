@@ -4,6 +4,7 @@ import {
   Grid3X3,
   Briefcase,
   Users,
+  Car,
   CalendarCheck,
   BarChart3,
   Package,
@@ -45,6 +46,12 @@ const NAV_ITEMS: NavItem[] = [
     href: "/app/customers",
     label: "Customers",
     icon: <Users className="h-5 w-5" />,
+    roles: ["manager", "mot_tester"],
+  },
+  {
+    href: "/app/vehicles",
+    label: "Vehicles",
+    icon: <Car className="h-5 w-5" />,
     roles: ["manager", "mot_tester"],
   },
   {

@@ -71,6 +71,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     .single();
 
   if (error) {
+    console.error("[kiosk/booking] DB insert failed:", error.code, error.message);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 

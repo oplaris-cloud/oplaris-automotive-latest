@@ -1,7 +1,5 @@
-import { headers } from "next/headers";
-
 import { getStaffSession } from "@/lib/auth/session";
-import { Sidebar } from "@/components/app/sidebar";
+import { SidebarNav } from "@/components/app/sidebar-nav";
 import { TopBar } from "@/components/app/top-bar";
 
 export default async function AppLayout({
@@ -15,12 +13,9 @@ export default async function AppLayout({
   // This is a fallback; don't render the shell without a session.
   if (!session) return <>{children}</>;
 
-  const headersList = await headers();
-  const pathname = headersList.get("x-next-pathname") ?? "/app";
-
   return (
     <div className="flex h-screen overflow-hidden">
-      <Sidebar role={session.role} currentPath={pathname} />
+      <SidebarNav role={session.role} />
       <div className="flex flex-1 flex-col overflow-hidden">
         <TopBar
           garageName="Dudley Auto Service"

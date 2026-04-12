@@ -13,6 +13,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { VoidWarrantyButton } from "./VoidWarrantyButton";
 
 export default async function WarrantiesPage() {
   await requireManager();
@@ -89,6 +90,9 @@ export default async function WarrantiesPage() {
                               {daysLeft}d left
                             </Badge>
                           )}
+                          <div className="mt-2">
+                            <VoidWarrantyButton warrantyId={w.id} />
+                          </div>
                         </div>
                       </CardContent>
                     </Card>

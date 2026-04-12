@@ -16,28 +16,51 @@ import {
 } from "@/components/ui/table";
 
 interface CustomersPageProps {
-  searchParams: Promise<{ q?: string; page?: string }>;
+  searchParams: Promise<{ q?: string; page?: string; openJob?: string }>;
 }
 
 export default async function CustomersPage({ searchParams }: CustomersPageProps) {
   await requireManagerOrTester();
-  const { q, page } = await searchParams;
+  const { q, page, openJob } = await searchParams;
+  const filterOpenJob = openJob === "true";
   const supabase = await createSupabaseServerClient();
   const currentPage = Math.max(1, parseInt(page ?? "1", 10));
   const perPage = 25;
 
-  let query = supabase
-    .from("customers")
-    .select("id, full_name, phone, email, created_at", { count: "exact" })
-    .is("deleted_at", null)
-    .order("created_at", { ascending: false })
-    .range((currentPage - 1) * perPage, currentPage * perPage - 1);
+  let customers: { id: string; full_name: string; phone: string; email: string | null; created_at: string }[] | null;
+  let count: number | null;
 
-  if (q) {
-    query = query.ilike("full_name", `%${q}%`);
+  if (filterOpenJob) {
+    // Use inner join: only customers with at least one non-terminal job
+    const result = await supabase
+      .from("customers")
+      .select("id, full_name, phone, email, created_at, jobs!inner(status)", { count: "exact" })
+      .is("deleted_at", null)
+      .not("jobs.status", "in", "(completed,cancelled)")
+      .order("created_at", { ascending: false })
+      .range((currentPage - 1) * perPage, currentPage * perPage - 1);
+    // Deduplicate (inner join may repeat customers with multiple jobs)
+    const seen = new Set<string>();
+    customers = (result.data ?? [])
+      .filter((c) => { if (seen.has(c.id)) return false; seen.add(c.id); return true; })
+      .map(({ id, full_name, phone, email, created_at }) => ({ id, full_name, phone, email, created_at }));
+    count = result.count;
+  } else {
+    let query = supabase
+      .from("customers")
+      .select("id, full_name, phone, email, created_at", { count: "exact" })
+      .is("deleted_at", null)
+      .order("created_at", { ascending: false })
+      .range((currentPage - 1) * perPage, currentPage * perPage - 1);
+
+    if (q) {
+      query = query.ilike("full_name", `%${q}%`);
+    }
+
+    const result = await query;
+    customers = result.data;
+    count = result.count;
   }
-
-  const { data: customers, count } = await query;
   const totalPages = Math.ceil((count ?? 0) / perPage);
 
   return (
@@ -52,8 +75,8 @@ export default async function CustomersPage({ searchParams }: CustomersPageProps
         </Link>
       </div>
 
-      <form className="mt-4" action="/app/customers">
-        <div className="relative max-w-sm">
+      <form className="mt-4 flex flex-wrap items-center gap-3" action="/app/customers">
+        <div className="relative max-w-sm flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             name="q"
@@ -62,6 +85,16 @@ export default async function CustomersPage({ searchParams }: CustomersPageProps
             className="pl-9"
           />
         </div>
+        <Link
+          href={filterOpenJob ? "/app/customers" : "/app/customers?openJob=true"}
+          className={`rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${
+            filterOpenJob
+              ? "border-primary bg-primary text-primary-foreground"
+              : "border-input hover:bg-accent"
+          }`}
+        >
+          Has open job
+        </Link>
       </form>
 
       {!customers || customers.length === 0 ? (
