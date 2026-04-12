@@ -2,8 +2,10 @@ import { test, expect } from "@playwright/test";
 
 // Phase 0 audit gate proof: every response carries our security headers.
 // If anything in next.config.ts regresses, this test fails CI.
-test("baseline security headers are present on /", async ({ request }) => {
-  const response = await request.get("/");
+// Uses /login instead of / because / redirects (307 → /app → /login) and
+// Playwright's request.get follows redirects, losing intermediate headers.
+test("baseline security headers are present on /login", async ({ request }) => {
+  const response = await request.get("/login");
   const headers = response.headers();
 
   expect(headers["content-security-policy"]).toContain("default-src 'self'");

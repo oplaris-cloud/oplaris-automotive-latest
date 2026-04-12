@@ -1,9 +1,10 @@
 import { requireManager } from "@/lib/auth/session";
 import {
   getTodaysJobs,
-  getWeeklyRevenue,
-  getTechHours,
+  getCompletedRevenue,
+  getTechHoursByPeriod,
   getCommonRepairs,
+  type ReportPeriod,
 } from "../settings/reports/actions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -14,6 +15,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { PeriodToggle } from "./period-toggle";
+import { CsvExportButton } from "./csv-export";
 
 function pence(p: number): string {
   return `£${(p / 100).toFixed(2)}`;
@@ -26,27 +29,60 @@ function fmtDuration(seconds: number | null): string {
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
 
-export default async function ReportsPage() {
+export default async function ReportsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ period?: string }>;
+}) {
   await requireManager();
 
-  const [todaysJobs, weeklyRevenue, techHours, commonRepairs] = await Promise.all([
+  const params = await searchParams;
+  const period: ReportPeriod = params.period === "month" ? "month" : "week";
+  const periodLabel = period === "month" ? "This Month" : "This Week";
+
+  const [todaysJobs, revenue, techHours, commonRepairs] = await Promise.all([
     getTodaysJobs(),
-    getWeeklyRevenue(),
-    getTechHours(),
+    getCompletedRevenue(period),
+    getTechHoursByPeriod(period),
     getCommonRepairs(),
   ]);
 
-  const weekTotal = (weeklyRevenue.data ?? []).reduce(
+  const weekTotal = (revenue.data ?? []).reduce(
     (sum, r) => sum + (r.parts_total_pence ?? 0),
     0,
   );
 
+  const revenueRows = (revenue.data ?? []).map((r) => [
+    r.job_number,
+    r.customer_name,
+    r.registration,
+    pence(r.parts_total_pence),
+    r.completed_at ?? "",
+  ]);
+
+  const techRows = (techHours.data ?? []).map((t) => [
+    t.full_name,
+    fmtDuration(t.total_seconds),
+    t.active_logs > 0 ? "Yes" : "No",
+  ]);
+
+  const repairRows = (commonRepairs.data ?? []).map((r: { task_type: string; occurrence_count: number; total_seconds: number | null }) => [
+    r.task_type.replace(/_/g, " "),
+    r.occurrence_count,
+    fmtDuration(r.total_seconds),
+  ]);
+
   return (
     <div>
-      <h1 className="text-2xl font-semibold">Reports</h1>
-      <p className="mt-1 text-sm text-muted-foreground">
-        This week&apos;s summary.
-      </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold">Reports</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {periodLabel}&apos;s summary.
+          </p>
+        </div>
+        <PeriodToggle current={period} />
+      </div>
 
       {/* Summary cards */}
       <div className="mt-6 grid gap-4 sm:grid-cols-3">
@@ -63,17 +99,17 @@ export default async function ReportsPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Completed This Week
+              Completed ({periodLabel})
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{weeklyRevenue.data?.length ?? 0}</div>
+            <div className="text-3xl font-bold">{revenue.data?.length ?? 0}</div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Parts Revenue (Week)
+              Parts Revenue ({periodLabel})
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -82,11 +118,52 @@ export default async function ReportsPage() {
         </Card>
       </div>
 
+      {/* Completed jobs / revenue */}
+      {(revenue.data?.length ?? 0) > 0 && (
+        <Card className="mt-6">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="text-base">Completed Jobs ({periodLabel})</CardTitle>
+            <CsvExportButton
+              headers={["Job #", "Customer", "Registration", "Parts Total", "Completed"]}
+              rows={revenueRows}
+              filename={`completed-jobs-${period}`}
+            />
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Job #</TableHead>
+                  <TableHead>Customer</TableHead>
+                  <TableHead>Registration</TableHead>
+                  <TableHead className="text-right">Parts Total</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {revenue.data!.map((r) => (
+                  <TableRow key={r.job_id}>
+                    <TableCell className="font-medium">{r.job_number}</TableCell>
+                    <TableCell>{r.customer_name}</TableCell>
+                    <TableCell>{r.registration}</TableCell>
+                    <TableCell className="text-right">{pence(r.parts_total_pence)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Tech hours */}
       {(techHours.data?.length ?? 0) > 0 && (
         <Card className="mt-6">
-          <CardHeader>
-            <CardTitle className="text-base">Hours per Technician (This Week)</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="text-base">Hours per Technician ({periodLabel})</CardTitle>
+            <CsvExportButton
+              headers={["Technician", "Hours", "Active Now"]}
+              rows={techRows}
+              filename={`tech-hours-${period}`}
+            />
           </CardHeader>
           <CardContent>
             <Table>
@@ -98,7 +175,7 @@ export default async function ReportsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {techHours.data!.map((t: { staff_id: string; full_name: string; total_seconds: number | null; active_logs: number }) => (
+                {techHours.data!.map((t) => (
                   <TableRow key={t.staff_id}>
                     <TableCell className="font-medium">{t.full_name}</TableCell>
                     <TableCell className="text-right">{fmtDuration(t.total_seconds)}</TableCell>
@@ -123,8 +200,13 @@ export default async function ReportsPage() {
       {/* Common repairs */}
       {(commonRepairs.data?.length ?? 0) > 0 && (
         <Card className="mt-6">
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-base">Common Repair Types (Last 30 Days)</CardTitle>
+            <CsvExportButton
+              headers={["Type", "Count", "Total Time"]}
+              rows={repairRows}
+              filename="common-repairs"
+            />
           </CardHeader>
           <CardContent>
             <Table>

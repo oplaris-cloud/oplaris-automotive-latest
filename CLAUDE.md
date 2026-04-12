@@ -78,7 +78,7 @@ Roles stored in `private.user_roles`, never on a user-writable `profiles` table.
 - [x] **M2.5** GDPR export + audit log UI
 - [ ] **M2.6** Mobile UX polish + accessibility pass (U17)
 - [ ] **M2.7** Admin guide + walkthrough video (U18)
-- [~] **PRE-DEPLOY** Test & troubleshooting pass (T0–T13) — *local static audit complete (T0, T1, T10, T12 dynamic green; T2–T9 static PASS with 4 major fixes applied; T11, T13 and dynamic portions of T2–T9 SKIPPED for lack of Docker/Postgres/Twilio/DVSA/staging on the audit host). See `docs/redesign/TEST_AUDIT_PROMPT.md` Findings Log and the T13 re-run checklist — must be executed against staging on deploy day before flipping this to [x].*
+- [~] **PRE-DEPLOY** Test & troubleshooting pass (T0–T13) — *Run 2 (2026-04-12): T0 PASS, T1 PASS (33/33), T2–T8 STATIC-PASS (dynamic SKIPPED — no Docker/Supabase), T9 STATIC-PASS with 3 majors fixed (reports week/month toggle + CSV export, GDPR export now includes job_parts + work_logs via migration 013), T10 STATIC-PASS (gitleaks SKIPPED), T11 SKIPPED, T12 PASS (4 passed, 10 skipped, 0 failed — test route changed / → /login), T13 SKIPPED. Known open items: (1) `assertPasswordNotPwned` has zero callers (T3 Major, logged); (2) kiosk booking rate limit not implemented (T7 Minor); (3) kiosk profanity filter not implemented (T7 Minor); (4) `STATUS_PHONE_PEPPER` key separation (T6 Minor). Migrations 012 + 013 pending DB apply. T13 re-run checklist in TEST_AUDIT_PROMPT.md must be executed against staging on deploy day before flipping this to [x].*
 
 ## File map
 
