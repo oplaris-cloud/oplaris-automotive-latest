@@ -89,6 +89,13 @@ const nextConfig: NextConfig = {
   // helper names and module paths that make zero-day exploitation trivial.
   productionBrowserSourceMaps: false,
 
+  // Cap static generation workers to avoid "Jest worker encountered N child
+  // process exceptions" crashes under memory pressure (Next.js 16 + Windows).
+  experimental: {
+    workerThreads: false,
+    cpus: 4,
+  },
+
   async headers() {
     return [
       {
