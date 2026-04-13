@@ -10,6 +10,10 @@ import { Badge } from "@/components/ui/badge";
 import type { JobStatus } from "@/lib/validation/job-schemas";
 import { StatusActions } from "./StatusActions";
 import { ApprovalDialog } from "./ApprovalDialog";
+import { EditJobDialog } from "./EditJobDialog";
+import { TeamManager } from "./TeamManager";
+import { AddPartForm } from "./AddPartForm";
+import { PartRow } from "./PartRow";
 
 interface JobDetailProps {
   params: Promise<{ id: string }>;
@@ -27,7 +31,8 @@ function duration(seconds: number | null): string {
 }
 
 export default async function JobDetailPage({ params }: JobDetailProps) {
-  await requireStaffSession();
+  const session = await requireStaffSession();
+  const isManager = session.role === "manager";
   const { id } = await params;
   const supabase = await createSupabaseServerClient();
 
@@ -35,10 +40,10 @@ export default async function JobDetailPage({ params }: JobDetailProps) {
     .from("jobs")
     .select(`
       id, job_number, status, description, created_at, updated_at,
-      completed_at, estimated_ready_at, source,
+      completed_at, estimated_ready_at, source, bay_id,
       customers!customer_id ( id, full_name, phone, email ),
       vehicles!vehicle_id ( id, registration, make, model, year, mileage ),
-      bays!bay_id ( name )
+      bays!bay_id ( id, name )
     `)
     .eq("id", id)
     .is("deleted_at", null)
@@ -50,8 +55,8 @@ export default async function JobDetailPage({ params }: JobDetailProps) {
   const vehicle = Array.isArray(job.vehicles) ? job.vehicles[0] : job.vehicles;
   const bay = Array.isArray(job.bays) ? job.bays[0] : job.bays;
 
-  // Fetch assignments, work logs, parts, approvals in parallel
-  const [assignments, workLogs, parts, approvals] = await Promise.all([
+  // Fetch assignments, work logs, parts, approvals, bays, staff in parallel
+  const [assignments, workLogs, parts, approvals, allBays, allStaff] = await Promise.all([
     supabase
       .from("job_assignments")
       .select("staff:staff!staff_id ( id, full_name )")
@@ -71,7 +76,18 @@ export default async function JobDetailPage({ params }: JobDetailProps) {
       .select("id, description, amount_pence, status, created_at, responded_at")
       .eq("job_id", id)
       .order("created_at", { ascending: false }),
+    isManager
+      ? supabase.from("bays").select("id, name").order("position")
+      : Promise.resolve({ data: [] as { id: string; name: string }[] }),
+    isManager
+      ? supabase.from("staff").select("id, full_name").order("full_name")
+      : Promise.resolve({ data: [] as { id: string; full_name: string }[] }),
   ]);
+
+  const assignedStaff = (assignments.data ?? []).map((a) => {
+    const s = Array.isArray(a.staff) ? a.staff[0] : a.staff;
+    return s as { id: string; full_name: string };
+  }).filter(Boolean);
 
   const partsTotalPence = (parts.data ?? []).reduce((sum, p) => sum + (p.total_pence ?? 0), 0);
 
@@ -80,10 +96,19 @@ export default async function JobDetailPage({ params }: JobDetailProps) {
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="flex items-center gap-3 text-2xl font-semibold">
-            <span className="font-mono">{job.job_number}</span>
-            <StatusBadge status={job.status as JobStatus} />
-          </h1>
+          <div className="flex items-center gap-3">
+            <h1 className="flex items-center gap-3 text-2xl font-semibold">
+              <span className="font-mono">{job.job_number}</span>
+              <StatusBadge status={job.status as JobStatus} />
+            </h1>
+            {isManager && (
+              <EditJobDialog
+                jobId={job.id}
+                description={job.description}
+                estimatedReadyAt={job.estimated_ready_at}
+              />
+            )}
+          </div>
           {job.description && (
             <p className="mt-1 text-muted-foreground">{job.description}</p>
           )}
@@ -109,7 +134,7 @@ export default async function JobDetailPage({ params }: JobDetailProps) {
         <StatusActions jobId={job.id} currentStatus={job.status as JobStatus} />
       </div>
 
-      {/* Customer + Vehicle + Bay */}
+      {/* Customer + Vehicle + Bay & Team */}
       <div className="mt-6 grid gap-4 sm:grid-cols-3">
         {customer && (
           <Card>
@@ -147,20 +172,29 @@ export default async function JobDetailPage({ params }: JobDetailProps) {
             <CardTitle className="text-sm text-muted-foreground">Bay & Team</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="font-medium">{(bay as { name: string } | null)?.name ?? "Unassigned"}</div>
-            <div className="mt-1 flex flex-wrap gap-1">
-              {(assignments.data ?? []).map((a, i) => {
-                const staff = Array.isArray(a.staff) ? a.staff[0] : a.staff;
-                return (
-                  <Badge key={i} variant="secondary" className="text-xs">
-                    {(staff as { full_name: string })?.full_name}
-                  </Badge>
-                );
-              })}
-              {(assignments.data ?? []).length === 0 && (
-                <span className="text-sm text-muted-foreground">No techs assigned</span>
-              )}
-            </div>
+            {isManager ? (
+              <TeamManager
+                jobId={job.id}
+                currentBayId={job.bay_id ?? null}
+                bays={(allBays.data ?? []) as { id: string; name: string }[]}
+                assignedStaff={assignedStaff}
+                allStaff={(allStaff.data ?? []) as { id: string; full_name: string }[]}
+              />
+            ) : (
+              <>
+                <div className="font-medium">{(bay as { name: string } | null)?.name ?? "Unassigned"}</div>
+                <div className="mt-1 flex flex-wrap gap-1">
+                  {assignedStaff.map((s) => (
+                    <Badge key={s.id} variant="secondary" className="text-xs">
+                      {s.full_name}
+                    </Badge>
+                  ))}
+                  {assignedStaff.length === 0 && (
+                    <span className="text-sm text-muted-foreground">No techs assigned</span>
+                  )}
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -203,22 +237,16 @@ export default async function JobDetailPage({ params }: JobDetailProps) {
       <Separator className="my-6" />
 
       {/* Parts */}
-      <h2 className="text-lg font-semibold">Parts</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold">Parts</h2>
+      </div>
       {(parts.data ?? []).length === 0 ? (
         <p className="mt-2 text-sm text-muted-foreground">No parts added yet.</p>
       ) : (
         <div className="mt-3 rounded-lg border">
           <div className="divide-y">
             {parts.data!.map((p) => (
-              <div key={p.id} className="flex items-center justify-between p-3">
-                <div>
-                  <div className="text-sm font-medium">{p.description}</div>
-                  <div className="text-xs text-muted-foreground capitalize">
-                    {p.supplier} · {p.payment_method.replace("_", " ")} · qty {p.quantity}
-                  </div>
-                </div>
-                <div className="text-right font-mono text-sm">{pence(p.total_pence)}</div>
-              </div>
+              <PartRow key={p.id} part={p} isManager={isManager} />
             ))}
           </div>
           <div className="flex justify-between border-t bg-muted/50 p-3">
@@ -227,6 +255,9 @@ export default async function JobDetailPage({ params }: JobDetailProps) {
           </div>
         </div>
       )}
+      <div className="mt-3">
+        <AddPartForm jobId={job.id} />
+      </div>
 
       {/* Approval request */}
       {(job.status === "in_diagnosis" || job.status === "in_repair") && (

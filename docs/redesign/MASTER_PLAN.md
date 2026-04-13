@@ -18,10 +18,10 @@
 | P6 | Tech job detail page (start/pause/complete) | §4.7, U4 | DONE | DONE | CRITICAL | **DONE** |
 | P7 | Request approval button | §4.8 | DONE | DONE | CRITICAL | **DONE** |
 | P8 | Job status change from detail page | §4.4 | DONE | DONE | HIGH | **DONE** |
-| P9 | Edit job (description, ETA, bay, techs) | §4.4 | PARTIAL | PARTIAL | HIGH | **DEFER** |
+| P9 | Edit job (description, ETA, bay, techs) | §4.4 | DONE | DONE | HIGH | **DONE** |
 | P10 | Promote booking to job | §4.12, U10 | DONE | DONE | HIGH | **DONE** |
 | P11 | Edit customer form | §4.2 | DONE | DONE | HIGH | **DONE** |
-| P12 | Edit/delete parts on a job | §4.9 | **MISSING** | **MISSING** | MEDIUM | **DEFER** |
+| P12 | Edit/delete parts on a job | §4.9 | DONE | DONE | MEDIUM | **DONE** |
 | P13 | Void warranty button | §4.15 | DONE | DONE | MEDIUM | **DONE** |
 | P14 | Customers "has open job" filter | §4.2, U2 | DONE | DONE | LOW | **DONE** |
 | P15 | Vehicle soft-delete | GDPR | DONE | DONE | LOW | **DONE** |

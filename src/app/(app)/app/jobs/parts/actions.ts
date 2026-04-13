@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { requireStaffSession } from "@/lib/auth/session";
+import { requireStaffSession, requireManager } from "@/lib/auth/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   validateUpload,
@@ -127,6 +127,75 @@ export async function addJobPart(formData: FormData): Promise<ActionResult> {
 
   revalidatePath("/app/jobs");
   return { ok: true, id: data.id };
+}
+
+// ------------------------------------------------------------------
+// Update part
+// ------------------------------------------------------------------
+
+const updateJobPartSchema = z.object({
+  partId: z.string().uuid(),
+  description: z.string().min(1).max(500).optional(),
+  supplier: z.enum(PART_SUPPLIERS).optional(),
+  unitPricePence: z.coerce.number().int().min(0).optional(),
+  quantity: z.coerce.number().int().min(1).optional(),
+  paymentMethod: z.enum(PAYMENT_METHODS).optional(),
+});
+
+export async function updateJobPart(
+  input: z.infer<typeof updateJobPartSchema>,
+): Promise<ActionResult> {
+  await requireStaffSession();
+  const parsed = updateJobPartSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Validation failed" };
+
+  const updates: Record<string, unknown> = {};
+  if (parsed.data.description !== undefined) updates.description = parsed.data.description;
+  if (parsed.data.supplier !== undefined) updates.supplier = parsed.data.supplier;
+  if (parsed.data.unitPricePence !== undefined) updates.unit_price_pence = parsed.data.unitPricePence;
+  if (parsed.data.quantity !== undefined) updates.quantity = parsed.data.quantity;
+  if (parsed.data.paymentMethod !== undefined) updates.payment_method = parsed.data.paymentMethod;
+
+  if (Object.keys(updates).length === 0) return { ok: true, id: parsed.data.partId };
+
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase
+    .from("job_parts")
+    .update(updates)
+    .eq("id", parsed.data.partId);
+
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/app/jobs");
+  return { ok: true, id: parsed.data.partId };
+}
+
+// ------------------------------------------------------------------
+// Delete part (hard delete — not PII)
+// ------------------------------------------------------------------
+
+export async function deleteJobPart(
+  input: { partId: string },
+): Promise<ActionResult> {
+  await requireManager();
+
+  if (!input.partId || !/^[0-9a-f-]{36}$/.test(input.partId)) {
+    return { ok: false, error: "Invalid part ID" };
+  }
+
+  // Use admin client because there's no DELETE RLS policy on job_parts.
+  // Manager role is enforced above via requireManager().
+  const { createSupabaseAdminClient } = await import("@/lib/supabase/admin");
+  const supabase = createSupabaseAdminClient();
+  const { error } = await supabase
+    .from("job_parts")
+    .delete()
+    .eq("id", input.partId);
+
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/app/jobs");
+  return { ok: true };
 }
 
 // ------------------------------------------------------------------

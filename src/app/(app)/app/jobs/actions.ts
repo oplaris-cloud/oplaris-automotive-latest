@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 
 import {
   requireManager,
@@ -98,6 +99,45 @@ export async function updateJobStatus(
 
   revalidatePath("/app/jobs");
   revalidatePath("/app/bay-board");
+  return { ok: true, id: parsed.data.jobId };
+}
+
+// ------------------------------------------------------------------
+// Update job details (description, ETA)
+// ------------------------------------------------------------------
+
+const updateJobDetailsSchema = z.object({
+  jobId: z.string().uuid(),
+  description: z.string().max(2000).optional(),
+  estimatedReadyAt: z.string().optional().or(z.literal("")),
+});
+
+export async function updateJobDetails(
+  input: z.infer<typeof updateJobDetailsSchema>,
+): Promise<ActionResult> {
+  await requireManager();
+  const parsed = updateJobDetailsSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Validation failed" };
+
+  const updates: Record<string, unknown> = {};
+  if (parsed.data.description !== undefined) updates.description = parsed.data.description || null;
+  if (parsed.data.estimatedReadyAt !== undefined) {
+    updates.estimated_ready_at = parsed.data.estimatedReadyAt
+      ? new Date(parsed.data.estimatedReadyAt).toISOString()
+      : null;
+  }
+
+  if (Object.keys(updates).length === 0) return { ok: true, id: parsed.data.jobId };
+
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase
+    .from("jobs")
+    .update(updates)
+    .eq("id", parsed.data.jobId);
+
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/app/jobs");
   return { ok: true, id: parsed.data.jobId };
 }
 
