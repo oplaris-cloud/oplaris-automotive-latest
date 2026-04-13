@@ -25,9 +25,13 @@ export default function KioskPage() {
   const [service, setService] = useState<Service | null>(null);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
   const [reg, setReg] = useState("");
+  const [make, setMake] = useState("");
+  const [model, setModel] = useState("");
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
+  const [lookingUp, setLookingUp] = useState(false);
   const [error, setError] = useState("");
 
   const reset = useCallback(() => {
@@ -35,10 +39,36 @@ export default function KioskPage() {
     setService(null);
     setName("");
     setPhone("");
+    setEmail("");
     setReg("");
+    setMake("");
+    setModel("");
     setNotes("");
     setError("");
     setLoading(false);
+    setLookingUp(false);
+  }, []);
+
+  const lookupReg = useCallback(async (regValue: string) => {
+    const trimmed = regValue.replace(/\s+/g, "").toUpperCase();
+    if (trimmed.length < 3) return;
+    setLookingUp(true);
+    try {
+      const res = await fetch("/api/dvla/lookup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ registration: trimmed }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.make) setMake(data.make);
+        if (data.model) setModel(data.model);
+      }
+    } catch {
+      // Silently fail — customer can continue without lookup
+    } finally {
+      setLookingUp(false);
+    }
   }, []);
 
   // Idle timer
@@ -73,7 +103,10 @@ export default function KioskPage() {
           service,
           customerName: name,
           customerPhone: phone,
+          customerEmail: email || undefined,
           registration: reg,
+          make: make || undefined,
+          model: model || undefined,
           notes,
         }),
       });
@@ -131,10 +164,27 @@ export default function KioskPage() {
               <Input id="kiosk-phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className="mt-1 text-lg" placeholder="07911 123456" autoComplete="tel" />
             </div>
             <div>
+              <Label htmlFor="kiosk-email" className="text-base">Email (optional)</Label>
+              <Input id="kiosk-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1 text-lg" placeholder="john@example.com" autoComplete="email" />
+            </div>
+            <div>
               <Label htmlFor="kiosk-reg" className="text-base">Registration</Label>
               <div className="mt-1">
-                <RegPlateInput id="kiosk-reg" value={reg} onChange={(e) => setReg(e.target.value)} placeholder="AB12 CDE" variant="rear" />
+                <RegPlateInput
+                  id="kiosk-reg"
+                  value={reg}
+                  onChange={(e) => setReg(e.target.value)}
+                  onBlur={() => lookupReg(reg)}
+                  placeholder="AB12 CDE"
+                  variant="rear"
+                />
               </div>
+              {lookingUp && <p className="mt-1 text-xs text-muted-foreground">Looking up vehicle...</p>}
+              {make && (
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {make} {model}
+                </p>
+              )}
             </div>
             <div>
               <Label htmlFor="kiosk-notes" className="text-base">Notes (optional)</Label>
@@ -157,7 +207,8 @@ export default function KioskPage() {
               <div><strong>Service:</strong> {SERVICES.find((s) => s.value === service)?.label}</div>
               <div><strong>Name:</strong> {name}</div>
               <div><strong>Phone:</strong> {phone}</div>
-              <div><strong>Registration:</strong> <span className="inline-block rounded border-2 border-black bg-[#FFD307] px-2 py-0.5 font-mono text-sm font-black uppercase tracking-wider">{reg}</span></div>
+              {email && <div><strong>Email:</strong> {email}</div>}
+              <div><strong>Registration:</strong> <span className="inline-block rounded border-2 border-black bg-[#FFD307] px-2 py-0.5 font-mono text-sm font-black uppercase tracking-wider">{reg}</span>{make && <span className="ml-2">{make} {model}</span>}</div>
               {notes && <div><strong>Notes:</strong> {notes}</div>}
             </div>
             {error && <p className="text-sm text-destructive">{error}</p>}

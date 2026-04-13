@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Plus, Wrench } from "lucide-react";
 
 import { requireManagerOrTester } from "@/lib/auth/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -58,6 +58,8 @@ export default async function JobsPage({ searchParams }: JobsPageProps) {
       <div className="mt-4 flex flex-wrap gap-2">
         {[
           { value: "", label: "All" },
+          { value: "checked_in", label: "Checked In" },
+          { value: "in_diagnosis", label: "Diagnosis" },
           { value: "in_repair", label: "In Repair" },
           { value: "awaiting_parts", label: "Awaiting Parts" },
           { value: "awaiting_customer_approval", label: "Awaiting Approval" },
@@ -80,6 +82,7 @@ export default async function JobsPage({ searchParams }: JobsPageProps) {
 
       {!jobs || jobs.length === 0 ? (
         <EmptyState
+          icon={Wrench}
           title="No jobs found"
           description={status ? "No jobs with this status." : "Create your first job."}
           actionLabel={status ? undefined : "New Job"}
@@ -94,6 +97,7 @@ export default async function JobsPage({ searchParams }: JobsPageProps) {
                 <TableHead>Job #</TableHead>
                 <TableHead>Customer</TableHead>
                 <TableHead className="hidden sm:table-cell">Vehicle</TableHead>
+                <TableHead className="hidden md:table-cell">Description</TableHead>
                 <TableHead>Status</TableHead>
               </TableRow>
             </TableHeader>
@@ -111,13 +115,18 @@ export default async function JobsPage({ searchParams }: JobsPageProps) {
                     <TableCell className="text-sm">
                       {(customer as { full_name: string } | null)?.full_name ?? "—"}
                     </TableCell>
-                    <TableCell className="hidden text-sm sm:table-cell">
-                      <span className="font-mono">
-                        {(vehicle as { registration: string } | null)?.registration ?? "—"}
-                      </span>
-                      <span className="ml-2 text-muted-foreground">
+                    <TableCell className="hidden sm:table-cell">
+                      {(vehicle as { registration: string } | null)?.registration && (
+                        <span className="inline-block rounded bg-yellow-400 px-1.5 py-0.5 font-mono text-xs font-bold text-black">
+                          {(vehicle as { registration: string }).registration}
+                        </span>
+                      )}
+                      <span className="ml-2 text-sm text-muted-foreground">
                         {[(vehicle as { make?: string } | null)?.make, (vehicle as { model?: string } | null)?.model].filter(Boolean).join(" ")}
                       </span>
+                    </TableCell>
+                    <TableCell className="hidden text-sm text-muted-foreground md:table-cell max-w-[200px] truncate">
+                      {j.description ?? "—"}
                     </TableCell>
                     <TableCell>
                       <StatusBadge status={j.status as JobStatus} />

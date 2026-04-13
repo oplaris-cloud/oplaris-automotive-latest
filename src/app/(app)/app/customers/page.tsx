@@ -15,14 +15,19 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
+import { RestoreButton } from "./RestoreButton";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+
 interface CustomersPageProps {
-  searchParams: Promise<{ q?: string; page?: string; openJob?: string }>;
+  searchParams: Promise<{ q?: string; page?: string; openJob?: string; deleted?: string }>;
 }
 
 export default async function CustomersPage({ searchParams }: CustomersPageProps) {
-  await requireManagerOrTester();
-  const { q, page, openJob } = await searchParams;
+  const session = await requireManagerOrTester();
+  const { q, page, openJob, deleted } = await searchParams;
   const filterOpenJob = openJob === "true";
+  const showDeleted = deleted === "true";
+  const isManager = session.role === "manager";
   const supabase = await createSupabaseServerClient();
   const currentPage = Math.max(1, parseInt(page ?? "1", 10));
   const perPage = 25;
@@ -63,6 +68,21 @@ export default async function CustomersPage({ searchParams }: CustomersPageProps
   }
   const totalPages = Math.ceil((count ?? 0) / perPage);
 
+  // Fetch recently deleted customers (manager only, for restore)
+  let deletedCustomers: { id: string; full_name: string; phone: string; deleted_at: string | null }[] = [];
+  if (showDeleted && isManager) {
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString();
+    const admin = createSupabaseAdminClient();
+    const { data } = await admin
+      .from("customers")
+      .select("id, full_name, phone, deleted_at")
+      .eq("garage_id", session.garageId)
+      .not("deleted_at", "is", null)
+      .gte("deleted_at", thirtyDaysAgo)
+      .order("deleted_at", { ascending: false });
+    deletedCustomers = (data ?? []) as typeof deletedCustomers;
+  }
+
   return (
     <div>
       <div className="flex items-center justify-between">
@@ -95,9 +115,52 @@ export default async function CustomersPage({ searchParams }: CustomersPageProps
         >
           Has open job
         </Link>
+        {isManager && (
+          <Link
+            href={showDeleted ? "/app/customers" : "/app/customers?deleted=true"}
+            className={`rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${
+              showDeleted
+                ? "border-destructive bg-destructive text-destructive-foreground"
+                : "border-input hover:bg-accent"
+            }`}
+          >
+            Recently Deleted
+          </Link>
+        )}
       </form>
 
-      {!customers || customers.length === 0 ? (
+      {showDeleted && isManager && (
+        deletedCustomers.length === 0 ? (
+          <EmptyState title="No recently deleted customers" description="Deleted customers appear here for 30 days." className="mt-8" />
+        ) : (
+          <div className="mt-4 rounded-lg border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Phone</TableHead>
+                  <TableHead>Deleted</TableHead>
+                  <TableHead></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {deletedCustomers.map((c) => (
+                  <TableRow key={c.id}>
+                    <TableCell className="font-medium">{c.full_name}</TableCell>
+                    <TableCell className="font-mono text-sm">{c.phone}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {new Date(c.deleted_at!).toLocaleDateString("en-GB")}
+                    </TableCell>
+                    <TableCell><RestoreButton customerId={c.id} /></TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )
+      )}
+
+      {showDeleted ? null : (!customers || customers.length === 0) ? (
         <EmptyState
           title={q ? "No customers found" : "No customers yet"}
           description={q ? `No results for "${q}"` : "Add your first customer to get started."}

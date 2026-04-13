@@ -10,13 +10,15 @@ import { Separator } from "@/components/ui/separator";
 import { EmptyState } from "@/components/ui/empty-state";
 import { AddVehicleForm } from "./AddVehicleForm";
 import { EditCustomerDialog } from "./EditCustomerDialog";
+import { GdprExportButton } from "./GdprExportButton";
 
 interface CustomerDetailProps {
   params: Promise<{ id: string }>;
 }
 
 export default async function CustomerDetailPage({ params }: CustomerDetailProps) {
-  await requireManagerOrTester();
+  const session = await requireManagerOrTester();
+  const isManager = session.role === "manager";
   const { id } = await params;
   const supabase = await createSupabaseServerClient();
 
@@ -48,7 +50,10 @@ export default async function CustomerDetailPage({ params }: CustomerDetailProps
     <div className="max-w-3xl">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">{customer.full_name}</h1>
-        <EditCustomerDialog customer={customer} />
+        <div className="flex items-center gap-2">
+          <EditCustomerDialog customer={customer} />
+          {isManager && <GdprExportButton customerId={customer.id} customerName={customer.full_name} />}
+        </div>
       </div>
 
       <div className="mt-4 flex flex-wrap gap-4 text-sm text-muted-foreground">

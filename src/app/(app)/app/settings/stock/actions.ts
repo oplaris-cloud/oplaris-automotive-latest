@@ -139,6 +139,40 @@ export async function recordStockMovement(
 }
 
 // ------------------------------------------------------------------
+// Stock locations
+// ------------------------------------------------------------------
+
+export async function getStockLocations(): Promise<{ id: string; name: string }[]> {
+  await requireStaffSession();
+  const supabase = await createSupabaseServerClient();
+  const { data } = await supabase
+    .from("stock_locations")
+    .select("id, name")
+    .order("name");
+  return data ?? [];
+}
+
+export async function createStockLocation(name: string): Promise<ActionResult> {
+  const session = await requireManager();
+  if (!name.trim()) return { ok: false, error: "Name is required" };
+
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("stock_locations")
+    .insert({ garage_id: session.garageId, name: name.trim() })
+    .select("id")
+    .single();
+
+  if (error) {
+    if (error.code === "23505") return { ok: false, error: "Location already exists" };
+    return { ok: false, error: error.message };
+  }
+
+  revalidatePath("/app/stock");
+  return { ok: true, id: data.id };
+}
+
+// ------------------------------------------------------------------
 // Dashboard query: items below reorder point
 // ------------------------------------------------------------------
 

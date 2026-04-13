@@ -8,30 +8,52 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 import type { ActionResult } from "../../customers/actions";
 
-const createWarrantySchema = z.object({
-  jobId: z.string().uuid(),
-  vehicleId: z.string().uuid(),
-  description: z.string().min(1).max(500),
-  startsOn: z.string().date(),
-  expiresOn: z.string().date(),
-  mileageLimit: z.coerce.number().int().min(0).optional(),
-  startingMileage: z.coerce.number().int().min(0).optional(),
+// ------------------------------------------------------------------
+// Schemas
+// ------------------------------------------------------------------
+
+const createStockWarrantySchema = z.object({
+  stockItemId: z.string().uuid(),
+  supplier: z.string().min(1).max(200),
+  purchaseDate: z.string().date(),
+  expiryDate: z.string().date(),
+  invoiceReference: z.string().max(200).optional(),
+  notes: z.string().max(1000).optional(),
 });
 
-const voidWarrantySchema = z.object({
+const updateWarrantySchema = z.object({
+  warrantyId: z.string().uuid(),
+  supplier: z.string().min(1).max(200).optional(),
+  purchaseDate: z.string().date().optional(),
+  expiryDate: z.string().date().optional(),
+  invoiceReference: z.string().max(200).optional(),
+  notes: z.string().max(1000).optional(),
+});
+
+const claimWarrantySchema = z.object({
   warrantyId: z.string().uuid(),
   reason: z.string().min(1).max(500),
 });
 
-export async function createWarranty(
-  input: z.infer<typeof createWarrantySchema>,
+const resolveClaimSchema = z.object({
+  warrantyId: z.string().uuid(),
+  resolution: z.string().min(1).max(500),
+  status: z.enum(["resolved", "rejected"]),
+});
+
+// ------------------------------------------------------------------
+// Create a stock warranty (supplier warranty on a purchased stock item)
+// ------------------------------------------------------------------
+
+export async function createStockWarranty(
+  input: z.infer<typeof createStockWarrantySchema>,
 ): Promise<ActionResult> {
   const session = await requireManager();
-  const parsed = createWarrantySchema.safeParse(input);
+  const parsed = createStockWarrantySchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Validation failed" };
 
-  if (parsed.data.expiresOn <= parsed.data.startsOn) {
-    return { ok: false, error: "Expiry must be after start date" };
+  if (parsed.data.expiryDate <= parsed.data.purchaseDate) {
+    return { ok: false, error: "Expiry must be after purchase date" };
   }
 
   const supabase = await createSupabaseServerClient();
@@ -39,78 +61,138 @@ export async function createWarranty(
     .from("warranties")
     .insert({
       garage_id: session.garageId,
-      job_id: parsed.data.jobId,
-      vehicle_id: parsed.data.vehicleId,
-      description: parsed.data.description,
-      starts_on: parsed.data.startsOn,
-      expires_on: parsed.data.expiresOn,
-      mileage_limit: parsed.data.mileageLimit ?? null,
-      starting_mileage: parsed.data.startingMileage ?? null,
+      stock_item_id: parsed.data.stockItemId,
+      supplier: parsed.data.supplier,
+      purchase_date: parsed.data.purchaseDate,
+      expiry_date: parsed.data.expiryDate,
+      invoice_reference: parsed.data.invoiceReference ?? null,
+      notes: parsed.data.notes ?? null,
     })
     .select("id")
     .single();
 
   if (error) return { ok: false, error: error.message };
 
-  revalidatePath("/app/jobs");
+  revalidatePath("/app/warranties");
+  revalidatePath("/app/stock");
   return { ok: true, id: data.id };
 }
 
-export async function voidWarranty(
-  input: z.infer<typeof voidWarrantySchema>,
+// ------------------------------------------------------------------
+// Update a warranty
+// ------------------------------------------------------------------
+
+export async function updateWarranty(
+  input: z.infer<typeof updateWarrantySchema>,
 ): Promise<ActionResult> {
   await requireManager();
-  const parsed = voidWarrantySchema.safeParse(input);
+  const parsed = updateWarrantySchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Validation failed" };
 
-  const supabase = await createSupabaseServerClient();
+  const updates: Record<string, unknown> = {};
+  if (parsed.data.supplier) updates.supplier = parsed.data.supplier;
+  if (parsed.data.purchaseDate) updates.purchase_date = parsed.data.purchaseDate;
+  if (parsed.data.expiryDate) updates.expiry_date = parsed.data.expiryDate;
+  if (parsed.data.invoiceReference !== undefined) updates.invoice_reference = parsed.data.invoiceReference || null;
+  if (parsed.data.notes !== undefined) updates.notes = parsed.data.notes || null;
 
-  // Void the warranty
+  if (Object.keys(updates).length === 0) return { ok: true };
+
+  const supabase = await createSupabaseServerClient();
   const { error } = await supabase
     .from("warranties")
-    .update({
-      voided_at: new Date().toISOString(),
-      voided_reason: parsed.data.reason,
-    })
+    .update(updates)
     .eq("id", parsed.data.warrantyId);
 
   if (error) return { ok: false, error: error.message };
 
-  // Audit log write goes through the SECURITY DEFINER `write_audit_log`
-  // RPC introduced in migration 011 — authenticated users can't INSERT
-  // into `audit_log` directly, so the RPC is the only path. Failing to
-  // write the audit entry is logged but does not roll back the void;
-  // the business action is already committed.
+  revalidatePath("/app/warranties");
+  return { ok: true };
+}
+
+// ------------------------------------------------------------------
+// Delete a warranty
+// ------------------------------------------------------------------
+
+export async function deleteWarranty(warrantyId: string): Promise<ActionResult> {
+  await requireManager();
+  if (!warrantyId || !/^[0-9a-f-]{36}$/.test(warrantyId)) {
+    return { ok: false, error: "Invalid ID" };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase
+    .from("warranties")
+    .delete()
+    .eq("id", warrantyId);
+
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/app/warranties");
+  return { ok: true };
+}
+
+// ------------------------------------------------------------------
+// Claim a warranty (going back to supplier for a faulty part)
+// ------------------------------------------------------------------
+
+export async function claimWarranty(
+  input: z.infer<typeof claimWarrantySchema>,
+): Promise<ActionResult> {
+  await requireManager();
+  const parsed = claimWarrantySchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Validation failed" };
+
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase
+    .from("warranties")
+    .update({
+      claim_status: "claimed",
+      claim_reason: parsed.data.reason,
+      claim_date: new Date().toISOString(),
+    })
+    .eq("id", parsed.data.warrantyId)
+    .eq("claim_status", "none");
+
+  if (error) return { ok: false, error: error.message };
+
   const { error: auditErr } = await supabase.rpc("write_audit_log", {
-    p_action: "void_warranty",
+    p_action: "claim_warranty",
     p_target_table: "warranties",
     p_target_id: parsed.data.warrantyId,
     p_meta: { reason: parsed.data.reason },
   });
   if (auditErr) {
-    console.error("[void_warranty] audit log write failed:", auditErr.message);
+    console.error("[claim_warranty] audit log write failed:", auditErr.message);
   }
 
-  revalidatePath("/app/jobs");
+  revalidatePath("/app/warranties");
   return { ok: true };
 }
 
-/**
- * Get active warranties for a vehicle — used during job creation to
- * surface any existing warranty coverage.
- */
-export async function getActiveWarranties(vehicleId: string) {
+// ------------------------------------------------------------------
+// Resolve or reject a warranty claim
+// ------------------------------------------------------------------
+
+export async function resolveWarrantyClaim(
+  input: z.infer<typeof resolveClaimSchema>,
+): Promise<ActionResult> {
   await requireManager();
+  const parsed = resolveClaimSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Validation failed" };
+
   const supabase = await createSupabaseServerClient();
-
-  const { data, error } = await supabase
+  const { error } = await supabase
     .from("warranties")
-    .select("id, description, starts_on, expires_on, mileage_limit, starting_mileage")
-    .eq("vehicle_id", vehicleId)
-    .is("voided_at", null)
-    .gte("expires_on", new Date().toISOString().split("T")[0]!)
-    .order("expires_on", { ascending: true });
+    .update({
+      claim_status: parsed.data.status,
+      claim_resolution: parsed.data.resolution,
+    })
+    .eq("id", parsed.data.warrantyId)
+    .eq("claim_status", "claimed");
 
-  if (error) return { warranties: [], error: error.message };
-  return { warranties: data ?? [] };
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/app/warranties");
+  return { ok: true };
 }

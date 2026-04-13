@@ -8,7 +8,6 @@ import {
   CalendarCheck,
   BarChart3,
   Package,
-  Shield,
   Settings,
   Wrench,
 } from "lucide-react";
@@ -56,7 +55,7 @@ const NAV_ITEMS: NavItem[] = [
   },
   {
     href: "/app/bookings",
-    label: "Bookings",
+    label: "Check-ins",
     icon: <CalendarCheck className="h-5 w-5" />,
     roles: ["manager"],
   },
@@ -74,14 +73,8 @@ const NAV_ITEMS: NavItem[] = [
   },
   {
     href: "/app/stock",
-    label: "Stock",
+    label: "Stock & Warranties",
     icon: <Package className="h-5 w-5" />,
-    roles: ["manager"],
-  },
-  {
-    href: "/app/warranties",
-    label: "Warranties",
-    icon: <Shield className="h-5 w-5" />,
     roles: ["manager"],
   },
   {
@@ -95,9 +88,10 @@ const NAV_ITEMS: NavItem[] = [
 interface SidebarProps {
   role: StaffRole;
   currentPath: string;
+  badges?: Record<string, number>;
 }
 
-export function Sidebar({ role, currentPath }: SidebarProps) {
+export function Sidebar({ role, currentPath, badges }: SidebarProps) {
   const items = NAV_ITEMS.filter((item) => item.roles.includes(role));
 
   return (
@@ -125,6 +119,11 @@ export function Sidebar({ role, currentPath }: SidebarProps) {
             >
               {item.icon}
               {item.label}
+              {badges?.[item.href] ? (
+                <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1.5 text-[10px] font-bold text-destructive-foreground">
+                  {badges[item.href]}
+                </span>
+              ) : null}
             </Link>
           );
         })}

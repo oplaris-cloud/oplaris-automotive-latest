@@ -140,7 +140,7 @@ export function AddVehicleForm({ customerId }: { customerId: string }) {
     <form onSubmit={handleSubmit} className="mt-4 space-y-4 rounded-lg border p-4">
       {/* Gov.uk style reg plate input with lookup */}
       <div>
-        <Label htmlFor="registration" className="text-base font-semibold">
+        <Label htmlFor="registration" className="text-base font-semibold" required>
           Registration Number
         </Label>
         <div className="mt-2 flex items-stretch gap-2">
@@ -210,27 +210,27 @@ export function AddVehicleForm({ customerId }: { customerId: string }) {
       {/* Vehicle details — auto-filled by DVLA or entered manually */}
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
-          <Label htmlFor="make">Make</Label>
+          <Label htmlFor="make" optional>Make</Label>
           <Input ref={makeRef} id="make" name="make" placeholder="Ford" className="mt-1" />
         </div>
         <div>
-          <Label htmlFor="model">Model</Label>
+          <Label htmlFor="model" optional>Model</Label>
           <Input ref={modelRef} id="model" name="model" placeholder="Focus" className="mt-1" />
         </div>
         <div>
-          <Label htmlFor="year">Year</Label>
+          <Label htmlFor="year" optional>Year</Label>
           <Input ref={yearRef} id="year" name="year" type="number" placeholder="2021" className="mt-1" />
         </div>
         <div>
-          <Label htmlFor="colour">Colour</Label>
+          <Label htmlFor="colour" optional>Colour</Label>
           <Input ref={colourRef} id="colour" name="colour" placeholder="Silver" className="mt-1" />
         </div>
         <div>
-          <Label htmlFor="mileage">Mileage</Label>
+          <Label htmlFor="mileage" optional>Mileage</Label>
           <Input ref={mileageRef} id="mileage" name="mileage" type="number" placeholder="45000" className="mt-1" />
         </div>
         <div>
-          <Label htmlFor="vin">VIN</Label>
+          <Label htmlFor="vin" optional>VIN</Label>
           <Input id="vin" name="vin" placeholder="Optional" className="mt-1" />
         </div>
       </div>

@@ -113,5 +113,15 @@ export async function POST(
 
   if (error || !data) return GONE();
 
+  // P22: Auto-advance job status after approval/decline
+  if (data.job_id) {
+    const nextStatus = decision === "approved" ? "in_repair" : "in_diagnosis";
+    await supabase
+      .from("jobs")
+      .update({ status: nextStatus })
+      .eq("id", data.job_id)
+      .eq("status", "awaiting_customer_approval");
+  }
+
   return NextResponse.json({ ok: true, status: data.status });
 }

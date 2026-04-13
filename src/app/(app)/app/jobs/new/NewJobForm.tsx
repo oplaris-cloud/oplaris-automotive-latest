@@ -87,7 +87,7 @@ export function NewJobForm({
     <form onSubmit={handleSubmit} className="mt-6 space-y-5">
       {/* Customer */}
       <div>
-        <Label htmlFor="customerId">Customer</Label>
+        <Label htmlFor="customerId" required>Customer</Label>
         <select
           id="customerId"
           value={customerId}
@@ -108,7 +108,7 @@ export function NewJobForm({
 
       {/* Vehicle */}
       <div>
-        <Label htmlFor="vehicleId">Vehicle</Label>
+        <Label htmlFor="vehicleId" required>Vehicle</Label>
         <select
           id="vehicleId"
           name="vehicleId"
@@ -132,7 +132,7 @@ export function NewJobForm({
 
       {/* Bay (optional) */}
       <div>
-        <Label htmlFor="bayId">Bay (optional)</Label>
+        <Label htmlFor="bayId" optional>Bay</Label>
         <select
           id="bayId"
           name="bayId"
@@ -149,7 +149,7 @@ export function NewJobForm({
 
       {/* Estimated ready */}
       <div>
-        <Label htmlFor="estimatedReadyAt">Estimated Ready (optional)</Label>
+        <Label htmlFor="estimatedReadyAt" optional>Estimated Ready</Label>
         <Input
           id="estimatedReadyAt"
           name="estimatedReadyAt"
@@ -160,7 +160,7 @@ export function NewJobForm({
 
       {/* Description */}
       <div>
-        <Label htmlFor="description">Description (optional)</Label>
+        <Label htmlFor="description" optional>Description</Label>
         <Textarea
           id="description"
           name="description"

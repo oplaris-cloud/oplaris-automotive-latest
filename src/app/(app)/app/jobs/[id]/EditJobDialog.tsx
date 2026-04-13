@@ -9,6 +9,14 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 interface EditJobDialogProps {
   jobId: string;
@@ -22,19 +30,6 @@ export function EditJobDialog({ jobId, description, estimatedReadyAt }: EditJobD
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  if (!open) {
-    return (
-      <button
-        onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-1 rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-        title="Edit job details"
-      >
-        <Pencil className="h-4 w-4" />
-      </button>
-    );
-  }
-
-  // Format datetime-local value
   const etaDefault = estimatedReadyAt
     ? new Date(estimatedReadyAt).toISOString().slice(0, 16)
     : "";
@@ -60,37 +55,47 @@ export function EditJobDialog({ jobId, description, estimatedReadyAt }: EditJobD
   }
 
   return (
-    <form onSubmit={handleSubmit} className="mt-2 space-y-3 rounded-lg border p-4">
-      <div>
-        <Label htmlFor="edit-desc">Description</Label>
-        <Textarea
-          id="edit-desc"
-          name="description"
-          rows={3}
-          defaultValue={description ?? ""}
-          placeholder="Describe the work..."
-          className="mt-1"
-        />
-      </div>
-      <div>
-        <Label htmlFor="edit-eta">Estimated Ready</Label>
-        <Input
-          id="edit-eta"
-          name="estimatedReadyAt"
-          type="datetime-local"
-          defaultValue={etaDefault}
-          className="mt-1"
-        />
-      </div>
-      {error && <p className="text-sm text-destructive">{error}</p>}
-      <div className="flex gap-2">
-        <Button type="submit" size="sm" disabled={isPending}>
-          {isPending ? "Saving..." : "Save"}
-        </Button>
-        <Button type="button" size="sm" variant="outline" onClick={() => setOpen(false)}>
-          Cancel
-        </Button>
-      </div>
-    </form>
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger
+        className="inline-flex items-center gap-1 rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+        title="Edit job details"
+      >
+        <Pencil className="h-4 w-4" />
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Edit Job Details</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <Label htmlFor="edit-desc" optional>Description</Label>
+            <Textarea
+              id="edit-desc"
+              name="description"
+              rows={3}
+              defaultValue={description ?? ""}
+              placeholder="Describe the work..."
+              className="mt-1"
+            />
+          </div>
+          <div>
+            <Label htmlFor="edit-eta" optional>Estimated Ready</Label>
+            <Input
+              id="edit-eta"
+              name="estimatedReadyAt"
+              type="datetime-local"
+              defaultValue={etaDefault}
+              className="mt-1"
+            />
+          </div>
+          {error && <p className="text-sm text-destructive">{error}</p>}
+          <DialogFooter>
+            <Button type="submit" size="sm" disabled={isPending}>
+              {isPending ? "Saving..." : "Save Changes"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -51,10 +52,12 @@ export function TopBar({
           <span className="hidden text-sm sm:inline">{userEmail}</span>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-56">
-          <DropdownMenuLabel>
-            <div className="text-sm font-medium">{userEmail}</div>
-            <div className="text-xs capitalize text-muted-foreground">{userRole.replace("_", " ")}</div>
-          </DropdownMenuLabel>
+          <DropdownMenuGroup>
+            <DropdownMenuLabel>
+              <div className="text-sm font-medium">{userEmail}</div>
+              <div className="text-xs capitalize text-muted-foreground">{userRole.replace("_", " ")}</div>
+            </DropdownMenuLabel>
+          </DropdownMenuGroup>
           <DropdownMenuSeparator />
           <form action="/logout" method="post">
             <button

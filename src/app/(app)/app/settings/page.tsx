@@ -1,19 +1,22 @@
 import Link from "next/link";
-import { Shield, Package, ScrollText } from "lucide-react";
+import { Package, ScrollText, UserCircle, Users } from "lucide-react";
 
-import { requireManager } from "@/lib/auth/session";
+import { requireStaffSession } from "@/lib/auth/session";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { PairTabletButton } from "./PairTabletButton";
 
 export default async function SettingsPage() {
-  await requireManager();
+  const session = await requireStaffSession();
+  const isManager = session.role === "manager";
 
   const links = [
-    { href: "/app/settings/audit-log", label: "Audit Log", description: "View all staff actions", icon: ScrollText },
-    { href: "/app/stock", label: "Stock", description: "Parts inventory", icon: Package },
-    { href: "/app/warranties", label: "Warranties", description: "Active warranty coverage", icon: Shield },
-  ];
+    { href: "/app/settings/profile", label: "Profile", description: "Update your profile picture", icon: UserCircle, managerOnly: false },
+    { href: "/app/settings/staff", label: "Staff", description: "Manage technicians and managers", icon: Users, managerOnly: true },
+    { href: "/app/settings/audit-log", label: "Audit Log", description: "View all staff actions", icon: ScrollText, managerOnly: true },
+    { href: "/app/stock", label: "Stock", description: "Parts inventory", icon: Package, managerOnly: true },
+    { href: "/app/stock", label: "Stock & Warranties", description: "Parts inventory and supplier warranties", icon: Package, managerOnly: true },
+  ].filter((l) => !l.managerOnly || isManager);
 
   return (
     <div>
@@ -36,15 +39,19 @@ export default async function SettingsPage() {
         ))}
       </div>
 
-      <Separator className="my-8" />
+      {isManager && (
+        <>
+          <Separator className="my-8" />
 
-      <h2 className="text-lg font-semibold">Kiosk Tablet</h2>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Pair this browser as the reception kiosk. Run this once on the tablet in reception.
-      </p>
-      <div className="mt-4">
-        <PairTabletButton />
-      </div>
+          <h2 className="text-lg font-semibold">Kiosk Tablet</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Pair this browser as the reception kiosk. Run this once on the tablet in reception.
+          </p>
+          <div className="mt-4">
+            <PairTabletButton />
+          </div>
+        </>
+      )}
     </div>
   );
 }

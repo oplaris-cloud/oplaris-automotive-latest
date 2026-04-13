@@ -6,6 +6,7 @@ import { z } from "zod";
 
 export const JOB_STATUSES = [
   "draft",
+  "checked_in",
   "booked",
   "in_diagnosis",
   "in_repair",
@@ -23,6 +24,7 @@ export type JobStatus = (typeof JOB_STATUSES)[number];
  */
 export const STATUS_TRANSITIONS: Record<JobStatus, readonly JobStatus[]> = {
   draft: ["booked", "in_diagnosis", "cancelled"],
+  checked_in: ["in_diagnosis", "cancelled"],
   booked: ["in_diagnosis", "cancelled"],
   in_diagnosis: ["in_repair", "awaiting_parts", "awaiting_customer_approval", "cancelled"],
   in_repair: ["awaiting_parts", "awaiting_customer_approval", "ready_for_collection", "cancelled"],

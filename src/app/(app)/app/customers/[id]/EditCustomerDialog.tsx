@@ -74,34 +74,34 @@ export function EditCustomerDialog({ customer }: EditCustomerDialogProps) {
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
-          <Label htmlFor="edit-fullName">Full Name *</Label>
+          <Label htmlFor="edit-fullName" required>Full Name</Label>
           <Input id="edit-fullName" name="fullName" required defaultValue={customer.full_name} className="mt-1" />
           {fieldErrors.fullName && <p className="mt-1 text-sm text-destructive">{fieldErrors.fullName}</p>}
         </div>
         <div>
-          <Label htmlFor="edit-phone">Phone *</Label>
+          <Label htmlFor="edit-phone" required>Phone</Label>
           <Input id="edit-phone" name="phone" type="tel" required defaultValue={customer.phone} className="mt-1" />
           {fieldErrors.phone && <p className="mt-1 text-sm text-destructive">{fieldErrors.phone}</p>}
         </div>
         <div>
-          <Label htmlFor="edit-email">Email</Label>
+          <Label htmlFor="edit-email" optional>Email</Label>
           <Input id="edit-email" name="email" type="email" defaultValue={customer.email ?? ""} className="mt-1" />
         </div>
         <div>
-          <Label htmlFor="edit-postcode">Postcode</Label>
+          <Label htmlFor="edit-postcode" optional>Postcode</Label>
           <Input id="edit-postcode" name="postcode" defaultValue={customer.postcode ?? ""} className="mt-1" />
         </div>
       </div>
       <div>
-        <Label htmlFor="edit-addressLine1">Address Line 1</Label>
+        <Label htmlFor="edit-addressLine1" optional>Address Line 1</Label>
         <Input id="edit-addressLine1" name="addressLine1" defaultValue={customer.address_line1 ?? ""} className="mt-1" />
       </div>
       <div>
-        <Label htmlFor="edit-addressLine2">Address Line 2</Label>
+        <Label htmlFor="edit-addressLine2" optional>Address Line 2</Label>
         <Input id="edit-addressLine2" name="addressLine2" defaultValue={customer.address_line2 ?? ""} className="mt-1" />
       </div>
       <div>
-        <Label htmlFor="edit-notes">Notes</Label>
+        <Label htmlFor="edit-notes" optional>Notes</Label>
         <Textarea id="edit-notes" name="notes" rows={2} defaultValue={customer.notes ?? ""} className="mt-1" />
       </div>
 

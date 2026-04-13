@@ -46,7 +46,7 @@ export function NewCustomerForm() {
   return (
     <form onSubmit={handleSubmit} className="mt-6 space-y-5">
       <div>
-        <Label htmlFor="fullName">Full Name *</Label>
+        <Label htmlFor="fullName" required>Full Name</Label>
         <Input id="fullName" name="fullName" required className="mt-1" />
         {fieldErrors.fullName && (
           <p className="mt-1 text-sm text-destructive">{fieldErrors.fullName}</p>
@@ -54,7 +54,7 @@ export function NewCustomerForm() {
       </div>
 
       <div>
-        <Label htmlFor="phone">Phone *</Label>
+        <Label htmlFor="phone" required>Phone</Label>
         <Input
           id="phone"
           name="phone"
@@ -69,7 +69,7 @@ export function NewCustomerForm() {
       </div>
 
       <div>
-        <Label htmlFor="email">Email</Label>
+        <Label htmlFor="email" optional>Email</Label>
         <Input id="email" name="email" type="email" className="mt-1" />
         {fieldErrors.email && (
           <p className="mt-1 text-sm text-destructive">{fieldErrors.email}</p>
@@ -77,22 +77,22 @@ export function NewCustomerForm() {
       </div>
 
       <div>
-        <Label htmlFor="addressLine1">Address Line 1</Label>
+        <Label htmlFor="addressLine1" optional>Address Line 1</Label>
         <Input id="addressLine1" name="addressLine1" className="mt-1" />
       </div>
 
       <div>
-        <Label htmlFor="addressLine2">Address Line 2</Label>
+        <Label htmlFor="addressLine2" optional>Address Line 2</Label>
         <Input id="addressLine2" name="addressLine2" className="mt-1" />
       </div>
 
       <div>
-        <Label htmlFor="postcode">Postcode</Label>
+        <Label htmlFor="postcode" optional>Postcode</Label>
         <Input id="postcode" name="postcode" className="mt-1" placeholder="B1 1AA" />
       </div>
 
       <div>
-        <Label htmlFor="notes">Notes</Label>
+        <Label htmlFor="notes" optional>Notes</Label>
         <Textarea
           id="notes"
           name="notes"

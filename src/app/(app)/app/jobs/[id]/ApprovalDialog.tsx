@@ -69,7 +69,7 @@ export function ApprovalDialog({ jobId }: ApprovalDialogProps) {
       <h3 className="text-sm font-semibold">Request Customer Approval</h3>
 
       <div>
-        <Label htmlFor="approval-desc">Description of additional work</Label>
+        <Label htmlFor="approval-desc" required>Description of additional work</Label>
         <Textarea
           id="approval-desc"
           name="description"
@@ -81,7 +81,7 @@ export function ApprovalDialog({ jobId }: ApprovalDialogProps) {
       </div>
 
       <div>
-        <Label htmlFor="approval-amount">Amount (£)</Label>
+        <Label htmlFor="approval-amount" required>Amount (£)</Label>
         <Input
           id="approval-amount"
           name="amount"

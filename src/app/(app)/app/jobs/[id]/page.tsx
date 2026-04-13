@@ -14,6 +14,9 @@ import { EditJobDialog } from "./EditJobDialog";
 import { TeamManager } from "./TeamManager";
 import { AddPartForm } from "./AddPartForm";
 import { PartRow } from "./PartRow";
+import { ManualApproveButton } from "./ManualApproveButton";
+import { LogWorkDialog } from "./LogWorkDialog";
+import { ChargesSection } from "./ChargesSection";
 
 interface JobDetailProps {
   params: Promise<{ id: string }>;
@@ -55,8 +58,8 @@ export default async function JobDetailPage({ params }: JobDetailProps) {
   const vehicle = Array.isArray(job.vehicles) ? job.vehicles[0] : job.vehicles;
   const bay = Array.isArray(job.bays) ? job.bays[0] : job.bays;
 
-  // Fetch assignments, work logs, parts, approvals, bays, staff in parallel
-  const [assignments, workLogs, parts, approvals, allBays, allStaff] = await Promise.all([
+  // Fetch assignments, work logs, parts, approvals, bays, staff, charges, invoice in parallel
+  const [assignments, workLogs, parts, approvals, allBays, allStaff, chargesResult, invoiceResult] = await Promise.all([
     supabase
       .from("job_assignments")
       .select("staff:staff!staff_id ( id, full_name )")
@@ -82,6 +85,20 @@ export default async function JobDetailPage({ params }: JobDetailProps) {
     isManager
       ? supabase.from("staff").select("id, full_name").order("full_name")
       : Promise.resolve({ data: [] as { id: string; full_name: string }[] }),
+    isManager
+      ? supabase
+          .from("job_charges")
+          .select("id, charge_type, description, quantity, unit_price_pence")
+          .eq("job_id", id)
+          .order("created_at")
+      : Promise.resolve({ data: [] as { id: string; charge_type: string; description: string; quantity: number; unit_price_pence: number }[] }),
+    isManager
+      ? supabase
+          .from("invoices")
+          .select("id, invoice_number, quote_status, subtotal_pence, vat_pence, total_pence")
+          .eq("job_id", id)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
   ]);
 
   const assignedStaff = (assignments.data ?? []).map((a) => {
@@ -133,6 +150,8 @@ export default async function JobDetailPage({ params }: JobDetailProps) {
       <div className="mt-4">
         <StatusActions jobId={job.id} currentStatus={job.status as JobStatus} />
       </div>
+
+      {/* Charges section (visible to managers) */}
 
       {/* Customer + Vehicle + Bay & Team */}
       <div className="mt-6 grid gap-4 sm:grid-cols-3">
@@ -202,7 +221,16 @@ export default async function JobDetailPage({ params }: JobDetailProps) {
       <Separator className="my-6" />
 
       {/* Work logs */}
-      <h2 className="text-lg font-semibold">Work Log</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold">Work Log</h2>
+        {isManager && (
+          <LogWorkDialog
+            jobId={job.id}
+            garageId={session.garageId}
+            staff={(allStaff.data ?? []) as { id: string; full_name: string }[]}
+          />
+        )}
+      </div>
       {(workLogs.data ?? []).length === 0 ? (
         <p className="mt-2 text-sm text-muted-foreground">No work logged yet.</p>
       ) : (
@@ -281,21 +309,47 @@ export default async function JobDetailPage({ params }: JobDetailProps) {
                     {pence(a.amount_pence)} · {new Date(a.created_at).toLocaleDateString("en-GB")}
                   </div>
                 </div>
-                <Badge
-                  variant={
-                    a.status === "approved"
-                      ? "default"
-                      : a.status === "declined"
-                        ? "destructive"
-                        : "secondary"
-                  }
-                  className="capitalize"
-                >
-                  {a.status}
-                </Badge>
+                <div className="flex items-center gap-2">
+                  <Badge
+                    variant={
+                      a.status === "approved"
+                        ? "default"
+                        : a.status === "declined"
+                          ? "destructive"
+                          : "secondary"
+                    }
+                    className="capitalize"
+                  >
+                    {a.status}
+                  </Badge>
+                  {a.status === "pending" && isManager && (
+                    <ManualApproveButton approvalId={a.id} />
+                  )}
+                </div>
               </div>
             ))}
           </div>
+        </>
+      )}
+
+      {/* Charges / Quote / Invoice */}
+      {isManager && (
+        <>
+          <Separator className="my-6" />
+          <ChargesSection
+            jobId={job.id}
+            charges={(chargesResult.data ?? []) as { id: string; charge_type: string; description: string; quantity: number; unit_price_pence: number }[]}
+            invoice={
+              invoiceResult.data
+                ? {
+                    quoteStatus: (invoiceResult.data as { quote_status: string }).quote_status,
+                    subtotalPence: (invoiceResult.data as { subtotal_pence: number }).subtotal_pence,
+                    vatPence: (invoiceResult.data as { vat_pence: number }).vat_pence,
+                    totalPence: (invoiceResult.data as { total_pence: number }).total_pence,
+                  }
+                : null
+            }
+          />
         </>
       )}
     </div>

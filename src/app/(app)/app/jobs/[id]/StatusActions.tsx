@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 
 const STATUS_LABELS: Record<JobStatus, string> = {
   draft: "Draft",
+  checked_in: "Checked In",
   booked: "Booked",
   in_diagnosis: "Start Diagnosis",
   in_repair: "Start Repair",

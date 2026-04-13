@@ -74,12 +74,12 @@ export function AddPartForm({ jobId }: { jobId: string }) {
 
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="sm:col-span-2">
-          <Label htmlFor="part-desc">Description *</Label>
+          <Label htmlFor="part-desc" required>Description</Label>
           <Input id="part-desc" name="description" required placeholder="e.g. Front brake pads" className="mt-1" />
           {fieldErrors.description && <p className="mt-1 text-xs text-destructive">{fieldErrors.description}</p>}
         </div>
         <div>
-          <Label htmlFor="part-supplier">Supplier</Label>
+          <Label htmlFor="part-supplier" optional>Supplier</Label>
           <select
             id="part-supplier"
             name="supplier"
@@ -94,21 +94,21 @@ export function AddPartForm({ jobId }: { jobId: string }) {
         </div>
         {supplier === "other" && (
           <div>
-            <Label htmlFor="part-supplier-other">Supplier Name *</Label>
+            <Label htmlFor="part-supplier-other" required>Supplier Name</Label>
             <Input id="part-supplier-other" name="supplierOther" required className="mt-1" />
             {fieldErrors.supplierOther && <p className="mt-1 text-xs text-destructive">{fieldErrors.supplierOther}</p>}
           </div>
         )}
         <div>
-          <Label htmlFor="part-qty">Quantity</Label>
+          <Label htmlFor="part-qty" required>Quantity</Label>
           <Input id="part-qty" name="quantity" type="number" min="1" defaultValue="1" required className="mt-1" />
         </div>
         <div>
-          <Label htmlFor="part-price">Unit Price (£)</Label>
+          <Label htmlFor="part-price" required>Unit Price (£)</Label>
           <Input id="part-price" name="price" type="number" step="0.01" min="0" required placeholder="25.00" className="mt-1" />
         </div>
         <div>
-          <Label htmlFor="part-payment">Payment Method</Label>
+          <Label htmlFor="part-payment" optional>Payment Method</Label>
           <select
             id="part-payment"
             name="paymentMethod"
@@ -120,7 +120,7 @@ export function AddPartForm({ jobId }: { jobId: string }) {
           </select>
         </div>
         <div className="sm:col-span-2">
-          <Label htmlFor="part-file">Invoice/Receipt (optional)</Label>
+          <Label htmlFor="part-file" optional>Invoice/Receipt</Label>
           <Input id="part-file" name="invoiceFile" type="file" accept=".pdf,.jpg,.jpeg,.png" className="mt-1" />
           {fieldErrors.invoiceFile && <p className="mt-1 text-xs text-destructive">{fieldErrors.invoiceFile}</p>}
         </div>

@@ -7,6 +7,7 @@ import {
   XCircle,
   CalendarCheck,
   Search,
+  UserCheck,
   type LucideIcon,
 } from "lucide-react";
 
@@ -21,6 +22,11 @@ const STATUS_CONFIG: Record<
     label: "Draft",
     className: "bg-info text-info-foreground",
     icon: Clock,
+  },
+  checked_in: {
+    label: "Checked In",
+    className: "bg-info text-info-foreground",
+    icon: UserCheck,
   },
   booked: {
     label: "Booked",

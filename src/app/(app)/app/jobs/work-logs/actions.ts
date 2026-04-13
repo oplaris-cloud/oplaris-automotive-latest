@@ -115,3 +115,57 @@ export async function completeWork(
   // post-completion hooks (e.g. auto-advancing job status) later.
   return pauseWork(input);
 }
+
+// ------------------------------------------------------------------
+// Manager retroactive work log entry
+// ------------------------------------------------------------------
+
+const managerLogSchema = z.object({
+  jobId: z.string().uuid(),
+  staffId: z.string().uuid(),
+  taskType: z.enum(WORK_TASK_TYPES),
+  description: z.string().max(2000).nullable().optional(),
+  startedAt: z.string().datetime(),
+  endedAt: z.string().datetime().nullable().optional(),
+});
+
+export async function managerLogWork(
+  input: z.infer<typeof managerLogSchema>,
+): Promise<ActionResult> {
+  const session = await requireStaffSession();
+  if (session.role !== "manager") {
+    return { ok: false, error: "Only managers can log work retroactively" };
+  }
+
+  const parsed = managerLogSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Validation failed" };
+
+  // Use admin client to insert on behalf of another staff member
+  const { createSupabaseAdminClient } = await import("@/lib/supabase/admin");
+  const supabase = createSupabaseAdminClient();
+
+  const row: Record<string, unknown> = {
+    garage_id: session.garageId,
+    job_id: parsed.data.jobId,
+    staff_id: parsed.data.staffId,
+    task_type: parsed.data.taskType,
+    description: parsed.data.description || null,
+    started_at: parsed.data.startedAt,
+  };
+
+  if (parsed.data.endedAt) {
+    row.ended_at = parsed.data.endedAt;
+  }
+
+  const { data, error } = await supabase
+    .from("work_logs")
+    .insert(row)
+    .select("id")
+    .single();
+
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/app/jobs");
+  revalidatePath("/app/tech");
+  return { ok: true, id: data.id };
+}

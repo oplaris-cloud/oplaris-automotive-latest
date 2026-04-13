@@ -119,3 +119,47 @@ export async function requestApproval(
   revalidatePath("/app/jobs");
   return { ok: true, id: requestId };
 }
+
+// ------------------------------------------------------------------
+// Manually approve a pending approval request (manager override)
+// ------------------------------------------------------------------
+
+const manualApproveSchema = z.object({
+  approvalId: z.string().uuid(),
+});
+
+export async function manuallyApproveRequest(
+  input: z.infer<typeof manualApproveSchema>,
+): Promise<ActionResult> {
+  await requireStaffSession();
+  const parsed = manualApproveSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Validation failed" };
+
+  const supabase = await createSupabaseServerClient();
+
+  // Update approval status
+  const { data, error } = await supabase
+    .from("approval_requests")
+    .update({
+      status: "approved",
+      responded_at: new Date().toISOString(),
+    })
+    .eq("id", parsed.data.approvalId)
+    .eq("status", "pending")
+    .select("job_id")
+    .single();
+
+  if (error || !data) return { ok: false, error: "Approval not found or already responded" };
+
+  // Auto-advance job status to in_repair
+  if (data.job_id) {
+    await supabase
+      .from("jobs")
+      .update({ status: "in_repair" })
+      .eq("id", data.job_id)
+      .eq("status", "awaiting_customer_approval");
+  }
+
+  revalidatePath("/app/jobs");
+  return { ok: true };
+}

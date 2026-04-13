@@ -15,8 +15,17 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
  * removes the cookies from the response.
  */
 export async function POST(_request: NextRequest): Promise<NextResponse> {
-  const supabase = await createSupabaseServerClient();
-  await supabase.auth.signOut();
+  try {
+    const supabase = await createSupabaseServerClient();
+    await supabase.auth.signOut();
+  } catch {
+    // Sign out may fail if session already expired — still redirect
+  }
   // Absolute URL required for NextResponse.redirect()
   return NextResponse.redirect(new URL("/login", _request.url), { status: 303 });
+}
+
+// Also handle GET in case the form submission is intercepted
+export async function GET(request: NextRequest): Promise<NextResponse> {
+  return POST(request);
 }
