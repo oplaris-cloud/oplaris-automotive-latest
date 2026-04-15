@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>P53 — Override handler dialog mockup</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+  .annotation { font-family: "SF Mono", Monaco, Consolas, monospace; }
+</style>
+</head>
+<body class="bg-neutral-50 min-h-screen">
+
+<div class="max-w-6xl mx-auto p-8 space-y-12">
+
+  <header class="space-y-2">
+    <h1 class="text-2xl font-bold text-neutral-900">P53 — Override handler dialog</h1>
+    <p class="text-neutral-600 max-w-3xl">One dialog. Two zones. Manager confirms who's removed and optionally picks a replacement — in the same step, no chained modals.</p>
+  </header>
+
+  <!-- STATE 1 — default open -->
+  <section class="space-y-3">
+    <h2 class="annotation text-xs uppercase tracking-wider text-neutral-500">State 1 — opened, defaults pre-ticked</h2>
+
+    <div class="relative">
+      <!-- backdrop -->
+      <div class="absolute inset-0 bg-neutral-900/30 rounded-xl"></div>
+
+      <!-- dialog -->
+      <div class="relative mx-auto max-w-xl bg-white rounded-xl shadow-2xl border border-neutral-200 overflow-hidden">
+
+        <!-- header -->
+        <div class="px-6 pt-5 pb-4 border-b border-neutral-100">
+          <div class="flex items-start gap-3">
+            <div class="mt-0.5 h-8 w-8 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center">
+              <!-- swap icon -->
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3l4 4l-4 4"/><path d="M21 7H9"/><path d="M7 21l-4-4l4-4"/><path d="M3 17h12"/></svg>
+            </div>
+            <div class="flex-1">
+              <h3 class="text-base font-semibold text-neutral-900">Return job to MOT tester queue</h3>
+              <p class="text-sm text-neutral-500 mt-0.5">DUD-2026-00009 · currently with mechanic</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- body -->
+        <div class="px-6 py-5 space-y-6">
+
+          <!-- Zone A — Assignees -->
+          <div>
+            <div class="flex items-center justify-between mb-3">
+              <h4 class="text-xs font-semibold uppercase tracking-wider text-neutral-500">Currently assigned</h4>
+              <span class="text-xs text-neutral-400">Any ticked will be removed</span>
+            </div>
+            <div class="space-y-2">
+              <!-- Jake, mechanic-only, default ticked -->
+              <label class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-rose-50/60 border border-rose-100 cursor-pointer">
+                <input type="checkbox" checked class="h-4 w-4 rounded border-neutral-300 text-rose-600 focus:ring-rose-400" />
+                <div class="flex-1">
+                  <div class="flex items-center gap-2">
+                    <span class="text-sm font-medium text-neutral-900">Jake</span>
+                    <span class="text-xs px-1.5 py-0.5 rounded bg-neutral-100 text-neutral-600">mechanic</span>
+                  </div>
+                  <div class="text-xs text-neutral-500 mt-0.5">Role doesn't match new queue · running timer will be stopped</div>
+                </div>
+              </label>
+              <!-- Sarah, multi-role, default unticked -->
+              <label class="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-neutral-200 cursor-pointer">
+                <input type="checkbox" class="h-4 w-4 rounded border-neutral-300 text-neutral-600 focus:ring-neutral-400" />
+                <div class="flex-1">
+                  <div class="flex items-center gap-2">
+                    <span class="text-sm font-medium text-neutral-900">Sarah</span>
+                    <span class="text-xs px-1.5 py-0.5 rounded bg-neutral-100 text-neutral-600">mechanic</span>
+                    <span class="text-xs px-1.5 py-0.5 rounded bg-neutral-100 text-neutral-600">mot_tester</span>
+                  </div>
+                  <div class="text-xs text-neutral-500 mt-0.5">Holds both roles — stays by default</div>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <!-- Zone B — Optional assignee -->
+          <div class="pt-1">
+            <div class="flex items-center justify-between mb-3">
+              <h4 class="text-xs font-semibold uppercase tracking-wider text-neutral-500">Assign a specific tester <span class="text-neutral-400 normal-case font-normal">· optional</span></h4>
+            </div>
+            <div class="rounded-lg border border-neutral-200 overflow-hidden">
+              <!-- default — leave in queue -->
+              <label class="flex items-center gap-3 px-3 py-2.5 bg-neutral-50 border-b border-neutral-200 cursor-pointer">
+                <input type="radio" name="assign" checked class="h-4 w-4 border-neutral-300 text-neutral-900 focus:ring-neutral-400" />
+                <div class="flex-1">
+                  <div class="text-sm font-medium text-neutral-900">Leave in queue</div>
+                  <div class="text-xs text-neutral-500 mt-0.5">Any MOT tester can self-claim from their My Work</div>
+                </div>
+                <span class="text-xs text-neutral-400">Default</span>
+              </label>
+              <!-- assign to specific person -->
+              <label class="flex items-center gap-3 px-3 py-2.5 cursor-pointer">
+                <input type="radio" name="assign" class="h-4 w-4 border-neutral-300 text-neutral-900 focus:ring-neutral-400" />
+                <div class="flex-1">
+                  <div class="text-sm text-neutral-900">Assign directly to…</div>
+                  <div class="text-xs text-neutral-400 mt-0.5">Pick an MOT tester — skips their queue, goes straight to their My Work</div>
+                </div>
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-neutral-400"><path d="m9 18 6-6-6-6"/></svg>
+              </label>
+            </div>
+          </div>
+
+          <!-- Zone C — Optional note -->
+          <div>
+            <label class="block text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-2">Note <span class="text-neutral-400 normal-case font-normal">· optional, appears on Job Activity timeline</span></label>
+            <textarea rows="2" placeholder="e.g. Jake reassigned to urgent brake job" class="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400"></textarea>
+          </div>
+
+        </div>
+
+        <!-- footer -->
+        <div class="px-6 py-4 bg-neutral-50 border-t border-neutral-100 flex items-center justify-end gap-2">
+          <button class="px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-100 rounded-lg">Cancel</button>
+          <button class="px-4 py-2 text-sm font-medium text-white bg-neutral-900 hover:bg-neutral-800 rounded-lg">Return to queue</button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- annotations -->
+    <div class="max-w-xl mx-auto pt-2 space-y-1.5 annotation text-xs text-neutral-500">
+      <div><span class="text-neutral-700 font-semibold">Zone A</span> — every current assignee listed with a checkbox. Role mismatches pre-ticked (Jake). Multi-role staff unticked (Sarah stays).</div>
+      <div><span class="text-neutral-700 font-semibold">Zone B</span> — default "Leave in queue" means self-claim via My Work (P51 flow). Pick "Assign directly to…" to expand a tester picker inline.</div>
+      <div><span class="text-neutral-700 font-semibold">Zone C</span> — optional note, surfaces on the P54 Job Activity timeline.</div>
+    </div>
+  </section>
+
+  <!-- STATE 2 — Assign directly expanded -->
+  <section class="space-y-3">
+    <h2 class="annotation text-xs uppercase tracking-wider text-neutral-500">State 2 — "Assign directly" picked, picker expands inline</h2>
+
+    <div class="relative">
+      <div class="absolute inset-0 bg-neutral-900/30 rounded-xl"></div>
+      <div class="relative mx-auto max-w-xl bg-white rounded-xl shadow-2xl border border-neutral-200 overflow-hidden">
+
+        <div class="px-6 pt-5 pb-4 border-b border-neutral-100">
+          <div class="flex items-start gap-3">
+            <div class="mt-0.5 h-8 w-8 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3l4 4l-4 4"/><path d="M21 7H9"/><path d="M7 21l-4-4l4-4"/><path d="M3 17h12"/></svg>
+            </div>
+            <div class="flex-1">
+              <h3 class="text-base font-semibold text-neutral-900">Return job to MOT tester queue</h3>
+              <p class="text-sm text-neutral-500 mt-0.5">DUD-2026-00009 · currently with mechanic</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="px-6 py-5 space-y-6">
+
+          <!-- Zone A — collapsed summary after first interaction -->
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <h4 class="text-xs font-semibold uppercase tracking-wider text-neutral-500">Currently assigned</h4>
+            </div>
+            <div class="px-3 py-2 rounded-lg border border-neutral-200 bg-neutral-50 text-sm text-neutral-700 flex items-center justify-between">
+              <span><span class="font-medium">Jake</span> will be removed · <span class="font-medium">Sarah</span> stays</span>
+              <button class="text-xs text-neutral-500 underline hover:text-neutral-700">Edit</button>
+            </div>
+          </div>
+
+          <!-- Zone B — expanded -->
+          <div class="pt-1">
+            <h4 class="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-3">Assign a specific tester</h4>
+            <div class="rounded-lg border border-neutral-200 overflow-hidden">
+              <label class="flex items-center gap-3 px-3 py-2.5 border-b border-neutral-200 cursor-pointer">
+                <input type="radio" name="assign2" class="h-4 w-4 border-neutral-300 text-neutral-900 focus:ring-neutral-400" />
+                <div class="flex-1">
+                  <div class="text-sm text-neutral-900">Leave in queue</div>
+                  <div class="text-xs text-neutral-500 mt-0.5">Self-claim via My Work</div>
+                </div>
+              </label>
+              <label class="flex items-start gap-3 px-3 py-2.5 bg-neutral-50 cursor-pointer">
+                <input type="radio" name="assign2" checked class="mt-0.5 h-4 w-4 border-neutral-300 text-neutral-900 focus:ring-neutral-400" />
+                <div class="flex-1 space-y-2">
+                  <div class="text-sm font-medium text-neutral-900">Assign directly to…</div>
+                  <!-- picker -->
+                  <div class="bg-white rounded-md border border-neutral-200">
+                    <div class="px-2.5 py-2 border-b border-neutral-100 flex items-center gap-2">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-neutral-400"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                      <input type="text" placeholder="Search testers…" class="flex-1 bg-transparent text-sm placeholder:text-neutral-400 focus:outline-none" />
+                    </div>
+                    <div class="max-h-56 overflow-y-auto">
+                      <!-- Sarah -->
+                      <button class="w-full flex items-center gap-3 px-3 py-2 bg-neutral-900/5 text-left">
+                        <div class="h-6 w-6 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs font-medium">S</div>
+                        <div class="flex-1">
+                          <div class="text-sm text-neutral-900">Sarah <span class="text-xs text-emerald-600">· available</span></div>
+                        </div>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-neutral-900"><path d="M20 6 9 17l-5-5"/></svg>
+                      </button>
+                      <!-- Mo, busy -->
+                      <button class="w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-neutral-50">
+                        <div class="h-6 w-6 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center text-xs font-medium">M</div>
+                        <div class="flex-1">
+                          <div class="text-sm text-neutral-900">Mohammed</div>
+                          <div class="text-xs text-amber-600">on DUD-2026-00011</div>
+                        </div>
+                      </button>
+                      <!-- Anna, off -->
+                      <button class="w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-neutral-50 opacity-60">
+                        <div class="h-6 w-6 rounded-full bg-neutral-200 text-neutral-600 flex items-center justify-center text-xs font-medium">A</div>
+                        <div class="flex-1">
+                          <div class="text-sm text-neutral-900">Anna</div>
+                          <div class="text-xs text-neutral-500">off shift</div>
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-2">Note <span class="text-neutral-400 normal-case font-normal">· optional</span></label>
+            <textarea rows="2" placeholder="" class="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm"></textarea>
+          </div>
+
+        </div>
+
+        <div class="px-6 py-4 bg-neutral-50 border-t border-neutral-100 flex items-center justify-end gap-2">
+          <button class="px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-100 rounded-lg">Cancel</button>
+          <button class="px-4 py-2 text-sm font-medium text-white bg-neutral-900 hover:bg-neutral-800 rounded-lg">Return to queue · assign Sarah</button>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="max-w-xl mx-auto pt-2 space-y-1.5 annotation text-xs text-neutral-500">
+      <div>Button label updates to reflect the full action: <span class="text-neutral-700 font-semibold">"Return to queue · assign Sarah"</span> — no guessing.</div>
+      <div>Picker shows availability inline — green = free, amber = busy (linkable to current job), grey = off-shift.</div>
+      <div>Zone A collapses once reviewed — reduces visual noise after the first scan.</div>
+    </div>
+  </section>
+
+  <!-- Flow summary -->
+  <section class="space-y-3 pt-4 border-t border-neutral-200">
+    <h2 class="annotation text-xs uppercase tracking-wider text-neutral-500">Resulting writes on submit</h2>
+    <ol class="max-w-3xl space-y-2 text-sm text-neutral-700 list-decimal list-inside pl-2">
+      <li><code class="bg-neutral-100 px-1 rounded text-xs">jobs.current_role</code> flipped to <code class="bg-neutral-100 px-1 rounded text-xs">mot_tester</code></li>
+      <li><code class="bg-neutral-100 px-1 rounded text-xs">job_assignments</code> row for Jake deleted · running <code class="bg-neutral-100 px-1 rounded text-xs">work_logs</code> for Jake closed with auto-stop note</li>
+      <li>Sarah's row in <code class="bg-neutral-100 px-1 rounded text-xs">job_assignments</code> stays (already there or inserted if Zone B used)</li>
+      <li><code class="bg-neutral-100 px-1 rounded text-xs">job_passbacks</code> event written · actor = manager · note attached</li>
+      <li><code class="bg-neutral-100 px-1 rounded text-xs">audit_log</code> entry for the override</li>
+      <li>P54 Job Activity timeline picks up the event through the view — no extra write</li>
+    </ol>
+  </section>
+
+</div>
+</body>
+</html>

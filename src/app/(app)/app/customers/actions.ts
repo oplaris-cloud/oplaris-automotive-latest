@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
-import { requireManagerOrTester } from "@/lib/auth/session";
+import { requireManager } from "@/lib/auth/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { normalisePhone } from "@/lib/validation/phone";
 import {
@@ -26,7 +26,7 @@ export interface ActionResult {
 export async function createCustomer(
   input: CreateCustomerInput,
 ): Promise<ActionResult> {
-  const session = await requireManagerOrTester();
+  const session = await requireManager();
   const parsed = createCustomerSchema.safeParse(input);
   if (!parsed.success) {
     const fieldErrors: Record<string, string> = {};
@@ -84,7 +84,7 @@ export async function createCustomer(
 export async function updateCustomer(
   input: UpdateCustomerInput,
 ): Promise<ActionResult> {
-  await requireManagerOrTester();
+  await requireManager();
   const parsed = updateCustomerSchema.safeParse(input);
   if (!parsed.success) {
     return { ok: false, error: "Validation failed" };
@@ -141,7 +141,7 @@ export async function updateCustomer(
 export async function softDeleteCustomer(
   customerId: string,
 ): Promise<ActionResult> {
-  await requireManagerOrTester();
+  await requireManager();
 
   if (!customerId || !/^[0-9a-f-]{36}$/.test(customerId)) {
     return { ok: false, error: "Invalid customer ID" };

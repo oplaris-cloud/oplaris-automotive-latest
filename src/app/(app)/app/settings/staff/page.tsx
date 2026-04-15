@@ -8,6 +8,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { StaffAvatar } from "@/components/ui/staff-avatar";
 import { AddStaffDialog } from "./AddStaffDialog";
 import { EditStaffButton, DeactivateStaffButton } from "./StaffActions";
+import { StaffSettingsRealtime } from "@/lib/realtime/shims";
 
 const ROLE_LABELS: Record<string, string> = {
   manager: "Manager",
@@ -22,15 +23,18 @@ const ROLE_COLOURS: Record<string, string> = {
 };
 
 export default async function StaffPage() {
-  await requireManager();
+  const session = await requireManager();
   const supabase = await createSupabaseServerClient();
 
-  const { data: staffList } = await supabase
+  const { data: staffList, error: staffError } = await supabase
     .from("staff")
-    .select("id, full_name, email, phone, is_active, avatar_url, role")
+    .select("id, full_name, email, phone, is_active, avatar_url, roles")
     .order("full_name");
 
-  // Fallback: if "role" column doesn't exist in the query result, try fetching without it
+  if (staffError) {
+    console.error("[staff-page] query error:", staffError.message, staffError.code);
+  }
+
   const staff = staffList ?? [];
 
   const active = staff.filter((s) => s.is_active !== false);
@@ -38,6 +42,7 @@ export default async function StaffPage() {
 
   return (
     <div>
+      <StaffSettingsRealtime garageId={session.garageId} />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold">Staff</h1>
@@ -59,7 +64,7 @@ export default async function StaffPage() {
         <>
           <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {active.map((s) => {
-              const role = (s as Record<string, unknown>).role as string | undefined;
+              const roles = ((s as Record<string, unknown>).roles as string[] | null) ?? [];
               return (
                 <Card key={s.id}>
                   <CardContent className="flex items-center gap-4 p-4">
@@ -74,14 +79,16 @@ export default async function StaffPage() {
                       <div className="font-medium">{s.full_name}</div>
                       <div className="text-sm text-muted-foreground truncate">{s.email}</div>
                       {s.phone && <div className="text-xs text-muted-foreground">{s.phone}</div>}
-                      {role && (
-                        <Badge variant="secondary" className={`mt-1 text-xs ${ROLE_COLOURS[role] ?? ""}`}>
-                          {ROLE_LABELS[role] ?? role}
-                        </Badge>
-                      )}
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {roles.map((role) => (
+                          <Badge key={role} variant="secondary" className={`text-xs ${ROLE_COLOURS[role] ?? ""}`}>
+                            {ROLE_LABELS[role] ?? role}
+                          </Badge>
+                        ))}
+                      </div>
                     </div>
                     <div className="flex flex-col gap-1">
-                      <EditStaffButton staff={s} />
+                      <EditStaffButton staff={{ ...s, roles }} />
                       <DeactivateStaffButton staffId={s.id} isActive={true} />
                     </div>
                   </CardContent>

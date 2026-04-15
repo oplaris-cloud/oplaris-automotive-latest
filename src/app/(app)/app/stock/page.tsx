@@ -17,6 +17,7 @@ import { EditStockButton, RecordMovementButton } from "./StockRowActions";
 import { WarrantyRowActions } from "../warranties/WarrantyRowActions";
 import { getStockLocations } from "../settings/stock/actions";
 import { StockTabs } from "./StockTabs";
+import { StockRealtime } from "@/lib/realtime/shims";
 
 function isExpired(d: string): boolean {
   return new Date(d) < new Date();
@@ -40,7 +41,7 @@ function claimBadge(status: string) {
 }
 
 export default async function StockPage() {
-  await requireManager();
+  const session = await requireManager();
   const supabase = await createSupabaseServerClient();
 
   const [{ data: items }, locations, { data: warranties }] = await Promise.all([
@@ -75,63 +76,127 @@ export default async function StockPage() {
           className="mt-6"
         />
       ) : (
-        <div className="mt-4 rounded-lg border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Item</TableHead>
-                <TableHead className="hidden sm:table-cell">SKU</TableHead>
-                <TableHead className="text-right">Qty</TableHead>
-                <TableHead className="hidden sm:table-cell text-right">Reorder</TableHead>
-                <TableHead className="hidden md:table-cell">Location</TableHead>
-                <TableHead className="text-right">Status</TableHead>
-                <TableHead className="w-20"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {(items ?? []).map((item) => {
-                const isLow =
-                  item.reorder_point != null &&
-                  item.quantity_on_hand <= item.reorder_point;
-                return (
-                  <TableRow key={item.id} className={isLow ? "bg-warning/5" : ""}>
-                    <TableCell className="font-medium">{item.description}</TableCell>
-                    <TableCell className="hidden font-mono text-sm text-muted-foreground sm:table-cell">
-                      {item.sku ?? "—"}
-                    </TableCell>
-                    <TableCell className="text-right font-mono">
-                      {item.quantity_on_hand}
-                    </TableCell>
-                    <TableCell className="hidden text-right text-sm text-muted-foreground sm:table-cell">
-                      {item.reorder_point ?? "—"}
-                    </TableCell>
-                    <TableCell className="hidden text-sm text-muted-foreground md:table-cell">
-                      {item.location ?? "—"}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {isLow ? (
-                        <Badge variant="outline" className="border-warning text-warning">
-                          <AlertTriangle className="mr-1 h-3 w-3" />
-                          Low
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline" className="border-success text-success">
-                          OK
-                        </Badge>
+        <>
+          {/* P38.2 — Mobile cards (<md) */}
+          <ul className="mt-4 space-y-2 md:hidden">
+            {(items ?? []).map((item) => {
+              const isLow =
+                item.reorder_point != null &&
+                item.quantity_on_hand <= item.reorder_point;
+              return (
+                <li
+                  key={item.id}
+                  className={`rounded-lg border bg-card p-4 ${
+                    isLow ? "border-warning/40 bg-warning/5" : ""
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="font-medium">{item.description}</div>
+                      {item.sku && (
+                        <div className="font-mono text-xs text-muted-foreground">
+                          {item.sku}
+                        </div>
                       )}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1">
-                        <EditStockButton item={item} locations={locations} />
-                        <RecordMovementButton itemId={item.id} />
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </div>
+                    </div>
+                    {isLow ? (
+                      <Badge
+                        variant="outline"
+                        className="border-warning text-warning"
+                      >
+                        <AlertTriangle className="mr-1 h-3 w-3" />
+                        Low
+                      </Badge>
+                    ) : (
+                      <Badge
+                        variant="outline"
+                        className="border-success text-success"
+                      >
+                        OK
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="mt-2 flex items-center gap-3 text-sm">
+                    <span className="font-mono">Qty {item.quantity_on_hand}</span>
+                    {item.reorder_point != null && (
+                      <span className="text-muted-foreground">
+                        reorder ≤ {item.reorder_point}
+                      </span>
+                    )}
+                    {item.location && (
+                      <span className="text-muted-foreground">
+                        · {item.location}
+                      </span>
+                    )}
+                  </div>
+                  <div className="mt-3 flex items-center gap-2">
+                    <EditStockButton item={item} locations={locations} />
+                    <RecordMovementButton itemId={item.id} />
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+
+          {/* Desktop table (md+) */}
+          <div className="mt-4 hidden rounded-lg border md:block">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Item</TableHead>
+                  <TableHead className="hidden sm:table-cell">SKU</TableHead>
+                  <TableHead className="text-right">Qty</TableHead>
+                  <TableHead className="hidden sm:table-cell text-right">Reorder</TableHead>
+                  <TableHead className="hidden md:table-cell">Location</TableHead>
+                  <TableHead className="text-right">Status</TableHead>
+                  <TableHead className="w-20"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {(items ?? []).map((item) => {
+                  const isLow =
+                    item.reorder_point != null &&
+                    item.quantity_on_hand <= item.reorder_point;
+                  return (
+                    <TableRow key={item.id} className={isLow ? "bg-warning/5" : ""}>
+                      <TableCell className="font-medium">{item.description}</TableCell>
+                      <TableCell className="hidden font-mono text-sm text-muted-foreground sm:table-cell">
+                        {item.sku ?? "—"}
+                      </TableCell>
+                      <TableCell className="text-right font-mono">
+                        {item.quantity_on_hand}
+                      </TableCell>
+                      <TableCell className="hidden text-right text-sm text-muted-foreground sm:table-cell">
+                        {item.reorder_point ?? "—"}
+                      </TableCell>
+                      <TableCell className="hidden text-sm text-muted-foreground md:table-cell">
+                        {item.location ?? "—"}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {isLow ? (
+                          <Badge variant="outline" className="border-warning text-warning">
+                            <AlertTriangle className="mr-1 h-3 w-3" />
+                            Low
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="border-success text-success">
+                            OK
+                          </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          <EditStockButton item={item} locations={locations} />
+                          <RecordMovementButton itemId={item.id} />
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
+        </>
       )}
     </>
   );
@@ -148,59 +213,118 @@ export default async function StockPage() {
       ) : (
         <>
           {activeWarranties.length > 0 && (
-            <div className="mt-4 rounded-lg border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Stock Item</TableHead>
-                    <TableHead>Supplier</TableHead>
-                    <TableHead className="hidden sm:table-cell">Ref</TableHead>
-                    <TableHead>Expires</TableHead>
-                    <TableHead>Claim</TableHead>
-                    <TableHead className="w-28"></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {activeWarranties.map((w) => {
-                    const stockItem = Array.isArray(w.stock_items) ? w.stock_items[0] : w.stock_items;
-                    const dl = daysUntil(w.expiry_date);
-                    return (
-                      <TableRow key={w.id} className={dl <= 30 ? "bg-warning/5" : ""}>
-                        <TableCell>
+            <>
+              {/* P38.2 — Mobile cards (<md) */}
+              <ul className="mt-4 space-y-2 md:hidden">
+                {activeWarranties.map((w) => {
+                  const stockItem = Array.isArray(w.stock_items)
+                    ? w.stock_items[0]
+                    : w.stock_items;
+                  const dl = daysUntil(w.expiry_date);
+                  return (
+                    <li
+                      key={w.id}
+                      className={`rounded-lg border bg-card p-4 ${
+                        dl <= 30 ? "border-warning/40 bg-warning/5" : ""
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
                           <div className="font-medium">
                             {(stockItem as { description: string } | null)?.description ?? "—"}
                           </div>
                           {(stockItem as { sku?: string | null } | null)?.sku && (
-                            <div className="text-xs text-muted-foreground font-mono">
+                            <div className="font-mono text-xs text-muted-foreground">
                               {(stockItem as { sku: string }).sku}
                             </div>
                           )}
-                        </TableCell>
-                        <TableCell className="text-sm">{w.supplier}</TableCell>
-                        <TableCell className="hidden text-sm text-muted-foreground sm:table-cell">
-                          {w.invoice_reference || "—"}
-                        </TableCell>
-                        <TableCell>
-                          {dl <= 30 ? (
-                            <Badge variant="outline" className="border-warning text-warning">
-                              <AlertTriangle className="mr-1 h-3 w-3" /> {dl}d
-                            </Badge>
-                          ) : (
-                            <Badge variant="outline" className="border-success text-success">
-                              <Shield className="mr-1 h-3 w-3" /> {dl}d
-                            </Badge>
+                          <div className="mt-1 text-sm">{w.supplier}</div>
+                          {w.invoice_reference && (
+                            <div className="text-xs text-muted-foreground">
+                              ref {w.invoice_reference}
+                            </div>
                           )}
-                        </TableCell>
-                        <TableCell>{claimBadge(w.claim_status)}</TableCell>
-                        <TableCell>
-                          <WarrantyRowActions warranty={w} />
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
+                        </div>
+                        {dl <= 30 ? (
+                          <Badge
+                            variant="outline"
+                            className="border-warning text-warning"
+                          >
+                            <AlertTriangle className="mr-1 h-3 w-3" /> {dl}d
+                          </Badge>
+                        ) : (
+                          <Badge
+                            variant="outline"
+                            className="border-success text-success"
+                          >
+                            <Shield className="mr-1 h-3 w-3" /> {dl}d
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="mt-2 flex items-center justify-between gap-2">
+                        {claimBadge(w.claim_status)}
+                        <WarrantyRowActions warranty={w} />
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+
+              {/* Desktop table (md+) */}
+              <div className="mt-4 hidden rounded-lg border md:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Stock Item</TableHead>
+                      <TableHead>Supplier</TableHead>
+                      <TableHead className="hidden sm:table-cell">Ref</TableHead>
+                      <TableHead>Expires</TableHead>
+                      <TableHead>Claim</TableHead>
+                      <TableHead className="w-28"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {activeWarranties.map((w) => {
+                      const stockItem = Array.isArray(w.stock_items) ? w.stock_items[0] : w.stock_items;
+                      const dl = daysUntil(w.expiry_date);
+                      return (
+                        <TableRow key={w.id} className={dl <= 30 ? "bg-warning/5" : ""}>
+                          <TableCell>
+                            <div className="font-medium">
+                              {(stockItem as { description: string } | null)?.description ?? "—"}
+                            </div>
+                            {(stockItem as { sku?: string | null } | null)?.sku && (
+                              <div className="text-xs text-muted-foreground font-mono">
+                                {(stockItem as { sku: string }).sku}
+                              </div>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-sm">{w.supplier}</TableCell>
+                          <TableCell className="hidden text-sm text-muted-foreground sm:table-cell">
+                            {w.invoice_reference || "—"}
+                          </TableCell>
+                          <TableCell>
+                            {dl <= 30 ? (
+                              <Badge variant="outline" className="border-warning text-warning">
+                                <AlertTriangle className="mr-1 h-3 w-3" /> {dl}d
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="border-success text-success">
+                                <Shield className="mr-1 h-3 w-3" /> {dl}d
+                              </Badge>
+                            )}
+                          </TableCell>
+                          <TableCell>{claimBadge(w.claim_status)}</TableCell>
+                          <TableCell>
+                            <WarrantyRowActions warranty={w} />
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
           )}
 
           {expiredWarranties.length > 0 && (
@@ -244,6 +368,7 @@ export default async function StockPage() {
 
   return (
     <div>
+      <StockRealtime garageId={session.garageId} />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold">Stock & Warranties</h1>

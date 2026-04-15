@@ -45,50 +45,54 @@ export function NewCustomerForm() {
 
   return (
     <form onSubmit={handleSubmit} className="mt-6 space-y-5">
-      <div>
-        <Label htmlFor="fullName" required>Full Name</Label>
-        <Input id="fullName" name="fullName" required className="mt-1" />
-        {fieldErrors.fullName && (
-          <p className="mt-1 text-sm text-destructive">{fieldErrors.fullName}</p>
-        )}
-      </div>
-
-      <div>
-        <Label htmlFor="phone" required>Phone</Label>
-        <Input
-          id="phone"
-          name="phone"
-          type="tel"
-          required
-          placeholder="+44 7700 900123"
-          className="mt-1"
-        />
-        {fieldErrors.phone && (
-          <p className="mt-1 text-sm text-destructive">{fieldErrors.phone}</p>
-        )}
+      {/* P38.4 — pair Name + Phone, Address1 + Address2, Postcode + Email
+          on sm+; stack on mobile. */}
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+        <div>
+          <Label htmlFor="fullName" required>Full Name</Label>
+          <Input id="fullName" name="fullName" required className="mt-1 w-full" />
+          {fieldErrors.fullName && (
+            <p className="mt-1 text-sm text-destructive">{fieldErrors.fullName}</p>
+          )}
+        </div>
+        <div>
+          <Label htmlFor="phone" required>Phone</Label>
+          <Input
+            id="phone"
+            name="phone"
+            type="tel"
+            required
+            placeholder="+44 7700 900123"
+            className="mt-1 w-full"
+          />
+          {fieldErrors.phone && (
+            <p className="mt-1 text-sm text-destructive">{fieldErrors.phone}</p>
+          )}
+        </div>
       </div>
 
       <div>
         <Label htmlFor="email" optional>Email</Label>
-        <Input id="email" name="email" type="email" className="mt-1" />
+        <Input id="email" name="email" type="email" className="mt-1 w-full" />
         {fieldErrors.email && (
           <p className="mt-1 text-sm text-destructive">{fieldErrors.email}</p>
         )}
       </div>
 
-      <div>
-        <Label htmlFor="addressLine1" optional>Address Line 1</Label>
-        <Input id="addressLine1" name="addressLine1" className="mt-1" />
-      </div>
-
-      <div>
-        <Label htmlFor="addressLine2" optional>Address Line 2</Label>
-        <Input id="addressLine2" name="addressLine2" className="mt-1" />
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+        <div>
+          <Label htmlFor="addressLine1" optional>Address Line 1</Label>
+          <Input id="addressLine1" name="addressLine1" className="mt-1 w-full" />
+        </div>
+        <div>
+          <Label htmlFor="addressLine2" optional>Address Line 2</Label>
+          <Input id="addressLine2" name="addressLine2" className="mt-1 w-full" />
+        </div>
       </div>
 
       <div>
         <Label htmlFor="postcode" optional>Postcode</Label>
-        <Input id="postcode" name="postcode" className="mt-1" placeholder="B1 1AA" />
+        <Input id="postcode" name="postcode" className="mt-1 w-full sm:max-w-xs" placeholder="B1 1AA" />
       </div>
 
       <div>
@@ -98,7 +102,7 @@ export function NewCustomerForm() {
           name="notes"
           rows={3}
           placeholder="Any notes about this customer…"
-          className="mt-1"
+          className="mt-1 w-full"
         />
       </div>
 
@@ -108,16 +112,17 @@ export function NewCustomerForm() {
         </p>
       )}
 
-      <div className="flex gap-3">
-        <Button type="submit" disabled={isPending}>
-          {isPending ? "Adding…" : "Add Customer"}
-        </Button>
+      <div className="flex flex-col-reverse gap-3 sm:flex-row">
         <Button
           type="button"
           variant="outline"
+          className="w-full sm:w-auto"
           onClick={() => router.push("/app/customers")}
         >
           Cancel
+        </Button>
+        <Button type="submit" disabled={isPending} className="w-full sm:w-auto">
+          {isPending ? "Adding…" : "Add Customer"}
         </Button>
       </div>
     </form>

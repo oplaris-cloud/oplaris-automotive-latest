@@ -130,32 +130,33 @@ export function NewJobForm({
         )}
       </div>
 
-      {/* Bay (optional) */}
-      <div>
-        <Label htmlFor="bayId" optional>Bay</Label>
-        <select
-          id="bayId"
-          name="bayId"
-          className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus:border-ring focus:ring-2 focus:ring-ring focus:outline-none"
-        >
-          <option value="">No bay assigned</option>
-          {bays.map((b) => (
-            <option key={b.id} value={b.id}>
-              {b.name}
-            </option>
-          ))}
-        </select>
-      </div>
+      {/* P38.4 — Bay + ETA pair on sm+, stack on mobile. */}
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+        <div>
+          <Label htmlFor="bayId" optional>Bay</Label>
+          <select
+            id="bayId"
+            name="bayId"
+            className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus:border-ring focus:ring-2 focus:ring-ring focus:outline-none"
+          >
+            <option value="">No bay assigned</option>
+            {bays.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.name}
+              </option>
+            ))}
+          </select>
+        </div>
 
-      {/* Estimated ready */}
-      <div>
-        <Label htmlFor="estimatedReadyAt" optional>Estimated Ready</Label>
-        <Input
-          id="estimatedReadyAt"
-          name="estimatedReadyAt"
-          type="datetime-local"
-          className="mt-1"
-        />
+        <div>
+          <Label htmlFor="estimatedReadyAt" optional>Estimated Ready</Label>
+          <Input
+            id="estimatedReadyAt"
+            name="estimatedReadyAt"
+            type="datetime-local"
+            className="mt-1 w-full"
+          />
+        </div>
       </div>
 
       {/* Description */}
@@ -176,16 +177,17 @@ export function NewJobForm({
         </p>
       )}
 
-      <div className="flex gap-3">
-        <Button type="submit" disabled={isPending}>
-          {isPending ? "Creating…" : "Create Job"}
-        </Button>
+      <div className="flex flex-col-reverse gap-3 sm:flex-row">
         <Button
           type="button"
           variant="outline"
+          className="w-full sm:w-auto"
           onClick={() => router.push("/app/jobs")}
         >
           Cancel
+        </Button>
+        <Button type="submit" disabled={isPending} className="w-full sm:w-auto">
+          {isPending ? "Creating…" : "Create Job"}
         </Button>
       </div>
     </form>

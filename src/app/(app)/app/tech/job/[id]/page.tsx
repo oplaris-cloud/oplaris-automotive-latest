@@ -5,6 +5,8 @@ import { ArrowLeft } from "lucide-react";
 import { requireStaffSession } from "@/lib/auth/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { TechJobClient } from "./TechJobClient";
+import { JobActivity } from "@/app/(app)/app/jobs/[id]/JobActivity";
+import { JobDetailRealtime } from "@/lib/realtime/shims";
 
 interface TechJobDetailProps {
   params: Promise<{ id: string }>;
@@ -31,37 +33,23 @@ export default async function TechJobDetailPage({ params }: TechJobDetailProps) 
   const customer = Array.isArray(job.customers) ? job.customers[0] : job.customers;
   const vehicle = Array.isArray(job.vehicles) ? job.vehicles[0] : job.vehicles;
 
-  // Get active work log for this user
+  // Only the viewer's own active log — drives the tech UI's
+  // start/pause/resume/complete flow. P55 adds paused_at (non-null iff
+  // the log is paused RIGHT NOW) + paused_seconds_total (accumulated
+  // over prior pauses) so the timer can freeze + show the right button
+  // set without another round-trip. Everyone else's activity comes
+  // from JobActivity's unified feed.
   const { data: activeLog } = await supabase
     .from("work_logs")
-    .select("id, task_type, started_at")
+    .select("id, task_type, started_at, paused_at, paused_seconds_total")
     .eq("staff_id", session.userId)
     .eq("job_id", id)
     .is("ended_at", null)
     .maybeSingle();
 
-  // Get all work logs for this job
-  const { data: workLogsRaw } = await supabase
-    .from("work_logs")
-    .select("id, task_type, description, started_at, ended_at, duration_seconds, staff:staff!staff_id ( full_name )")
-    .eq("job_id", id)
-    .order("started_at", { ascending: false });
-
-  const workLogs = (workLogsRaw ?? []).map((wl) => {
-    const staff = Array.isArray(wl.staff) ? wl.staff[0] : wl.staff;
-    return {
-      id: wl.id,
-      task_type: wl.task_type,
-      description: wl.description,
-      started_at: wl.started_at,
-      ended_at: wl.ended_at,
-      duration_seconds: wl.duration_seconds,
-      staff_name: (staff as { full_name: string } | null)?.full_name ?? "Unknown",
-    };
-  });
-
   return (
     <div className="mx-auto max-w-lg pb-8">
+      <JobDetailRealtime jobId={job.id} />
       <Link
         href="/app/tech"
         className="mb-4 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
@@ -83,8 +71,14 @@ export default async function TechJobDetailPage({ params }: TechJobDetailProps) 
         customerName={(customer as { full_name: string } | null)?.full_name ?? null}
         customerPhone={(customer as { phone: string } | null)?.phone ?? null}
         activeWorkLog={activeLog}
-        workLogs={workLogs}
       />
+
+      {/* P54 — Unified activity feed. Absorbs the P49 "currently working"
+          panel (running sessions pin to the top) and the tech UI's old
+          Work History block. */}
+      <div className="mt-6">
+        <JobActivity jobId={job.id} audience="staff" />
+      </div>
     </div>
   );
 }

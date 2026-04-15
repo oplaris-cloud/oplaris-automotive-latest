@@ -87,11 +87,30 @@ export async function setupFixtures(): Promise<void> {
     ] as const;
     for (const [id, garage, role] of roles) {
       await c.query(
+        // Migration 025 promoted (staff_id, role) to the composite PK, so
+        // the ON CONFLICT target must match that shape.
         `insert into private.staff_roles (staff_id, garage_id, role)
-         values ($1,$2,$3::private.staff_role) on conflict (staff_id) do nothing`,
+         values ($1,$2,$3::private.staff_role)
+         on conflict (staff_id, role) do nothing`,
         [id, garage, role],
       );
     }
+
+    // Mirror the role assignments into public.staff.roles — production
+    // writes both rows (settings/staff/actions.ts), RLS helpers read
+    // from private.staff_roles, but direct server-side queries over
+    // staff (e.g. getStaffAvailability, the P53 override_job_handler
+    // role check) read staff.roles. Keep them in sync for fixtures.
+    await c.query(
+      `update public.staff s
+          set roles = sub.roles
+         from (
+           select staff_id, array_agg(role::text) as roles
+             from private.staff_roles
+            group by staff_id
+         ) sub
+        where s.id = sub.staff_id`,
+    );
 
     // Customer + vehicle + job in each garage
     await c.query(

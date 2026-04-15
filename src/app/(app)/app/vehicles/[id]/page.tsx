@@ -13,7 +13,7 @@ import {
   History,
 } from "lucide-react";
 
-import { requireManagerOrTester } from "@/lib/auth/session";
+import { requireManager } from "@/lib/auth/session";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +22,7 @@ import { CarImage } from "@/components/ui/car-image";
 import { getVehicleDetail } from "../actions";
 import { MotHistorySection } from "./MotHistorySection";
 import { DeleteVehicleButton } from "./DeleteVehicleButton";
+import { VehicleDetailRealtime } from "@/lib/realtime/shims";
 import type { JobStatus } from "@/lib/validation/job-schemas";
 
 interface VehicleDetailProps {
@@ -29,7 +30,7 @@ interface VehicleDetailProps {
 }
 
 export default async function VehicleDetailPage({ params }: VehicleDetailProps) {
-  await requireManagerOrTester();
+  await requireManager();
   const { id } = await params;
   const { vehicle, jobs, motHistory, error } = await getVehicleDetail(id);
 
@@ -44,6 +45,7 @@ export default async function VehicleDetailPage({ params }: VehicleDetailProps) 
 
   return (
     <div className="max-w-4xl">
+      <VehicleDetailRealtime vehicleId={vehicle.id} />
       {/* Hero card with car image */}
       <Card className="overflow-hidden">
         <div className="relative bg-gradient-to-br from-muted/40 to-muted/80 p-6">

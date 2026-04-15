@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
-import { requireManagerOrTester } from "@/lib/auth/session";
+import { requireManager } from "@/lib/auth/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { normaliseRegistration } from "@/lib/validation/registration";
 import {
@@ -21,7 +21,7 @@ import type { ActionResult } from "../actions";
 export async function createVehicle(
   input: CreateVehicleInput,
 ): Promise<ActionResult> {
-  const session = await requireManagerOrTester();
+  const session = await requireManager();
   const parsed = createVehicleSchema.safeParse(input);
   if (!parsed.success) {
     const fieldErrors: Record<string, string> = {};
@@ -75,7 +75,7 @@ export async function createVehicle(
 export async function updateVehicle(
   input: UpdateVehicleInput,
 ): Promise<ActionResult> {
-  await requireManagerOrTester();
+  await requireManager();
   const parsed = updateVehicleSchema.safeParse(input);
   if (!parsed.success) {
     return { ok: false, error: "Validation failed" };
@@ -125,7 +125,7 @@ export async function updateVehicle(
 export async function softDeleteVehicle(
   vehicleId: string,
 ): Promise<ActionResult> {
-  await requireManagerOrTester();
+  await requireManager();
 
   if (!vehicleId || !/^[0-9a-f-]{36}$/.test(vehicleId)) {
     return { ok: false, error: "Invalid vehicle ID" };

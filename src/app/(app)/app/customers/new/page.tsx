@@ -1,8 +1,8 @@
-import { requireManagerOrTester } from "@/lib/auth/session";
+import { requireManager } from "@/lib/auth/session";
 import { NewCustomerForm } from "./NewCustomerForm";
 
 export default async function NewCustomerPage() {
-  await requireManagerOrTester();
+  await requireManager();
 
   return (
     <div className="max-w-xl">

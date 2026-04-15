@@ -17,12 +17,19 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 
+const ROLES = [
+  { value: "manager", label: "Manager" },
+  { value: "mot_tester", label: "MOT Tester" },
+  { value: "mechanic", label: "Mechanic" },
+] as const;
+
 interface EditStaffButtonProps {
   staff: {
     id: string;
     full_name: string;
     email: string;
     phone: string | null;
+    roles: string[];
   };
 }
 
@@ -31,6 +38,18 @@ export function EditStaffButton({ staff }: EditStaffButtonProps) {
   const [isPending, startTransition] = useTransition();
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedRoles, setSelectedRoles] = useState<string[]>(staff.roles);
+
+  function toggleRole(role: string) {
+    setSelectedRoles((prev) => {
+      if (prev.includes(role)) {
+        // Don't allow removing the last role
+        if (prev.length === 1) return prev;
+        return prev.filter((r) => r !== role);
+      }
+      return [...prev, role];
+    });
+  }
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -42,6 +61,7 @@ export function EditStaffButton({ staff }: EditStaffButtonProps) {
         staffId: staff.id,
         fullName: (form.get("fullName") as string) || undefined,
         phone: (form.get("phone") as string) || "",
+        roles: selectedRoles as ("manager" | "mot_tester" | "mechanic")[],
       });
       if (!result.ok) { setError(result.error ?? "Failed"); return; }
       setOpen(false);
@@ -50,7 +70,13 @@ export function EditStaffButton({ staff }: EditStaffButtonProps) {
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(isOpen) => {
+        setOpen(isOpen);
+        if (isOpen) setSelectedRoles(staff.roles);
+      }}
+    >
       <DialogTrigger className="rounded p-1 text-muted-foreground hover:bg-accent" title="Edit staff">
         <Pencil className="h-4 w-4" />
       </DialogTrigger>
@@ -71,6 +97,25 @@ export function EditStaffButton({ staff }: EditStaffButtonProps) {
             <Label>Email</Label>
             <Input value={staff.email} disabled className="mt-1 opacity-60" />
             <p className="mt-1 text-xs text-muted-foreground">Email cannot be changed after creation.</p>
+          </div>
+          <div>
+            <Label required>Roles</Label>
+            <div className="mt-1 flex flex-col gap-2">
+              {ROLES.map((r) => (
+                <label key={r.value} className="flex items-center gap-2 text-sm cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={selectedRoles.includes(r.value)}
+                    onChange={() => toggleRole(r.value)}
+                    className="h-4 w-4 rounded border-input"
+                  />
+                  {r.label}
+                </label>
+              ))}
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              User must re-login for role changes to take effect.
+            </p>
           </div>
           {error && <p className="text-sm text-destructive">{error}</p>}
           <DialogFooter>

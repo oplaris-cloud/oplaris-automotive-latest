@@ -67,7 +67,7 @@ export function MotHistorySection({
         <button
           onClick={handleRefresh}
           disabled={isPending}
-          className="inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors hover:bg-accent disabled:opacity-50"
+          className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors hover:bg-accent disabled:opacity-50"
         >
           <RefreshCw
             className={`h-4 w-4 ${isPending ? "animate-spin" : ""}`}
@@ -158,18 +158,18 @@ export function MotHistorySection({
 
                   {expanded && defects.length > 0 && (
                     <div className="border-t px-4 py-3">
-                      <div className="space-y-1.5">
+                      <div className="space-y-2">
                         {defects.map((d, di) => (
                           <div
                             key={di}
                             className="flex items-start gap-2 text-sm"
                           >
                             {d.dangerous ? (
-                              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+                              <AlertTriangle className="mt-1 h-4 w-4 shrink-0 text-destructive" />
                             ) : d.type?.toLowerCase().includes("major") ? (
-                              <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
+                              <XCircle className="mt-1 h-4 w-4 shrink-0 text-warning" />
                             ) : (
-                              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                              <AlertTriangle className="mt-1 h-4 w-4 shrink-0 text-muted-foreground" />
                             )}
                             <span>
                               {d.text}

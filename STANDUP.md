@@ -2,6 +2,46 @@
 
 ---
 
+## Wed 15 Apr 2026 — Daily Standup
+
+**Yesterday:** Phase 2 closed end-to-end. P51 pass-back-as-event (migrations 033/033b + RPCs + mechanic pull queue + timeline chip), P52 job-detail header reorg, P50 universal realtime (migration 035, shared `useRealtimeRouterRefresh` hook across 14 staff surfaces + status-page polling), P46 assign-tech modal polish, P38 mobile-first responsive pass, P53 override-handler command palette (migration 037 + atomic RPC), P54 unified Job Activity timeline (migration 036 + `set_job_status` RPC + customer-facing feed), P55 real pause/resume with worked-time accounting (migration 038). Today: Phase 3 kicked off — V1 theming infrastructure (migrations 039/040/041, brand columns + logos bucket + the silently-missing `garages` UPDATE policy, OKLCH token injection, Settings → Branding page) and P56.0 spacing scale + density primitives (codemod rewrote 100 off-grid tokens across 39 files, new `<Section>` / `<Stack>` / `Card size` primitives, `pnpm lint:spacing` gate). 180/180 unit + 82/82 RLS green.
+
+**Today:** STAGING_SMS_BYPASS standalone, then P56.2 (forms + `<FormCard>` / `<FormActions>`). Commit the full P51→P56.0 + V1 changeset before continuing — 190 files dirty, 0 commits since `c44a5bb` on 2026-04-13, two days stale and growing.
+
+**Blockers:** Massive uncommitted changeset (190 files, 5 new migrations 039–043 already pushed to remote DB) is the only real risk. No external blockers.
+
+**Decision from Hossein:** Commit strategy — one omnibus commit covering P51–P55 + V1 + P56.0, or split per-feature? Recommend per-feature for reviewability; need confirmation before splitting.
+
+**Calendar:** Original M1 = Thu 16 Apr (tomorrow), M2 = Thu 23 Apr (8 days). Both superseded by 2026-04-14 quality-over-deadline decision. NOT flagged overdue under the new policy.
+
+---
+
+## Tue 14 Apr 2026 — Daily Standup
+
+**Yesterday:** Phase 1 kickoff. P47 check-in routing landed: three `026_p47_*` migrations (enum `awaiting_mechanic`, routing policy, insert_passback_booking RPC), `PassbackDialog`, `ResumeMotButton`, `jobs/passback/actions.ts`, 11-item passback constants. Role-scoped sidebar + nav + `session.ts` refactored for multi-role (P48). `ROLE_TEST_PLAN.md` created. Two pre-seeded defects CLOSED: D1 (work_logs RLS — migration 015 had never been pushed to live DB) and D3 (bookings promote — migrations 016 + 018 same drift). All live-DB drift fixed via Supabase MCP `apply_migration`. Also backfilled missing `private.staff_roles` row for Hossein.
+
+**Today:** 52 files modified, zero commits since `c44a5bb` (2 days stale). Commit the P47 + sidebar + defect-fix work first, then begin the manager-role walkthrough against live Supabase per `ROLE_TEST_PLAN.md`. D2 (title-edit layout shift) still OPEN — decide whether to fold into P36 scope or fix standalone.
+
+**Blockers:** Large uncommitted changeset at risk until committed. No external blockers.
+
+**Decision from Hossein:** None pending. Priority reorder (no-deadline quality bar) locked 2026-04-14.
+
+**Calendar:** Original M1 = Thu 16 Apr (2 days out), superseded by 2026-04-14 decision. Not flagged overdue — ship-when-ready applies.
+
+---
+
+## Mon 13 Apr 2026 — Daily Standup
+
+**Yesterday:** Two commits landed — "Part D complete" (invoices, charges, warranties rework, stock locations, staff mgmt, UX polish) and "P9+P12" (edit job details, bay/tech assignment, add/delete parts). 72 files changed, ~6k lines net. Feature code is now substantially complete across all M2 items (M2.1-M2.5 done).
+
+**Today:** Three items remain before M1 go-live (Thu 16 Apr, 3 days out): (1) Fluent Forms real import, (2) backups verified, (3) staging deploy. M2.6 (mobile UX polish + accessibility) and M2.7 (admin guide) still open. PRE-DEPLOY test pass partially done — migrations 012+013 pending DB apply, 4 known open items from Run 2 (assertPasswordNotPwned zero callers, kiosk rate limit, kiosk profanity filter, STATUS_PHONE_PEPPER key separation). UI AUDIT_PROMPT tracker not updated — all phases show PENDING despite code existing.
+
+**Blockers:** Production Supabase creds still needed for staging deploy. Cannot verify backups or run T13 dynamic tests without live DB.
+
+**Decision needed from Hossein:** Are the self-hosted Supabase URL + service-role key available for staging deploy this week? M1 deadline is Thu 16 Apr — deploy prep must start by Wed at latest.
+
+---
+
 ## Fri 10 Apr 2026 — Daily Standup
 
 **Yesterday:** Planning pack committed (requirements, CLAUDE.md, BACKEND_SPEC, audit prompts, design system). Substantial development work in working tree: repo scaffold, 4 migrations (schema/RLS/helpers/seed), Server Actions, test harness — all uncommitted.

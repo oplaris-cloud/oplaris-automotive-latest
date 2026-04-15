@@ -2,12 +2,13 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2, Calculator, FileText, Send } from "lucide-react";
+import { Plus, Pencil, Trash2, Calculator, FileText, Send } from "lucide-react";
 
 import {
   addCharge,
+  updateCharge,
   removeCharge,
-  calculateLabourFromLogs,
+  suggestLabourFromLogs,
   markAsQuoted,
   markAsInvoiced,
 } from "../charges/actions";
@@ -51,10 +52,20 @@ function lineTotal(c: Charge): number {
   return Math.round(Number(c.quantity) * c.unit_price_pence);
 }
 
+interface PrefillCharge {
+  chargeType: "labour" | "part" | "other";
+  description: string;
+  quantity: number;
+  unitPricePence: number;
+}
+
 export function ChargesSection({ jobId, charges, invoice }: ChargesSectionProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  // P40: opening the AddChargeDialog with a labour suggestion pre-filled.
+  // Manager can edit any field before saving.
+  const [chargePrefill, setChargePrefill] = useState<PrefillCharge | null>(null);
 
   const subtotal = charges.reduce((sum, c) => sum + lineTotal(c), 0);
   const vat = Math.round(subtotal * 0.2);
@@ -70,22 +81,22 @@ export function ChargesSection({ jobId, charges, invoice }: ChargesSectionProps)
     });
   }
 
-  function handleCalculateLabour() {
+  function handleSuggestLabour() {
     setError(null);
     startTransition(async () => {
-      const result = await calculateLabourFromLogs(jobId);
+      const result = await suggestLabourFromLogs(jobId);
       if (!result.ok) {
         setError(result.error ?? "No work logs found");
         return;
       }
-      await addCharge({
-        jobId,
+      // Open the AddChargeDialog with the suggestion pre-filled — the
+      // manager confirms (or edits) before any DB write.
+      setChargePrefill({
         chargeType: "labour",
-        description: `Labour (${result.hours} hrs @ ${pence(result.ratePence!)}/hr)`,
-        quantity: result.hours!,
-        unitPricePence: result.ratePence!,
+        description: result.description ?? "Labour",
+        quantity: result.hours ?? 1,
+        unitPricePence: result.ratePence ?? 7500,
       });
-      router.refresh();
     });
   }
 
@@ -116,8 +127,12 @@ export function ChargesSection({ jobId, charges, invoice }: ChargesSectionProps)
         </div>
         {isDraft && (
           <div className="flex gap-2">
-            <AddChargeDialog jobId={jobId} />
-            <Button size="sm" variant="outline" className="gap-1" onClick={handleCalculateLabour} disabled={isPending}>
+            <AddChargeDialog
+              jobId={jobId}
+              prefill={chargePrefill}
+              onClose={() => setChargePrefill(null)}
+            />
+            <Button size="sm" variant="outline" className="gap-1" onClick={handleSuggestLabour} disabled={isPending}>
               <Calculator className="h-3.5 w-3.5" /> Labour from logs
             </Button>
           </div>
@@ -150,15 +165,19 @@ export function ChargesSection({ jobId, charges, invoice }: ChargesSectionProps)
               <div className="col-span-2 text-right font-mono">{Number(c.quantity)}</div>
               <div className="col-span-2 text-right font-mono">{pence(c.unit_price_pence)}</div>
               <div className="col-span-1 text-right font-mono font-medium">{pence(lineTotal(c))}</div>
-              <div className="col-span-1 text-right">
+              <div className="col-span-1 flex justify-end gap-1">
                 {isDraft && (
-                  <button
-                    onClick={() => handleRemove(c.id)}
-                    disabled={isPending}
-                    className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
+                  <>
+                    <EditChargeButton charge={c} />
+                    <button
+                      onClick={() => handleRemove(c.id)}
+                      disabled={isPending}
+                      className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
+                      aria-label="Delete charge"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </>
                 )}
               </div>
             </div>
@@ -215,27 +234,45 @@ export function ChargesSection({ jobId, charges, invoice }: ChargesSectionProps)
 // Add Charge Dialog
 // ------------------------------------------------------------------
 
-function AddChargeDialog({ jobId }: { jobId: string }) {
+interface AddChargePrefill {
+  chargeType: "labour" | "part" | "other";
+  description: string;
+  quantity: number;
+  unitPricePence: number;
+}
+
+// ------------------------------------------------------------------
+// P39.3 — Edit existing charge
+// ------------------------------------------------------------------
+
+function EditChargeButton({ charge }: { charge: Charge }) {
   const router = useRouter();
-  const [isPending, startTransition] = useTransition();
   const [open, setOpen] = useState(false);
+  const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
     const form = new FormData(e.currentTarget);
+    const description = ((form.get("description") as string) ?? "").trim();
+    if (!description) {
+      setError("Description is required");
+      return;
+    }
     const priceStr = form.get("unitPrice") as string;
 
     startTransition(async () => {
-      const result = await addCharge({
-        jobId,
-        chargeType: (form.get("chargeType") as "part" | "labour" | "other") ?? "other",
-        description: (form.get("description") as string) ?? "",
+      const result = await updateCharge({
+        chargeId: charge.id,
+        description,
         quantity: Number(form.get("quantity") || 1),
         unitPricePence: priceStr ? Math.round(parseFloat(priceStr) * 100) : 0,
       });
-      if (!result.ok) { setError(result.error ?? "Failed"); return; }
+      if (!result.ok) {
+        setError(result.error ?? "Failed");
+        return;
+      }
       setOpen(false);
       router.refresh();
     });
@@ -243,34 +280,195 @@ function AddChargeDialog({ jobId }: { jobId: string }) {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger
+        render={
+          <button
+            type="button"
+            className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+            aria-label="Edit charge"
+          />
+        }
+      >
+        <Pencil className="h-3.5 w-3.5" />
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Edit Charge</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <div>
+            <Label required>Description</Label>
+            <Input
+              name="description"
+              defaultValue={charge.description}
+              required
+              className="mt-1"
+            />
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <Label required>Quantity</Label>
+              <Input
+                name="quantity"
+                type="number"
+                step="0.01"
+                min="0.01"
+                required
+                defaultValue={Number(charge.quantity)}
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label required>Unit Price (£)</Label>
+              <Input
+                name="unitPrice"
+                type="number"
+                step="0.01"
+                min="0"
+                required
+                defaultValue={(charge.unit_price_pence / 100).toFixed(2)}
+                className="mt-1"
+              />
+            </div>
+          </div>
+          {error ? <p className="text-sm text-destructive">{error}</p> : null}
+          <DialogFooter>
+            <Button type="submit" size="sm" disabled={isPending}>
+              {isPending ? "Saving…" : "Save"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function AddChargeDialog({
+  jobId,
+  prefill,
+  onClose,
+}: {
+  jobId: string;
+  /** When set, the dialog opens pre-filled (e.g. from "Labour from logs"). */
+  prefill?: AddChargePrefill | null;
+  onClose?: () => void;
+}) {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  // Internal open state for the manual "Add Charge" path. The pre-fill
+  // path is controlled entirely by the parent — when `prefill` is set
+  // the dialog is open; clearing it (via `onClose`) closes the dialog.
+  const [internalOpen, setInternalOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const open = prefill ? true : internalOpen;
+
+  function close() {
+    setInternalOpen(false);
+    onClose?.();
+  }
+
+  function handleOpenChange(next: boolean) {
+    if (!next) close();
+    else setInternalOpen(true);
+  }
+
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setError(null);
+    const form = new FormData(e.currentTarget);
+    const priceStr = form.get("unitPrice") as string;
+    const description = ((form.get("description") as string) ?? "").trim();
+
+    if (!description) {
+      setError("Description is required");
+      return;
+    }
+
+    startTransition(async () => {
+      const result = await addCharge({
+        jobId,
+        chargeType: (form.get("chargeType") as "part" | "labour" | "other") ?? "other",
+        description,
+        quantity: Number(form.get("quantity") || 1),
+        unitPricePence: priceStr ? Math.round(parseFloat(priceStr) * 100) : 0,
+      });
+      if (!result.ok) { setError(result.error ?? "Failed"); return; }
+      close();
+      router.refresh();
+    });
+  }
+
+  // Pre-fill values fall back to friendly defaults.
+  const initialType = prefill?.chargeType ?? "labour";
+  const initialDescription = prefill?.description ?? "";
+  const initialQuantity = prefill?.quantity ?? 1;
+  const initialUnitPrice =
+    prefill?.unitPricePence != null ? (prefill.unitPricePence / 100).toFixed(2) : "";
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger render={<Button size="sm" variant="outline" className="gap-1" />}>
         <Plus className="h-3.5 w-3.5" /> Add Charge
       </DialogTrigger>
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle>Add Charge</DialogTitle>
+          <DialogTitle>{prefill ? "Add Labour Charge" : "Add Charge"}</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-3">
+        {/* `key` forces React to remount the form when the prefill arrives,
+            so the defaultValues actually take effect. */}
+        <form
+          key={prefill ? `prefill-${prefill.description}-${prefill.quantity}` : "blank"}
+          onSubmit={handleSubmit}
+          className="space-y-3"
+        >
           <div>
             <Label required>Type</Label>
-            <select name="chargeType" className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+            <select
+              name="chargeType"
+              defaultValue={initialType}
+              className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            >
               <option value="labour">Labour</option>
               <option value="part">Part</option>
               <option value="other">Other</option>
             </select>
           </div>
           <div>
-            <Label optional>Description</Label>
-            <Input name="description" placeholder="e.g. Diagnostic + repair" className="mt-1" />
+            <Label required>Description</Label>
+            <Input
+              name="description"
+              defaultValue={initialDescription}
+              required
+              placeholder="e.g. Diagnostic + repair"
+              className="mt-1"
+            />
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <Label required>Quantity</Label>
-              <Input name="quantity" type="number" step="0.01" min="0.01" required defaultValue="1" className="mt-1" />
+              <Input
+                name="quantity"
+                type="number"
+                step="0.01"
+                min="0.01"
+                required
+                defaultValue={initialQuantity}
+                className="mt-1"
+              />
             </div>
             <div>
               <Label required>Unit Price (£)</Label>
-              <Input name="unitPrice" type="number" step="0.01" min="0" required placeholder="e.g. 75.00" className="mt-1" />
+              <Input
+                name="unitPrice"
+                type="number"
+                step="0.01"
+                min="0"
+                required
+                defaultValue={initialUnitPrice}
+                placeholder="e.g. 75.00"
+                className="mt-1"
+              />
             </div>
           </div>
           {error && <p className="text-sm text-destructive">{error}</p>}

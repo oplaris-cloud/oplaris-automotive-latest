@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Car, Shield } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -22,7 +22,41 @@ export default function StatusPage() {
     label: string;
     estimatedReady: string | null;
     jobNumber: string;
+    timeline?: Array<{
+      eventId: string;
+      kind: string;
+      at: string;
+      line: string;
+      detail: string | null;
+    }>;
   } | null>(null);
+
+  // P50.7 — keep the customer's view live without a manual refresh.
+  // The status page is anonymous (no Supabase JWT) so we can't use the
+  // postgres_changes WS — RLS on the underlying tables denies anon reads.
+  // Instead we poll the signed-session-scoped /api/status/state endpoint
+  // every 4 s while the status panel is open. The endpoint is HMAC-gated
+  // (rule #8) so only the verified customer can read their own job, and
+  // the response carries no UUIDs the client could use to escalate.
+  useEffect(() => {
+    if (step !== "status") return;
+    let cancelled = false;
+    const tick = async (): Promise<void> => {
+      try {
+        const r = await fetch("/api/status/state", { cache: "no-store" });
+        if (!r.ok) return;
+        const data = await r.json();
+        if (!cancelled) setStatusData(data);
+      } catch {
+        // Network blip — try again on the next tick.
+      }
+    };
+    const iv = setInterval(tick, 4_000);
+    return () => {
+      cancelled = true;
+      clearInterval(iv);
+    };
+  }, [step]);
 
   async function handleRequestCode(e: React.FormEvent) {
     e.preventDefault();
@@ -126,7 +160,7 @@ export default function StatusPage() {
               </Button>
             </form>
             <div className="mt-4 flex items-start gap-2 rounded-lg bg-muted p-3 text-xs text-muted-foreground">
-              <Shield className="mt-0.5 h-4 w-4 shrink-0" />
+              <Shield className="mt-1 h-4 w-4 shrink-0" />
               <span>
                 We&apos;ll send a one-time code to the phone number on your
                 account. Your data is only stored for the duration of your
@@ -214,6 +248,46 @@ export default function StatusPage() {
                     </strong>
                   </div>
                 )}
+
+                {/* P54 — Curated activity feed for the customer. Updates on
+                    the 4 s poll that's already driving status. */}
+                {statusData.timeline && statusData.timeline.length > 0 ? (
+                  <div>
+                    <div className="mb-2 text-sm font-semibold text-muted-foreground">
+                      Activity
+                    </div>
+                    <ol className="space-y-2">
+                      {statusData.timeline.map((e) => (
+                        <li
+                          key={e.eventId}
+                          className={`rounded-lg border px-3 py-2 text-sm ${
+                            e.kind === "work_running"
+                              ? "border-emerald-300 bg-emerald-50"
+                              : "border-border bg-background"
+                          }`}
+                        >
+                          <div className="font-medium">{e.line}</div>
+                          {e.detail ? (
+                            <div className="mt-1 text-xs text-muted-foreground">
+                              {e.detail}
+                            </div>
+                          ) : null}
+                          <div className="mt-1 text-[11px] text-muted-foreground">
+                            {new Date(e.at).toLocaleTimeString("en-GB", {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                            {" · "}
+                            {new Date(e.at).toLocaleDateString("en-GB", {
+                              day: "numeric",
+                              month: "short",
+                            })}
+                          </div>
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
+                ) : null}
               </div>
             )}
             <button

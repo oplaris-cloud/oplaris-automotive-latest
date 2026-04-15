@@ -72,30 +72,26 @@ export async function startWork(
 }
 
 // ------------------------------------------------------------------
-// Pause work — sets ended_at, frees the one-active-per-staff slot
+// P55 — Pause / resume / complete via SECURITY DEFINER RPCs.
+//
+// The schema now distinguishes "paused" (paused_at IS NOT NULL, ended_at
+// IS NULL) from "ended" (ended_at IS NOT NULL). Every transition goes
+// through a SECURITY DEFINER RPC so the invariants (owner-or-manager,
+// state-machine legality, pause-interval accounting) stay server-side.
 // ------------------------------------------------------------------
 
 export async function pauseWork(
   input: z.infer<typeof workLogIdSchema>,
 ): Promise<ActionResult> {
-  const session = await requireStaffSession();
+  await requireStaffSession();
   const parsed = workLogIdSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Validation failed" };
 
   const supabase = await createSupabaseServerClient();
-
-  // Only allow pausing YOUR OWN running log (ended_at IS NULL).
-  // RLS already scopes to staff_id = auth.uid() but being explicit
-  // prevents confusion if the policy changes.
-  const { error, count } = await supabase
-    .from("work_logs")
-    .update({ ended_at: new Date().toISOString() })
-    .eq("id", parsed.data.workLogId)
-    .eq("staff_id", session.userId)
-    .is("ended_at", null);
-
+  const { error } = await supabase.rpc("pause_work_log", {
+    p_work_log_id: parsed.data.workLogId,
+  });
   if (error) return { ok: false, error: error.message };
-  if (count === 0) return { ok: false, error: "No running work log found" };
 
   revalidatePath("/app/jobs");
   revalidatePath("/app/tech");
@@ -103,17 +99,42 @@ export async function pauseWork(
   return { ok: true, id: parsed.data.workLogId };
 }
 
-// ------------------------------------------------------------------
-// Complete work — same as pause mechanically, different semantically.
-// The UI may prompt for a summary; the DB doesn't distinguish yet.
-// ------------------------------------------------------------------
+export async function resumeWork(
+  input: z.infer<typeof workLogIdSchema>,
+): Promise<ActionResult> {
+  await requireStaffSession();
+  const parsed = workLogIdSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Validation failed" };
+
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("resume_work_log", {
+    p_work_log_id: parsed.data.workLogId,
+  });
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/app/jobs");
+  revalidatePath("/app/tech");
+  revalidatePath("/app/bay-board");
+  return { ok: true, id: parsed.data.workLogId };
+}
 
 export async function completeWork(
   input: z.infer<typeof workLogIdSchema>,
 ): Promise<ActionResult> {
-  // Identical to pauseWork; split so the UI can attach different
-  // post-completion hooks (e.g. auto-advancing job status) later.
-  return pauseWork(input);
+  await requireStaffSession();
+  const parsed = workLogIdSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Validation failed" };
+
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("complete_work_log", {
+    p_work_log_id: parsed.data.workLogId,
+  });
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/app/jobs");
+  revalidatePath("/app/tech");
+  revalidatePath("/app/bay-board");
+  return { ok: true, id: parsed.data.workLogId };
 }
 
 // ------------------------------------------------------------------
@@ -133,7 +154,7 @@ export async function managerLogWork(
   input: z.infer<typeof managerLogSchema>,
 ): Promise<ActionResult> {
   const session = await requireStaffSession();
-  if (session.role !== "manager") {
+  if (!session.roles.includes("manager")) {
     return { ok: false, error: "Only managers can log work retroactively" };
   }
 

@@ -20,7 +20,7 @@ function Label({ className, children, required, optional, ...props }: LabelProps
       {...props}
     >
       {children}
-      {required && <span className="text-destructive ml-0.5">*</span>}
+      {required && <span className="text-destructive ml-1">*</span>}
       {optional && <span className="text-muted-foreground ml-1 text-sm font-normal">(optional)</span>}
     </label>
   )

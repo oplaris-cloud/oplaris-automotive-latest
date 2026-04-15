@@ -36,7 +36,38 @@ export default async function AuditLogPage({ searchParams }: AuditLogPageProps) 
         <EmptyState title="No entries" description="Actions will appear here as staff use the system." className="mt-8" />
       ) : (
         <>
-          <div className="mt-6 rounded-lg border">
+          {/* P38.2 — Mobile cards (<md) */}
+          <ul className="mt-6 space-y-2 md:hidden">
+            {entries.map((entry) => {
+              const staff = Array.isArray(entry.staff) ? entry.staff[0] : entry.staff;
+              return (
+                <li key={entry.id} className="rounded-lg border bg-card p-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="font-mono text-xs">{entry.action}</span>
+                    <span className="text-[11px] text-muted-foreground">
+                      {new Date(entry.created_at).toLocaleString("en-GB", {
+                        day: "2-digit",
+                        month: "short",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </span>
+                  </div>
+                  <div className="mt-1 text-sm">
+                    {(staff as { full_name: string } | null)?.full_name ?? "—"}
+                  </div>
+                  {entry.target_table && (
+                    <div className="mt-1 text-[11px] text-muted-foreground">
+                      {entry.target_table}/{entry.target_id?.slice(0, 8)}
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+
+          {/* Desktop table (md+) */}
+          <div className="mt-6 hidden rounded-lg border md:block">
             <Table>
               <TableHeader>
                 <TableRow>

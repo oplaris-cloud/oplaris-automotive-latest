@@ -19,7 +19,7 @@ export interface StaffSession {
   userId: string;
   email: string;
   garageId: string;
-  role: StaffRole;
+  roles: StaffRole[];
 }
 
 /**
@@ -34,11 +34,6 @@ export interface StaffSession {
 export async function getStaffSession(): Promise<StaffSession | null> {
   const supabase = await createSupabaseServerClient();
 
-  // getUser() hits GoTrue and re-validates the JWT — but returns the
-  // DB-side user object, which does NOT include the auth-hook's
-  // garage_id/role additions. Those live only in the JWT claims.
-  // So we use getUser() for validation + identity, then decode the
-  // JWT from getSession() for the hook-injected claims.
   const {
     data: { user },
     error,
@@ -56,7 +51,7 @@ export async function getStaffSession(): Promise<StaffSession | null> {
   const [, payloadB64] = session.access_token.split(".");
   if (!payloadB64) return null;
 
-  let claims: { app_metadata?: { garage_id?: string; role?: string } };
+  let claims: { app_metadata?: { garage_id?: string; role?: string; roles?: string[] } };
   try {
     claims = JSON.parse(Buffer.from(payloadB64, "base64url").toString("utf8"));
   } catch {
@@ -64,21 +59,29 @@ export async function getStaffSession(): Promise<StaffSession | null> {
   }
 
   const garageId = claims.app_metadata?.garage_id;
-  const role = claims.app_metadata?.role as StaffRole | undefined;
-  if (!garageId || !role) return null;
+
+  // Support both new `roles` array and old `role` string (backward compat)
+  let roles: StaffRole[];
+  if (Array.isArray(claims.app_metadata?.roles) && claims.app_metadata.roles.length > 0) {
+    roles = claims.app_metadata.roles as StaffRole[];
+  } else if (claims.app_metadata?.role) {
+    roles = [claims.app_metadata.role as StaffRole];
+  } else {
+    return null;
+  }
+
+  if (!garageId || roles.length === 0) return null;
 
   return {
     userId: user.id,
     email: user.email ?? "",
     garageId,
-    role,
+    roles,
   };
 }
 
 /**
  * Require any staff session. Redirects to `/login` if unauthenticated.
- * Use at the top of Server Components or Server Actions that must only
- * run for logged-in staff.
  */
 export async function requireStaffSession(): Promise<StaffSession> {
   const session = await getStaffSession();
@@ -90,18 +93,18 @@ export async function requireStaffSession(): Promise<StaffSession> {
  * Require one of the listed roles. Redirects unauthenticated users to
  * `/login` and role-mismatched users to `/403`.
  *
- * This is the single enforcement point for role-based authorisation in
- * Server Actions. Do not duplicate these checks in client code — the
- * client cannot be trusted.
+ * With multi-role support, the user passes if ANY of their roles is in
+ * the allowed list.
  */
 export async function requireRole(
   allowed: readonly StaffRole[],
 ): Promise<StaffSession> {
   const session = await getStaffSession();
   if (!session) redirect("/login");
-  if (!allowed.includes(session.role)) redirect("/403");
+  if (!session.roles.some((r) => allowed.includes(r))) redirect("/403");
   return session;
 }
 
 export const requireManager = () => requireRole(["manager"]);
 export const requireManagerOrTester = () => requireRole(["manager", "mot_tester"]);
+export const requireManagerOrMechanic = () => requireRole(["manager", "mechanic"]);

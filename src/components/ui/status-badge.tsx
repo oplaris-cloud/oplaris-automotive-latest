@@ -1,13 +1,12 @@
 import {
-  Clock,
   Wrench,
   Package,
   MessageSquare,
   CheckCircle2,
   XCircle,
-  CalendarCheck,
   Search,
   UserCheck,
+  ArrowRightLeft,
   type LucideIcon,
 } from "lucide-react";
 
@@ -18,20 +17,10 @@ const STATUS_CONFIG: Record<
   JobStatus,
   { label: string; className: string; icon: LucideIcon }
 > = {
-  draft: {
-    label: "Draft",
-    className: "bg-info text-info-foreground",
-    icon: Clock,
-  },
   checked_in: {
     label: "Checked In",
     className: "bg-info text-info-foreground",
     icon: UserCheck,
-  },
-  booked: {
-    label: "Booked",
-    className: "bg-info text-info-foreground",
-    icon: CalendarCheck,
   },
   in_diagnosis: {
     label: "Diagnosis",
@@ -52,6 +41,11 @@ const STATUS_CONFIG: Record<
     label: "Awaiting Approval",
     className: "bg-warning text-warning-foreground",
     icon: MessageSquare,
+  },
+  awaiting_mechanic: {
+    label: "Awaiting Mechanic",
+    className: "bg-warning text-warning-foreground",
+    icon: ArrowRightLeft,
   },
   ready_for_collection: {
     label: "Ready",
@@ -82,7 +76,7 @@ export function StatusBadge({ status, className }: StatusBadgeProps) {
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium",
+        "inline-flex items-center gap-1.5 rounded-md px-3 py-1 text-xs font-medium",
         config.className,
         className,
       )}
@@ -92,3 +86,8 @@ export function StatusBadge({ status, className }: StatusBadgeProps) {
     </span>
   );
 }
+
+// P52: the `CurrentRoleBadge` chip moved to `@/components/ui/role-badge`.
+// Keep a thin re-export so callers migrating off the old name don't blow
+// up during the transition.
+export { RoleBadge as CurrentRoleBadge, type CurrentRole } from "./role-badge";

@@ -1,9 +1,10 @@
-import { requireManagerOrTester } from "@/lib/auth/session";
+import { requireManager } from "@/lib/auth/session";
 import { getBayBoard } from "../jobs/actions";
 import { BayBoardClient } from "./BayBoardClient";
+import { BayBoardRealtime } from "@/lib/realtime/shims";
 
 export default async function BayBoardPage() {
-  await requireManagerOrTester();
+  const session = await requireManager();
   const { bays, error } = await getBayBoard();
 
   if (error) {
@@ -17,6 +18,7 @@ export default async function BayBoardPage() {
 
   return (
     <div>
+      <BayBoardRealtime garageId={session.garageId} />
       <h1 className="text-2xl font-semibold">Bay Board</h1>
       <p className="mt-1 text-sm text-muted-foreground">
         Drag jobs between bays to reassign. Live view of all bays and active jobs.

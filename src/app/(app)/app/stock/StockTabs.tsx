@@ -22,7 +22,7 @@ export function StockTabs({ inventoryTab, warrantiesTab, warrantyCount }: StockT
           <Shield className="h-4 w-4" />
           Warranties
           {warrantyCount > 0 && (
-            <Badge variant="secondary" className="ml-1 h-5 min-w-5 justify-center rounded-full px-1.5 text-xs">
+            <Badge variant="secondary" className="ml-1 h-5 min-w-5 justify-center rounded-full px-2 text-xs">
               {warrantyCount}
             </Badge>
           )}

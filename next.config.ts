@@ -41,7 +41,7 @@ const cspDirectives = [
   "default-src 'self'",
   `script-src 'self'${isDev ? " 'unsafe-eval' 'unsafe-inline'" : ""}`,
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' blob: data:",
+  `img-src 'self' blob: data:${supabaseHost ? ` ${supabaseHost}` : ""}`,
   "font-src 'self' data:",
   `connect-src 'self'${supabaseHost ? ` ${supabaseHost}` : ""}${supabaseWs ? ` ${supabaseWs}` : ""}`,
   "frame-ancestors 'none'",

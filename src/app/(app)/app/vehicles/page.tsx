@@ -1,18 +1,19 @@
 import Link from "next/link";
 import { Search } from "lucide-react";
 
-import { requireManagerOrTester } from "@/lib/auth/session";
+import { requireManager } from "@/lib/auth/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { CarImage } from "@/components/ui/car-image";
+import { VehiclesListRealtime } from "@/lib/realtime/shims";
 
 interface VehiclesPageProps {
   searchParams: Promise<{ q?: string }>;
 }
 
 export default async function VehiclesPage({ searchParams }: VehiclesPageProps) {
-  await requireManagerOrTester();
+  const session = await requireManager();
   const { q } = await searchParams;
   const supabase = await createSupabaseServerClient();
 
@@ -40,6 +41,7 @@ export default async function VehiclesPage({ searchParams }: VehiclesPageProps) 
 
   return (
     <div>
+      <VehiclesListRealtime garageId={session.garageId} />
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold">Vehicles</h1>
@@ -95,10 +97,10 @@ export default async function VehiclesPage({ searchParams }: VehiclesPageProps) 
                     />
                   </div>
                   <CardContent className="p-4">
-                    <div className="inline-block rounded bg-yellow-400 px-2 py-0.5 font-mono text-sm font-bold text-black">
+                    <div className="inline-block rounded bg-yellow-400 px-2 py-1 font-mono text-sm font-bold text-black">
                       {v.registration}
                     </div>
-                    <div className="mt-1.5 text-sm text-muted-foreground">
+                    <div className="mt-2 text-sm text-muted-foreground">
                       {[v.make, v.model, v.year].filter(Boolean).join(" ") ||
                         "—"}
                     </div>

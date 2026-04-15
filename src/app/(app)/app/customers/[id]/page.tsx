@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Car, Phone, Mail, MapPin } from "lucide-react";
 
-import { requireManagerOrTester } from "@/lib/auth/session";
+import { requireManager } from "@/lib/auth/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CarImage } from "@/components/ui/car-image";
@@ -11,14 +11,15 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { AddVehicleForm } from "./AddVehicleForm";
 import { EditCustomerDialog } from "./EditCustomerDialog";
 import { GdprExportButton } from "./GdprExportButton";
+import { CustomerDetailRealtime } from "@/lib/realtime/shims";
 
 interface CustomerDetailProps {
   params: Promise<{ id: string }>;
 }
 
 export default async function CustomerDetailPage({ params }: CustomerDetailProps) {
-  const session = await requireManagerOrTester();
-  const isManager = session.role === "manager";
+  const session = await requireManager();
+  const isManager = session.roles.includes("manager");
   const { id } = await params;
   const supabase = await createSupabaseServerClient();
 
@@ -48,6 +49,7 @@ export default async function CustomerDetailPage({ params }: CustomerDetailProps
 
   return (
     <div className="max-w-3xl">
+      <CustomerDetailRealtime customerId={customer.id} />
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">{customer.full_name}</h1>
         <div className="flex items-center gap-2">
@@ -105,7 +107,7 @@ export default async function CustomerDetailPage({ params }: CustomerDetailProps
                   />
                 </div>
                 <CardContent className="p-4">
-                  <div className="inline-block rounded bg-yellow-400 px-2 py-0.5 font-mono text-sm font-bold text-black">
+                  <div className="inline-block rounded bg-yellow-400 px-2 py-1 font-mono text-sm font-bold text-black">
                     {v.registration}
                   </div>
                   <div className="mt-1 text-sm text-muted-foreground">

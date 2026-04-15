@@ -1,4 +1,5 @@
 import { requireManager } from "@/lib/auth/session";
+import { formatWorkLogDuration } from "@/lib/format";
 import {
   getTodaysJobs,
   getCompletedRevenue,
@@ -17,24 +18,21 @@ import {
 } from "@/components/ui/table";
 import { PeriodToggle } from "./period-toggle";
 import { CsvExportButton } from "./csv-export";
+import { ReportsRealtime } from "@/lib/realtime/shims";
 
 function pence(p: number): string {
   return `£${(p / 100).toFixed(2)}`;
 }
 
-function fmtDuration(seconds: number | null): string {
-  if (!seconds) return "—";
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  return h > 0 ? `${h}h ${m}m` : `${m}m`;
-}
+// P44 — delegate to the shared formatter so CSV export and UI agree on seconds.
+const fmtDuration = formatWorkLogDuration;
 
 export default async function ReportsPage({
   searchParams,
 }: {
   searchParams: Promise<{ period?: string }>;
 }) {
-  await requireManager();
+  const session = await requireManager();
 
   const params = await searchParams;
   const period: ReportPeriod = params.period === "month" ? "month" : "week";
@@ -74,6 +72,7 @@ export default async function ReportsPage({
 
   return (
     <div>
+      <ReportsRealtime garageId={session.garageId} />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold">Reports</h1>

@@ -1,22 +1,29 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 
 import { requireStaffSession } from "@/lib/auth/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { RoleBadge, type CurrentRole } from "@/components/ui/role-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import type { JobStatus } from "@/lib/validation/job-schemas";
-import { StatusActions } from "./StatusActions";
 import { ApprovalDialog } from "./ApprovalDialog";
 import { EditJobDialog } from "./EditJobDialog";
 import { TeamManager } from "./TeamManager";
 import { AddPartForm } from "./AddPartForm";
 import { PartRow } from "./PartRow";
 import { ManualApproveButton } from "./ManualApproveButton";
-import { LogWorkDialog } from "./LogWorkDialog";
 import { ChargesSection } from "./ChargesSection";
+import { JobActionsRow } from "./JobActionsRow";
+import type {
+  AssigneeInfo,
+  EligibleStaffInfo,
+} from "./change-handler-logic";
+import { JobActivity } from "./JobActivity";
+import { getStaffAvailability } from "../../bookings/actions";
+import { JobDetailRealtime } from "@/lib/realtime/shims";
 
 interface JobDetailProps {
   params: Promise<{ id: string }>;
@@ -26,16 +33,11 @@ function pence(p: number): string {
   return `£${(p / 100).toFixed(2)}`;
 }
 
-function duration(seconds: number | null): string {
-  if (!seconds) return "—";
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  return h > 0 ? `${h}h ${m}m` : `${m}m`;
-}
+// Work-log time / duration formatters live in src/lib/format.ts (P44).
 
 export default async function JobDetailPage({ params }: JobDetailProps) {
   const session = await requireStaffSession();
-  const isManager = session.role === "manager";
+  const isManager = session.roles.includes("manager");
   const { id } = await params;
   const supabase = await createSupabaseServerClient();
 
@@ -43,7 +45,8 @@ export default async function JobDetailPage({ params }: JobDetailProps) {
     .from("jobs")
     .select(`
       id, job_number, status, description, created_at, updated_at,
-      completed_at, estimated_ready_at, source, bay_id,
+      completed_at, estimated_ready_at, source, bay_id, service,
+      awaiting_passback, current_role,
       customers!customer_id ( id, full_name, phone, email ),
       vehicles!vehicle_id ( id, registration, make, model, year, mileage ),
       bays!bay_id ( id, name )
@@ -54,21 +57,41 @@ export default async function JobDetailPage({ params }: JobDetailProps) {
 
   if (!job) notFound();
 
+  // P48 access gate (CLAUDE.md "Page access policy"):
+  //   - manager: any job
+  //   - mot_tester: assigned job (the "MOT-typed" branch lands with P47's service column)
+  //   - mechanic: assigned job only
+  if (!isManager) {
+    const { data: myAssignment } = await supabase
+      .from("job_assignments")
+      .select("staff_id")
+      .eq("job_id", id)
+      .eq("staff_id", session.userId)
+      .maybeSingle();
+    if (!myAssignment) redirect("/403");
+  }
+
   const customer = Array.isArray(job.customers) ? job.customers[0] : job.customers;
   const vehicle = Array.isArray(job.vehicles) ? job.vehicles[0] : job.vehicles;
   const bay = Array.isArray(job.bays) ? job.bays[0] : job.bays;
 
-  // Fetch assignments, work logs, parts, approvals, bays, staff, charges, invoice in parallel
+  // Fetch assignments, work logs, parts, approvals, bays, staff, charges,
+  // invoice in parallel. P54 — the old passbacks fetch is gone; the new
+  // JobActivity component reads from `job_timeline_events` directly,
+  // which unions pass-backs + work logs + status events through RLS.
+  // We still need `workLogs` here to derive the `hasActiveTimer` flag
+  // for the P53 Change Handler palette — JobActivity doesn't expose
+  // that slice to the caller.
   const [assignments, workLogs, parts, approvals, allBays, allStaff, chargesResult, invoiceResult] = await Promise.all([
     supabase
       .from("job_assignments")
-      .select("staff:staff!staff_id ( id, full_name )")
+      .select("staff:staff!staff_id ( id, full_name, roles )")
       .eq("job_id", id),
     supabase
       .from("work_logs")
-      .select("id, task_type, description, started_at, ended_at, duration_seconds, staff:staff!staff_id ( full_name )")
+      .select("id, ended_at, staff:staff!staff_id ( id )")
       .eq("job_id", id)
-      .order("started_at", { ascending: false }),
+      .is("ended_at", null),
     supabase
       .from("job_parts")
       .select("id, description, supplier, quantity, unit_price_pence, total_pence, payment_method, invoice_file_path")
@@ -103,21 +126,70 @@ export default async function JobDetailPage({ params }: JobDetailProps) {
 
   const assignedStaff = (assignments.data ?? []).map((a) => {
     const s = Array.isArray(a.staff) ? a.staff[0] : a.staff;
-    return s as { id: string; full_name: string };
+    return s as { id: string; full_name: string; roles: string[] | null };
   }).filter(Boolean);
 
   const partsTotalPence = (parts.data ?? []).reduce((sum, p) => sum + (p.total_pence ?? 0), 0);
 
+  const currentRole = (job as { current_role: CurrentRole | null })
+    .current_role;
+  const viewerIsAssignedMechanic = assignedStaff.some(
+    (s) => s.id === session.userId,
+  );
+
+  // P53 — Change Handler palette data (managers only).
+  //
+  // `eligibleStaff` pulls the same availability shape used by the booking
+  // assignment modal so the "on DUD-XXXX" pill + current-job link both
+  // work. `assigneeInfos` enriches job_assignments with the running-timer
+  // flag from the work logs we already loaded, so the override dialog can
+  // warn the manager before auto-stopping a timer.
+  const eligibleStaff: EligibleStaffInfo[] = isManager
+    ? (await getStaffAvailability()).map((s) => ({
+        id: s.id,
+        full_name: s.full_name,
+        roles: s.roles,
+        isBusy: s.isBusy,
+        currentJobNumber: s.currentJobNumber,
+        currentJobId: s.currentJobId,
+      }))
+    : [];
+
+  const activeStaffIds = new Set(
+    (workLogs.data ?? [])
+      .filter((wl) => wl.ended_at === null)
+      .map((wl) => {
+        const s = Array.isArray(wl.staff) ? wl.staff[0] : wl.staff;
+        // The select above joins via `staff:staff!staff_id`, so the only
+        // id we can recover from this row is the nested staff.id — we
+        // didn't fetch the scalar staff_id column. Fall back to a lookup
+        // against assignedStaff via name for the edge case where the
+        // work log's joined staff row is missing.
+        return (s as { id?: string } | null)?.id ?? null;
+      })
+      .filter((id): id is string => !!id),
+  );
+
+  const assigneeInfos: AssigneeInfo[] = assignedStaff.map((s) => ({
+    id: s.id,
+    full_name: s.full_name,
+    roles: s.roles ?? [],
+    hasActiveTimer: activeStaffIds.has(s.id),
+  }));
+
   return (
-    <div className="max-w-4xl">
-      {/* Header */}
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="flex items-center gap-3 text-2xl font-semibold">
+    <div className="md:max-w-4xl">
+      <JobDetailRealtime jobId={job.id} />
+      {/* P52 — Identity row: who/what/where, no actions.
+          P38 — stack the identity + metadata blocks on mobile, side-by-side at sm. */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between sm:gap-4">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="flex items-center gap-2 text-xl font-semibold sm:text-2xl">
               <span className="font-mono">{job.job_number}</span>
-              <StatusBadge status={job.status as JobStatus} />
             </h1>
+            <StatusBadge status={job.status as JobStatus} />
+            <RoleBadge role={currentRole} />
             {isManager && (
               <EditJobDialog
                 jobId={job.id}
@@ -130,7 +202,7 @@ export default async function JobDetailPage({ params }: JobDetailProps) {
             <p className="mt-1 text-muted-foreground">{job.description}</p>
           )}
         </div>
-        <div className="text-right text-sm text-muted-foreground">
+        <div className="text-sm text-muted-foreground sm:text-right">
           <div>Created {new Date(job.created_at).toLocaleDateString("en-GB")}</div>
           {job.estimated_ready_at && (
             <div>
@@ -146,15 +218,33 @@ export default async function JobDetailPage({ params }: JobDetailProps) {
         </div>
       </div>
 
-      {/* Status actions */}
+      {/* P52 — Action row: Primary / Secondary / Overflow. Single source.
+          P53 — Passes jobNumber + assignees + eligibleStaff so the manager
+          "Change handler…" palette/dialog can render without client-side
+          refetches. Props are optional — non-manager viewers never mount
+          the dialog, so the defaults are fine there. */}
       <div className="mt-4">
-        <StatusActions jobId={job.id} currentStatus={job.status as JobStatus} />
+        <JobActionsRow
+          job={{
+            id: job.id,
+            status: job.status as JobStatus,
+            service: job.service ?? null,
+            current_role: currentRole,
+          }}
+          viewer={{
+            roles: session.roles,
+            isAssignedMechanic: viewerIsAssignedMechanic,
+          }}
+          jobNumber={job.job_number}
+          assignees={assigneeInfos}
+          eligibleStaff={eligibleStaff}
+        />
       </div>
 
       {/* Charges section (visible to managers) */}
 
-      {/* Customer + Vehicle + Bay & Team */}
-      <div className="mt-6 grid gap-4 sm:grid-cols-3">
+      {/* Customer + Vehicle + Bay & Team — single column on mobile, 3-col at sm+ */}
+      <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
         {customer && (
           <Card>
             <CardHeader className="pb-2">
@@ -175,7 +265,7 @@ export default async function JobDetailPage({ params }: JobDetailProps) {
                 <CardTitle className="text-sm text-muted-foreground">Vehicle</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="inline-block rounded bg-yellow-400 px-2 py-0.5 font-mono text-base font-bold text-black">
+                <div className="inline-block rounded bg-yellow-400 px-2 py-1 font-mono text-base font-bold text-black">
                   {(vehicle as { registration: string }).registration}
                 </div>
                 <div className="mt-1 text-sm text-muted-foreground">
@@ -218,49 +308,22 @@ export default async function JobDetailPage({ params }: JobDetailProps) {
         </Card>
       </div>
 
+      {/* P54 — Unified Job Activity feed: pass-backs + work sessions +
+          status transitions, one chronological source. Replaces the old
+          "Pass-back timeline", "Work Log", and "Currently working" panels. */}
       <Separator className="my-6" />
-
-      {/* Work logs */}
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Work Log</h2>
-        {isManager && (
-          <LogWorkDialog
-            jobId={job.id}
-            garageId={session.garageId}
-            staff={(allStaff.data ?? []) as { id: string; full_name: string }[]}
-          />
-        )}
-      </div>
-      {(workLogs.data ?? []).length === 0 ? (
-        <p className="mt-2 text-sm text-muted-foreground">No work logged yet.</p>
-      ) : (
-        <div className="mt-3 space-y-2">
-          {workLogs.data!.map((wl) => {
-            const staff = Array.isArray(wl.staff) ? wl.staff[0] : wl.staff;
-            return (
-              <div key={wl.id} className="flex items-center justify-between rounded-lg border p-3">
-                <div>
-                  <span className="text-sm font-medium capitalize">{wl.task_type.replace(/_/g, " ")}</span>
-                  {wl.description && <span className="ml-2 text-sm text-muted-foreground">{wl.description}</span>}
-                  <div className="text-xs text-muted-foreground">
-                    {(staff as { full_name: string } | null)?.full_name} · {new Date(wl.started_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
-                  </div>
-                </div>
-                <div className="text-right">
-                  {wl.ended_at ? (
-                    <span className="text-sm">{duration(wl.duration_seconds)}</span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 text-xs text-success">
-                      <span className="h-2 w-2 animate-pulse rounded-full bg-success" />
-                      Active
-                    </span>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+      <JobActivity
+        jobId={job.id}
+        audience="staff"
+        logWorkContext={
+          isManager
+            ? {
+                garageId: session.garageId,
+                staff: (allStaff.data ?? []) as { id: string; full_name: string }[],
+              }
+            : null
+        }
+      />
 
       <Separator className="my-6" />
 

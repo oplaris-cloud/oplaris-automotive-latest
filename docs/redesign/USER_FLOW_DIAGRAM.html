@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>User flow — simple</title>
+<style>
+  body {
+    font-family: -apple-system, system-ui, sans-serif;
+    max-width: 960px;
+    margin: 32px auto;
+    padding: 0 20px 80px;
+    color: #1f2937;
+    line-height: 1.5;
+    background: #fafaf7;
+  }
+  h1 { font-size: 24px; margin: 0 0 4px; }
+  h2 { font-size: 17px; margin: 32px 0 12px; padding-top: 10px; border-top: 2px solid #ddd; }
+  p  { margin: 6px 0; }
+  .lead { color: #555; font-size: 14px; margin-bottom: 18px; }
+
+  /* flow */
+  .flow {
+    display: grid;
+    grid-template-columns: 200px 1fr 200px;
+    gap: 10px 16px;
+    align-items: start;
+    margin: 10px 0;
+  }
+  .lane-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #6b7280;
+    text-align: center;
+    padding: 6px 0;
+  }
+
+  .step {
+    background: #fff;
+    border: 1.5px solid #d1d5db;
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 13px;
+  }
+  .step .who {
+    font-size: 11px;
+    font-weight: 700;
+    color: #6b7280;
+    text-transform: uppercase;
+    margin-bottom: 3px;
+    letter-spacing: 0.4px;
+  }
+  .step .what { font-weight: 600; color: #111827; }
+  .step .meta { font-size: 11px; color: #6b7280; margin-top: 4px; font-style: italic; }
+
+  .step.customer { border-color: #fbbf24; background: #fffbeb; }
+  .step.tester   { border-color: #60a5fa; background: #eff6ff; }
+  .step.mech     { border-color: #34d399; background: #ecfdf5; }
+  .step.manager  { border-color: #c084fc; background: #faf5ff; }
+  .step.paused   { border-color: #f87171; background: #fef2f2; border-style: dashed; }
+
+  .arrow {
+    text-align: center;
+    color: #9ca3af;
+    font-size: 18px;
+    line-height: 1;
+    padding: 2px 0;
+  }
+
+  /* DB row */
+  .db {
+    background: #1f2937;
+    color: #d1d5db;
+    font-family: 'SF Mono', Consolas, monospace;
+    font-size: 11px;
+    padding: 6px 10px;
+    border-radius: 4px;
+    margin-top: 6px;
+  }
+  .db .tbl { color: #fbbf24; }
+  .db .id  { color: #93c5fd; }
+  .db .bad { color: #f87171; font-weight: bold; }
+
+  /* terminology legend */
+  .legend {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin-top: 24px;
+  }
+  .legend table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .legend th, .legend td { padding: 6px 8px; text-align: left; border-bottom: 1px solid #f3f4f6; vertical-align: top; }
+  .legend th { background: #f9fafb; font-weight: 600; color: #374151; font-size: 12px; text-transform: uppercase; letter-spacing: 0.4px; }
+  .legend code { background: #f3f4f6; padding: 1px 5px; border-radius: 3px; font-size: 12px; color: #1f2937; }
+
+  .problem {
+    background: #fef2f2;
+    border-left: 4px solid #dc2626;
+    padding: 12px 16px;
+    border-radius: 0 6px 6px 0;
+    margin: 18px 0;
+    font-size: 13px;
+  }
+  .problem strong { color: #991b1b; }
+
+  .fix {
+    background: #ecfdf5;
+    border-left: 4px solid #059669;
+    padding: 12px 16px;
+    border-radius: 0 6px 6px 0;
+    margin: 18px 0;
+    font-size: 13px;
+  }
+  .fix strong { color: #065f46; }
+</style>
+</head>
+<body>
+
+<h1>User flow — one source of truth</h1>
+<p class="lead">Left column: MOT tester. Right column: Mechanic. Centre: what's happening. Grey boxes show exactly what the database is doing at each step — so you can see where terminology overlaps and where jobs get duplicated today.</p>
+
+<!-- ========== HAPPY PATH ========== -->
+<h2>Happy path — no passback</h2>
+
+<div class="flow">
+  <div class="lane-label">MOT TESTER</div>
+  <div class="lane-label">WHAT HAPPENS</div>
+  <div class="lane-label">MECHANIC</div>
+
+  <div></div>
+  <div class="step customer">
+    <div class="who">Customer at kiosk</div>
+    <div class="what">Karen picks "MOT" for her Ford Focus</div>
+    <div class="db"><span class="tbl">bookings</span>.insert <span class="id">#B-101</span> service=mot, status=checked_in</div>
+  </div>
+  <div></div>
+
+  <div></div><div class="arrow">↓</div><div></div>
+
+  <div class="step tester">
+    <div class="who">Dave (MOT tester) — My Work</div>
+    <div class="what">Sees #B-101 in "Checked in" — clicks Start MOT</div>
+  </div>
+  <div class="step">
+    <div class="who">Server — start_mot_from_checkin()</div>
+    <div class="what">Creates job, links booking, assigns Dave</div>
+    <div class="db">
+      <span class="tbl">jobs</span>.insert <span class="id">#J-55</span> service=mot, status=in_diagnosis<br>
+      <span class="tbl">bookings</span> <span class="id">#B-101</span>.converted_to_job_id = <span class="id">#J-55</span>
+    </div>
+  </div>
+  <div></div>
+
+  <div></div><div class="arrow">↓</div><div></div>
+
+  <div class="step tester">
+    <div class="who">Dave</div>
+    <div class="what">Does MOT, passes vehicle, closes job</div>
+    <div class="db"><span class="tbl">jobs</span> <span class="id">#J-55</span>.status=completed</div>
+  </div>
+  <div></div>
+  <div></div>
+</div>
+
+<p style="font-size: 13px; color: #555;">Clean. One booking → one job. No duplication.</p>
+
+<!-- ========== PASSBACK ========== -->
+<h2>Passback — MOT tester finds mechanical issue (today's flow)</h2>
+
+<div class="flow">
+  <div class="lane-label">MOT TESTER</div>
+  <div class="lane-label">WHAT HAPPENS</div>
+  <div class="lane-label">MECHANIC</div>
+
+  <div class="step tester">
+    <div class="who">Dave — mid-MOT</div>
+    <div class="what">Finds worn brake pads</div>
+  </div>
+  <div></div>
+  <div></div>
+
+  <div class="arrow">↓</div><div></div><div></div>
+
+  <div class="step tester">
+    <div class="who">Dave — clicks "Pass back"</div>
+    <div class="what">Tick-list: brake pads ✓ + note. Hits Send.</div>
+  </div>
+  <div class="step">
+    <div class="who">Server — insert_passback_booking()</div>
+    <div class="what"><strong>Creates a SECOND booking</strong> pointing back to the MOT job</div>
+    <div class="db">
+      <span class="tbl">jobs</span> <span class="id">#J-55</span>.awaiting_mechanic=true <span class="bad">(paused)</span><br>
+      <span class="tbl">bookings</span>.insert <span class="id">#B-102</span> service=maintenance,<br>
+      &nbsp;&nbsp;passback_items=['brake_pads'], passed_from_job_id=<span class="id">#J-55</span>
+    </div>
+  </div>
+  <div></div>
+
+  <div></div><div class="arrow">↓</div><div></div>
+
+  <div class="step paused">
+    <div class="who">Dave's MOT job</div>
+    <div class="what">Paused — waiting for mechanic</div>
+    <div class="meta">Dave can see it in "Awaiting my resume" on Today</div>
+  </div>
+  <div></div>
+  <div class="step mech">
+    <div class="who">Shadi (mechanic) — My Work</div>
+    <div class="what">Sees #B-102 in "Checked in" (priority: passback) — clicks Start</div>
+  </div>
+
+  <div></div><div class="arrow">↓</div><div></div>
+
+  <div></div>
+  <div class="step">
+    <div class="who">Server — start_work_from_checkin()</div>
+    <div class="what"><strong>Creates a THIRD record: a new job</strong></div>
+    <div class="db">
+      <span class="tbl">jobs</span>.insert <span class="id">#J-56</span> service=maintenance, status=in_repair<br>
+      <span class="tbl">bookings</span> <span class="id">#B-102</span>.converted_to_job_id = <span class="id">#J-56</span>
+    </div>
+  </div>
+  <div></div>
+
+  <div></div><div class="arrow">↓</div><div></div>
+
+  <div></div>
+  <div></div>
+  <div class="step mech">
+    <div class="who">Shadi</div>
+    <div class="what">Replaces pads, completes job <span class="id">#J-56</span></div>
+  </div>
+
+  <div></div><div class="arrow">↓</div><div></div>
+
+  <div class="step tester">
+    <div class="who">Dave — Today</div>
+    <div class="what">Sees "Resume MOT" on #J-55, resumes and closes</div>
+    <div class="db"><span class="tbl">jobs</span> <span class="id">#J-55</span>.awaiting_mechanic=false, status=completed</div>
+  </div>
+  <div></div>
+  <div></div>
+</div>
+
+<div class="problem">
+<strong>🔴 The duplication you're seeing:</strong> one customer visit → <strong>2 bookings</strong> (<span style="font-family: monospace">#B-101, #B-102</span>) and <strong>2 jobs</strong> (<span style="font-family: monospace">#J-55, #J-56</span>). From the manager's perspective that's 4 rows for Karen's single Focus-in-bay event. Invoices split across 2 jobs. Work-log times split across 2 jobs. The customer status page has to merge both to show one timeline.
+</div>
+
+<!-- ========== TERMINOLOGY ========== -->
+<h2>Where the terminology goes fuzzy</h2>
+
+<div class="legend">
+<table>
+  <tr>
+    <th>Word</th>
+    <th>Means in DB</th>
+    <th>Means in UI today</th>
+    <th>Problem</th>
+  </tr>
+  <tr>
+    <td><code>booking</code></td>
+    <td>row in <code>bookings</code> table — a kiosk submission or a passback</td>
+    <td>Not shown to users by this name</td>
+    <td>OK</td>
+  </tr>
+  <tr>
+    <td><code>check-in</code></td>
+    <td>same row in <code>bookings</code> table (no separate table)</td>
+    <td>Manager page <code>/app/bookings</code> + "Checked in" section in My Work</td>
+    <td><strong>Two UI words for one table.</strong> Manager sees "Check-ins"; tech sees "Checked in"; data layer says "bookings"</td>
+  </tr>
+  <tr>
+    <td><code>job</code></td>
+    <td>row in <code>jobs</code> table — actual work performed</td>
+    <td>Job cards, bay board, invoices all driven from this</td>
+    <td>OK — but a passback creates a <em>second</em> job for the same car visit</td>
+  </tr>
+  <tr>
+    <td><code>passback</code></td>
+    <td>a booking row with <code>passed_from_job_id</code> set</td>
+    <td>A chip/flag on the check-in in My Work</td>
+    <td>Depends on <em>two</em> concepts (booking + job) that the manager doesn't think of as separate things</td>
+  </tr>
+  <tr>
+    <td><code>awaiting_mechanic</code></td>
+    <td>boolean on <code>jobs</code> — set when tester triggers a passback</td>
+    <td>Renders as "Paused — awaiting mechanic"</td>
+    <td>Not a job <em>status</em> but acts like one — overlaps with the <code>status</code> enum</td>
+  </tr>
+</table>
+</div>
+
+<!-- ========== THE FIX ========== -->
+<h2>Two ways to collapse to one source of truth</h2>
+
+<p style="font-size: 13px; color: #555; margin-bottom: 16px;">Pick one. Both eliminate the "2 bookings + 2 jobs per visit" problem. Recommendation at the bottom.</p>
+
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+
+  <div style="background: #fff; border: 1.5px solid #d1d5db; border-radius: 8px; padding: 14px 16px;">
+    <div style="font-weight: 700; color: #6b7280; text-transform: uppercase; font-size: 11px; letter-spacing: 0.4px; margin-bottom: 8px;">Option A — One booking, one job</div>
+    <div style="font-size: 13px;">
+      <strong>Keep the MOT job. Don't create a second booking, don't create a second job.</strong> Passback just flips the job's <em>current handler</em> from tester → mechanic (and back) and appends a passback record as a child row.
+      <div class="db" style="margin-top: 10px;">
+        <span class="tbl">jobs</span> <span class="id">#J-55</span>.current_role = 'mechanic'<br>
+        <span class="tbl">job_passbacks</span>.insert (job_id=<span class="id">#J-55</span>, from_role='mot_tester',<br>
+        &nbsp;&nbsp;to_role='mechanic', items=[...], note='...')
+      </div>
+      <p style="margin-top: 8px;"><strong>Pros:</strong> one invoice, one customer timeline, one work-log ledger, manager sees 1 row per visit.</p>
+      <p><strong>Cons:</strong> job "belongs to" two different queues at different times — needs a <code>current_role</code> column and a small migration.</p>
+    </div>
+  </div>
+
+  <div style="background: #fff; border: 1.5px solid #d1d5db; border-radius: 8px; padding: 14px 16px;">
+    <div style="font-weight: 700; color: #6b7280; text-transform: uppercase; font-size: 11px; letter-spacing: 0.4px; margin-bottom: 8px;">Option B — Drop the passback booking</div>
+    <div style="font-size: 13px;">
+      <strong>Keep the MOT job. Don't create a second booking — but DO spawn a child job for the repair.</strong> Parent-child link via <code>jobs.parent_job_id</code>. Mechanic queue = jobs-with-no-assignee-in-my-category, not a bookings list.
+      <div class="db" style="margin-top: 10px;">
+        <span class="tbl">jobs</span> <span class="id">#J-55</span>.awaiting_mechanic=true<br>
+        <span class="tbl">jobs</span>.insert <span class="id">#J-56</span> parent_job_id=<span class="id">#J-55</span>,<br>
+        &nbsp;&nbsp;service=maintenance, status=unassigned
+      </div>
+      <p style="margin-top: 8px;"><strong>Pros:</strong> each mechanic job is still its own job (useful for warranty tracking on parts), no bookings duplication.</p>
+      <p><strong>Cons:</strong> still 2 jobs per visit, but they're explicitly linked. Invoice logic needs to roll up parent + children.</p>
+    </div>
+  </div>
+
+</div>
+
+<div class="fix">
+<strong>✅ Recommendation — Option A.</strong> It's the literal "one source of truth": one booking per arrival, one job per vehicle visit. The passback is modelled as an event on the job, not a new entity. Manager sees one row on the Jobs list. Karen sees one status page timeline. Invoicing is trivial. The current DB is one migration away from this — rename <code>awaiting_mechanic</code> to <code>current_role</code> (enum: <code>mot_tester | mechanic | done</code>), add <code>job_passbacks</code> child table, drop <code>insert_passback_booking()</code> RPC, repoint the mechanic My-Work query to <code>jobs WHERE current_role='mechanic' AND assigned_to IS NULL</code>. Dispose of the "passback is a booking" pattern before more code grows on top of it.
+</div>
+
+<p style="font-size: 13px; color: #555;">If you want, the next step is: I write the migration + the one-page spec that replaces today's passback section in MASTER_PLAN.md. Before that, just confirm you like Option A (or pick B).</p>
+
+</body>
+</html>

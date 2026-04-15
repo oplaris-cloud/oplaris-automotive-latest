@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { JetBrains_Mono, Geist } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
+import { ThemeProvider } from "@/components/app/theme-provider";
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-sans" });
 
@@ -29,6 +30,7 @@ export default function RootLayout({
     <html
       lang="en-GB"
       className={cn("h-full", "antialiased", jetbrainsMono.variable, "font-sans", geist.variable)}
+      suppressHydrationWarning
     >
       <body className="min-h-full font-sans">
         {/* Skip-to-content for keyboard navigation (WCAG 2.4.1) */}
@@ -38,7 +40,12 @@ export default function RootLayout({
         >
           Skip to main content
         </a>
-        {children}
+        {/* P56.1.d — next-themes provider. `suppressHydrationWarning`
+            on <html> is required because the provider writes the
+            persisted theme class onto <html> in a pre-hydration
+            blocking script, which would otherwise trip React's
+            mismatch guard. */}
+        <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>
   );

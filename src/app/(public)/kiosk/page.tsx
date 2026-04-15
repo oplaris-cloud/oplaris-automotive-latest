@@ -54,7 +54,9 @@ export default function KioskPage() {
     if (trimmed.length < 3) return;
     setLookingUp(true);
     try {
-      const res = await fetch("/api/dvla/lookup", {
+      // P43 — kiosk-paired lookup; manager `/api/dvla/lookup` is gated by
+      // requireManager which the kiosk session can't satisfy.
+      const res = await fetch("/api/kiosk/reg-lookup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ registration: trimmed }),
@@ -64,6 +66,8 @@ export default function KioskPage() {
         if (data.make) setMake(data.make);
         if (data.model) setModel(data.model);
       }
+      // 4xx/5xx (rate limit, not configured, DVSA down) — silently fall
+      // back to manual entry. Kiosk must keep working.
     } catch {
       // Silently fail — customer can continue without lookup
     } finally {
@@ -208,7 +212,7 @@ export default function KioskPage() {
               <div><strong>Name:</strong> {name}</div>
               <div><strong>Phone:</strong> {phone}</div>
               {email && <div><strong>Email:</strong> {email}</div>}
-              <div><strong>Registration:</strong> <span className="inline-block rounded border-2 border-black bg-[#FFD307] px-2 py-0.5 font-mono text-sm font-black uppercase tracking-wider">{reg}</span>{make && <span className="ml-2">{make} {model}</span>}</div>
+              <div><strong>Registration:</strong> <span className="inline-block rounded border-2 border-black bg-[#FFD307] px-2 py-1 font-mono text-sm font-black uppercase tracking-wider">{reg}</span>{make && <span className="ml-2">{make} {model}</span>}</div>
               {notes && <div><strong>Notes:</strong> {notes}</div>}
             </div>
             {error && <p className="text-sm text-destructive">{error}</p>}

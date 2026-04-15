@@ -70,7 +70,7 @@ export function TeamManager({
           value={currentBayId ?? ""}
           onChange={(e) => handleBayChange(e.target.value)}
           disabled={isPending}
-          className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm shadow-sm focus:ring-2 focus:ring-primary/30 focus:outline-none disabled:opacity-50"
+          className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus:ring-2 focus:ring-primary/30 focus:outline-none disabled:opacity-50"
         >
           <option value="">Unassigned</option>
           {bays.map((b) => (
@@ -89,7 +89,7 @@ export function TeamManager({
               <button
                 onClick={() => handleUnassign(s.id)}
                 disabled={isPending}
-                className="ml-0.5 rounded-full p-0.5 hover:bg-destructive/20"
+                className="ml-1 rounded-full p-1 hover:bg-destructive/20"
                 title={`Remove ${s.full_name}`}
               >
                 <X className="h-3 w-3" />

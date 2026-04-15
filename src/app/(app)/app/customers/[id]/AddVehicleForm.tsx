@@ -9,6 +9,14 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { RegPlateInput } from "@/components/ui/reg-plate";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 interface DvlaResult {
   registration: string;
@@ -92,13 +100,7 @@ export function AddVehicleForm({ customerId }: { customerId: string }) {
     }
   }, [reg]);
 
-  if (!open) {
-    return (
-      <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setOpen(true)}>
-        <Plus className="h-4 w-4" /> Add Vehicle
-      </Button>
-    );
-  }
+  // P36.3 — wrapped in Dialog (was inline conditional render).
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -137,8 +139,30 @@ export function AddVehicleForm({ customerId }: { customerId: string }) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="mt-4 space-y-4 rounded-lg border p-4">
-      {/* Gov.uk style reg plate input with lookup */}
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (!next) {
+          setReg("");
+          setDvlaData(null);
+          setLooked(false);
+        }
+      }}
+    >
+      <DialogTrigger
+        render={
+          <Button size="sm" variant="outline" className="gap-1.5" />
+        }
+      >
+        <Plus className="h-4 w-4" /> Add Vehicle
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Add Vehicle</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Gov.uk style reg plate input with lookup */}
       <div>
         <Label htmlFor="registration" className="text-base font-semibold" required>
           Registration Number
@@ -189,7 +213,7 @@ export function AddVehicleForm({ customerId }: { customerId: string }) {
       {/* DVLA result badge */}
       {dvlaData && (
         <div className="flex items-start gap-2 rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-800">
-          <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0" />
+          <CheckCircle2 className="mt-1 h-4 w-4 flex-shrink-0" />
           <div>
             <strong>{dvlaData.make}</strong>
             {dvlaData.model && ` ${dvlaData.model}`}
@@ -237,14 +261,16 @@ export function AddVehicleForm({ customerId }: { customerId: string }) {
 
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
 
-      <div className="flex gap-3">
-        <Button type="submit" size="sm" disabled={isPending}>
-          {isPending ? "Adding…" : "Add Vehicle"}
-        </Button>
-        <Button type="button" size="sm" variant="outline" onClick={() => { setOpen(false); setReg(""); setDvlaData(null); setLooked(false); }}>
-          Cancel
-        </Button>
-      </div>
-    </form>
+          <DialogFooter>
+            <Button type="button" size="sm" variant="ghost" onClick={() => { setOpen(false); setReg(""); setDvlaData(null); setLooked(false); }}>
+              Cancel
+            </Button>
+            <Button type="submit" size="sm" disabled={isPending}>
+              {isPending ? "Adding…" : "Add Vehicle"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }

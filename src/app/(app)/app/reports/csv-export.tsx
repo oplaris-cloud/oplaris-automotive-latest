@@ -31,7 +31,7 @@ export function CsvExportButton({
   return (
     <button
       onClick={download}
-      className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+      className="inline-flex items-center gap-1.5 rounded-md border px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
     >
       <svg
         xmlns="http://www.w3.org/2000/svg"

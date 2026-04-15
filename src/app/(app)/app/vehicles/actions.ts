@@ -1,6 +1,6 @@
 "use server";
 
-import { requireManagerOrTester } from "@/lib/auth/session";
+import { requireManager } from "@/lib/auth/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export interface VehicleDetail {
@@ -51,7 +51,7 @@ export async function getVehicleDetail(vehicleId: string): Promise<{
   motHistory: MotHistoryEntry[];
   error?: string;
 }> {
-  await requireManagerOrTester();
+  await requireManager();
   const supabase = await createSupabaseServerClient();
 
   // Fetch vehicle with customer

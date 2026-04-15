@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Plus, Search } from "lucide-react";
 
-import { requireManagerOrTester } from "@/lib/auth/session";
+import { requireManager } from "@/lib/auth/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,17 +17,18 @@ import {
 
 import { RestoreButton } from "./RestoreButton";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { CustomersListRealtime } from "@/lib/realtime/shims";
 
 interface CustomersPageProps {
   searchParams: Promise<{ q?: string; page?: string; openJob?: string; deleted?: string }>;
 }
 
 export default async function CustomersPage({ searchParams }: CustomersPageProps) {
-  const session = await requireManagerOrTester();
+  const session = await requireManager();
   const { q, page, openJob, deleted } = await searchParams;
   const filterOpenJob = openJob === "true";
   const showDeleted = deleted === "true";
-  const isManager = session.role === "manager";
+  const isManager = session.roles.includes("manager");
   const supabase = await createSupabaseServerClient();
   const currentPage = Math.max(1, parseInt(page ?? "1", 10));
   const perPage = 25;
@@ -85,11 +86,12 @@ export default async function CustomersPage({ searchParams }: CustomersPageProps
 
   return (
     <div>
+      <CustomersListRealtime garageId={session.garageId} />
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Customers</h1>
         <Link href="/app/customers/new">
           <Button size="sm">
-            <Plus className="mr-1.5 h-4 w-4" />
+            <Plus className="mr-2 h-4 w-4" />
             Add Customer
           </Button>
         </Link>
@@ -107,7 +109,7 @@ export default async function CustomersPage({ searchParams }: CustomersPageProps
         </div>
         <Link
           href={filterOpenJob ? "/app/customers" : "/app/customers?openJob=true"}
-          className={`rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${
+          className={`rounded-full border px-3 py-2 text-sm font-medium transition-colors ${
             filterOpenJob
               ? "border-primary bg-primary text-primary-foreground"
               : "border-input hover:bg-accent"
@@ -118,7 +120,7 @@ export default async function CustomersPage({ searchParams }: CustomersPageProps
         {isManager && (
           <Link
             href={showDeleted ? "/app/customers" : "/app/customers?deleted=true"}
-            className={`rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${
+            className={`rounded-full border px-3 py-2 text-sm font-medium transition-colors ${
               showDeleted
                 ? "border-destructive bg-destructive text-destructive-foreground"
                 : "border-input hover:bg-accent"
@@ -170,7 +172,30 @@ export default async function CustomersPage({ searchParams }: CustomersPageProps
         />
       ) : (
         <>
-          <div className="mt-4 rounded-lg border">
+          {/* Mobile card list — P38.2 */}
+          <ul className="mt-4 space-y-2 md:hidden">
+            {customers.map((c) => (
+              <li key={c.id}>
+                <Link
+                  href={`/app/customers/${c.id}`}
+                  className="block rounded-lg border bg-card p-4 transition-colors hover:bg-accent/50"
+                >
+                  <div className="font-medium">{c.full_name}</div>
+                  <div className="mt-1 font-mono text-sm text-muted-foreground">
+                    {c.phone}
+                  </div>
+                  {c.email && (
+                    <div className="mt-1 truncate text-sm text-muted-foreground">
+                      {c.email}
+                    </div>
+                  )}
+                </Link>
+              </li>
+            ))}
+          </ul>
+
+          {/* Desktop table — md and up */}
+          <div className="mt-4 hidden rounded-lg border md:block">
             <Table>
               <TableHeader>
                 <TableRow>

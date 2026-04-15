@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Role layouts — Today / My Work / Check-ins</title>
+<style>
+  body {
+    font-family: -apple-system, system-ui, sans-serif;
+    max-width: 1100px;
+    margin: 32px auto;
+    padding: 0 20px 60px;
+    color: #222;
+    line-height: 1.5;
+    background: #fafaf7;
+  }
+  h1 { font-size: 24px; margin: 0 0 4px; }
+  h2 { font-size: 18px; margin: 40px 0 12px; padding-top: 12px; border-top: 2px solid #ddd; }
+  h3 { font-size: 13px; margin: 0 0 6px; color: #666; text-transform: uppercase; letter-spacing: 0.4px; }
+  p { margin: 8px 0; }
+  .lead { color: #555; font-size: 14px; }
+
+  .mock {
+    display: grid;
+    grid-template-columns: 180px 1fr;
+    gap: 12px;
+    margin: 12px 0 24px;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .sidebar {
+    background: #1f2937;
+    color: #d1d5db;
+    padding: 16px 14px;
+    font-size: 13px;
+  }
+  .sidebar .brand {
+    color: #fff;
+    font-weight: 600;
+    font-size: 13px;
+    margin-bottom: 14px;
+    letter-spacing: 0.3px;
+  }
+  .sidebar .item {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 8px;
+    margin: 2px 0;
+    border-radius: 4px;
+  }
+  .sidebar .item.active { background: #374151; color: #fff; }
+  .sidebar .item .badge {
+    background: #ef4444;
+    color: #fff;
+    font-size: 11px;
+    padding: 1px 6px;
+    border-radius: 999px;
+    font-weight: 600;
+  }
+
+  .page { padding: 16px 18px; }
+  .page h4 { margin: 0 0 10px; font-size: 16px; }
+  .section {
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    padding: 10px 12px;
+    margin: 8px 0;
+    background: #fdfdfb;
+  }
+  .section.priority { border-color: #f59e0b; background: #fffbeb; }
+  .section.highlight { border-color: #3b82f6; background: #eff6ff; }
+  .section .title {
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 6px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .section .chip {
+    display: inline-block;
+    font-size: 11px;
+    padding: 1px 6px;
+    border-radius: 3px;
+    background: #eee;
+    color: #555;
+    font-weight: 600;
+    margin-left: 4px;
+  }
+  .section .chip.pb { background: #fef3c7; color: #92400e; }
+  .section .chip.mot { background: #dbeafe; color: #1e40af; }
+  .section .chip.elec { background: #fce7f3; color: #9f1239; }
+  .section .chip.maint { background: #dcfce7; color: #166534; }
+  .row {
+    display: flex;
+    justify-content: space-between;
+    padding: 5px 0;
+    font-size: 12px;
+    border-top: 1px dashed #eee;
+  }
+  .row:first-child { border-top: 0; }
+  .row .car { color: #444; }
+  .row .action {
+    background: #10b981;
+    color: #fff;
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+  }
+  .row .action.secondary { background: #6b7280; }
+  .row .action.passback { background: #f59e0b; }
+
+  .note {
+    background: #fef9c3;
+    border-left: 3px solid #eab308;
+    padding: 8px 12px;
+    font-size: 13px;
+    margin: 10px 0;
+    border-radius: 0 4px 4px 0;
+  }
+  .note strong { color: #713f12; }
+</style>
+</head>
+<body>
+
+<h1>How Today / My Work / Check-ins look per role</h1>
+<p class="lead">Three mock dashboards. Pay attention to what's in the sidebar vs. what's a section inside a page. The MOT tester has no Check-ins page — their incoming MOTs live inside <em>Today</em>.</p>
+
+<!-- ========== MOT TESTER ========== -->
+<h2>MOT tester — Today (no separate Check-ins page)</h2>
+
+<div class="mock">
+  <div class="sidebar">
+    <div class="brand">Oplaris — Dudley</div>
+    <div class="item active">Today</div>
+    <div class="item">My Work</div>
+  </div>
+  <div class="page">
+    <h4>Today</h4>
+
+    <div class="section highlight">
+      <div class="title">⚡ Incoming MOTs <span class="chip mot">3 new</span></div>
+      <div class="row">
+        <span class="car">AB12 CDE — Ford Focus — Karen Jones</span>
+        <span class="action">Start MOT</span>
+      </div>
+      <div class="row">
+        <span class="car">XY99 FGH — Vauxhall Corsa — Mike Smith</span>
+        <span class="action">Start MOT</span>
+      </div>
+      <div class="row">
+        <span class="car">BD21 ZZZ — Mini Cooper — Sarah O'Neill</span>
+        <span class="action">Start MOT</span>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="title">Awaiting my resume (passed back) <span class="chip pb">1</span></div>
+      <div class="row">
+        <span class="car">RJ70 LMN — Kia Sportage — paused for brake pads</span>
+        <span class="action passback">Resume MOT</span>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="title">My MOTs in progress</div>
+      <div class="row">
+        <span class="car">PL21 ABC — Toyota Yaris — in progress 00:14:22</span>
+        <span class="action secondary">Open</span>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="note">
+  <strong>Why no Check-ins page?</strong> MOT testers don't triage. The moment a customer picks "MOT" at the kiosk, that row becomes their next job. Putting it inside <em>Today</em> means one click to start, not two.
+</div>
+
+<!-- ========== MECHANIC ========== -->
+<h2>Mechanic — Check-ins is a separate page</h2>
+
+<div class="mock">
+  <div class="sidebar">
+    <div class="brand">Oplaris — Dudley</div>
+    <div class="item">Today</div>
+    <div class="item">My Work</div>
+    <div class="item active">
+      Check-ins
+      <span class="badge">5</span>
+    </div>
+  </div>
+  <div class="page">
+    <h4>Check-ins</h4>
+
+    <div class="section priority">
+      <div class="title">⚡ Passbacks (top priority)</div>
+      <div class="row">
+        <span class="car">RJ70 LMN — brake pads, tyres <span class="chip pb">from MOT</span></span>
+        <span class="action">Pick up</span>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="title">Electrical <span class="chip elec">2</span></div>
+      <div class="row">
+        <span class="car">EA19 TTT — won't start, flat battery suspected</span>
+        <span class="action">Pick up</span>
+      </div>
+      <div class="row">
+        <span class="car">HG64 QWE — headlight intermittent</span>
+        <span class="action">Pick up</span>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="title">Service &amp; Repair <span class="chip maint">2</span></div>
+      <div class="row">
+        <span class="car">MK17 RTY — service + oil change</span>
+        <span class="action">Pick up</span>
+      </div>
+      <div class="row">
+        <span class="car">NG05 POI — clutch slipping</span>
+        <span class="action">Pick up</span>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="note">
+  <strong>Why a dedicated page?</strong> Mechanics have more variety in their queue (electrical + repair + passbacks) and need to triage. They also have a bigger backlog, so collapsing into Today would clutter it.
+</div>
+
+<!-- ========== MANAGER ========== -->
+<h2>Manager — sees all four sections + everything else</h2>
+
+<div class="mock">
+  <div class="sidebar">
+    <div class="brand">Oplaris — Dudley</div>
+    <div class="item active">Today</div>
+    <div class="item">My Work</div>
+    <div class="item">
+      Check-ins
+      <span class="badge">8</span>
+    </div>
+    <div class="item">Jobs</div>
+    <div class="item">Customers</div>
+    <div class="item">Stock</div>
+    <div class="item">Warranties</div>
+    <div class="item">Reports</div>
+    <div class="item">Settings</div>
+  </div>
+  <div class="page">
+    <h4>Today</h4>
+    <div class="section">
+      <div class="title">KPIs</div>
+      <div class="row"><span>Jobs in progress</span><span>7</span></div>
+      <div class="row"><span>MOTs today</span><span>4</span></div>
+      <div class="row"><span>Awaiting customer approval</span><span>2</span></div>
+      <div class="row"><span>Revenue today</span><span>£1,247</span></div>
+    </div>
+    <div class="section">
+      <div class="title">Open check-ins <span class="chip">8 total</span></div>
+      <div class="row"><span>3 MOT · 2 electrical · 2 repair · 1 passback</span><span class="action secondary">View all</span></div>
+    </div>
+    <div class="section">
+      <div class="title">Currently working</div>
+      <div class="row"><span>Dave — Job #1024 — Toyota Yaris — 14:22</span><span class="action secondary">Open</span></div>
+      <div class="row"><span>Shadi — Job #1027 — Ford Focus MOT — 02:11</span><span class="action secondary">Open</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="note">
+  <strong>Override:</strong> the manager can open Check-ins and reassign any row — including a mechanic's passback sent back to a tester — and see every tech's live work across the garage.
+</div>
+
+<h2>Summary of the pattern</h2>
+<p>It's <strong>not tabs</strong> — tabs would add a click for the role that least needs one. The rule is: <em>Check-ins is a sidebar page only where the backlog needs triage.</em> Mechanics triage (multiple categories, passbacks, varied urgency). MOT testers don't (one category, simple queue). Managers get the sidebar page <em>plus</em> an embedded summary in Today for the daily glance.</p>
+
+<p>My Work is the same for all three roles — a personal feed of "jobs assigned to me" — so it's not role-specific in shape, just in content.</p>
+
+</body>
+</html>

@@ -4,10 +4,15 @@ import { Wrench, MessageSquare, CheckCircle2, CalendarCheck } from "lucide-react
 import { requireStaffSession } from "@/lib/auth/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { TodayRealtime } from "@/lib/realtime/shims";
 
 export default async function TodayPage() {
   const session = await requireStaffSession();
+  const isManager = session.roles.includes("manager");
+  const isTester = session.roles.includes("mot_tester");
   const supabase = await createSupabaseServerClient();
+
+  // Check-ins live on /app/tech (My Work) now — Today just shows KPIs.
 
   // Fetch counts in parallel
   const [inProgress, awaitingApproval, readyForCollection, newBookings] =
@@ -33,19 +38,21 @@ export default async function TodayPage() {
         .is("job_id", null),
     ]);
 
+  // KPI cards link to pages the viewer can access; non-managers land on My Work.
+  const fallback = "/app/tech";
   const cards = [
     {
       title: "Jobs in Progress",
       count: inProgress.count ?? 0,
       icon: Wrench,
-      href: "/app/bay-board",
+      href: isManager ? "/app/bay-board" : fallback,
       color: "text-primary",
     },
     {
       title: "Awaiting Approval",
       count: awaitingApproval.count ?? 0,
       icon: MessageSquare,
-      href: "/app/jobs",
+      href: isManager ? "/app/jobs" : fallback,
       color:
         (awaitingApproval.count ?? 0) > 0
           ? "text-warning"
@@ -55,23 +62,25 @@ export default async function TodayPage() {
       title: "Ready for Collection",
       count: readyForCollection.count ?? 0,
       icon: CheckCircle2,
-      href: "/app/jobs",
+      href: isManager ? "/app/jobs" : fallback,
       color: "text-success",
     },
     {
-      title: "New Bookings",
+      title: "New Check-ins",
       count: newBookings.count ?? 0,
       icon: CalendarCheck,
-      href: "/app/bookings",
+      href: isManager ? "/app/bookings" : fallback,
       color:
         (newBookings.count ?? 0) > 0
           ? "text-info"
           : "text-muted-foreground",
     },
   ];
+  void isTester;
 
   return (
     <div>
+      <TodayRealtime garageId={session.garageId} />
       <h1 className="text-2xl font-semibold">
         Good {getGreeting()}, {session.email.split("@")[0]}
       </h1>
@@ -79,10 +88,13 @@ export default async function TodayPage() {
         Here&apos;s what&apos;s happening today.
       </p>
 
+      {/* P56.0 (S-H3) — KPI strip. `size="sm"` + `text-2xl` number
+          trims the card height from ~108 px to ~76 px so the F-pattern
+          entry point stops hogging the fold. */}
       <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {cards.map((card) => (
           <Link key={card.title} href={card.href}>
-            <Card className="transition-shadow hover:shadow-md">
+            <Card size="sm" className="transition-shadow hover:shadow-md">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
                   {card.title}
@@ -90,12 +102,13 @@ export default async function TodayPage() {
                 <card.icon className={`h-5 w-5 ${card.color}`} />
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold">{card.count}</div>
+                <div className="text-2xl font-bold tabular-nums">{card.count}</div>
               </CardContent>
             </Card>
           </Link>
         ))}
       </div>
+
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Package, ScrollText, UserCircle, Users } from "lucide-react";
+import { Package, Palette, Receipt, ScrollText, UserCircle, Users } from "lucide-react";
 
 import { requireStaffSession } from "@/lib/auth/session";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,13 +8,14 @@ import { PairTabletButton } from "./PairTabletButton";
 
 export default async function SettingsPage() {
   const session = await requireStaffSession();
-  const isManager = session.role === "manager";
+  const isManager = session.roles.includes("manager");
 
   const links = [
     { href: "/app/settings/profile", label: "Profile", description: "Update your profile picture", icon: UserCircle, managerOnly: false },
+    { href: "/app/settings/branding", label: "Branding", description: "Logo, brand colour, and business name", icon: Palette, managerOnly: true },
+    { href: "/app/settings/billing", label: "Billing", description: "Default labour rate and charge text", icon: Receipt, managerOnly: true },
     { href: "/app/settings/staff", label: "Staff", description: "Manage technicians and managers", icon: Users, managerOnly: true },
     { href: "/app/settings/audit-log", label: "Audit Log", description: "View all staff actions", icon: ScrollText, managerOnly: true },
-    { href: "/app/stock", label: "Stock", description: "Parts inventory", icon: Package, managerOnly: true },
     { href: "/app/stock", label: "Stock & Warranties", description: "Parts inventory and supplier warranties", icon: Package, managerOnly: true },
   ].filter((l) => !l.managerOnly || isManager);
 

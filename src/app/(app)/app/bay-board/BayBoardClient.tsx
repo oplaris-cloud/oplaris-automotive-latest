@@ -11,7 +11,9 @@ import Link from "next/link";
 import { GripVertical } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Stack } from "@/components/ui/stack";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { cn } from "@/lib/utils";
 import type { BayWithJobs, BayJob } from "../jobs/actions";
 import type { JobStatus } from "@/lib/validation/job-schemas";
 
@@ -122,72 +124,87 @@ export function BayBoardClient({ initialBays }: BayBoardClientProps) {
                           index={index}
                         >
                           {(provided, snapshot) => (
-                            <div
+                            <Card
+                              size="sm"
                               ref={provided.innerRef}
                               {...provided.draggableProps}
-                              className={`rounded-lg border bg-card p-3 transition-shadow ${
+                              className={cn(
+                                "transition-shadow",
                                 snapshot.isDragging
                                   ? "shadow-lg ring-2 ring-primary/30"
-                                  : "hover:shadow-md"
-                              }`}
+                                  : "hover:shadow-md",
+                              )}
                             >
-                              <div className="flex items-start gap-2">
-                                <div
-                                  {...provided.dragHandleProps}
-                                  className="mt-0.5 cursor-grab text-muted-foreground active:cursor-grabbing"
-                                >
-                                  <GripVertical className="h-4 w-4" />
-                                </div>
-                                <Link
-                                  href={`/app/jobs/${job.id}`}
-                                  className="flex-1"
-                                >
-                                  <div className="flex items-center justify-between">
-                                    <span className="font-mono text-sm font-medium">
-                                      {job.job_number}
-                                    </span>
-                                    <StatusBadge
-                                      status={job.status as JobStatus}
-                                    />
+                              <CardContent>
+                                <div className="flex items-start gap-2">
+                                  <div
+                                    {...provided.dragHandleProps}
+                                    className="mt-1 cursor-grab text-muted-foreground active:cursor-grabbing"
+                                  >
+                                    <GripVertical className="h-4 w-4" />
                                   </div>
-                                  {job.vehicle && (
-                                    <div className="mt-1.5 font-mono text-sm">
-                                      {job.vehicle.registration}
-                                      <span className="ml-2 font-sans text-muted-foreground">
-                                        {[job.vehicle.make, job.vehicle.model]
-                                          .filter(Boolean)
-                                          .join(" ")}
+                                  <Link
+                                    href={`/app/jobs/${job.id}`}
+                                    className="flex-1 min-w-0"
+                                  >
+                                    {/* Identity row — job number + status */}
+                                    <div className="flex items-center justify-between gap-2">
+                                      <span className="font-mono text-sm font-medium">
+                                        {job.job_number}
                                       </span>
+                                      <StatusBadge
+                                        status={job.status as JobStatus}
+                                      />
                                     </div>
-                                  )}
-                                  {job.customer && (
-                                    <div className="mt-1 text-sm text-muted-foreground">
-                                      {job.customer.full_name}
-                                    </div>
-                                  )}
-                                  {job.assignments.length > 0 && (
-                                    <div className="mt-2 flex flex-wrap gap-1">
-                                      {job.assignments.map((a, i) => (
-                                        <span
-                                          key={i}
-                                          className="rounded-full bg-muted px-2 py-0.5 text-xs"
-                                        >
-                                          {a.staff.full_name}
-                                        </span>
-                                      ))}
-                                    </div>
-                                  )}
-                                  {job.work_logs.some(
-                                    (wl) => !wl.ended_at,
-                                  ) && (
-                                    <div className="mt-1.5 flex items-center gap-1 text-xs text-success">
-                                      <span className="h-2 w-2 animate-pulse rounded-full bg-success" />
-                                      Work in progress
-                                    </div>
-                                  )}
-                                </Link>
-                              </div>
-                            </div>
+                                    {/* Primary identity (reg + customer) — 8 px rhythm */}
+                                    <Stack gap="sm" className="mt-2">
+                                      {job.vehicle && (
+                                        <div className="font-mono text-sm">
+                                          {job.vehicle.registration}
+                                          <span className="ml-2 font-sans text-muted-foreground">
+                                            {[job.vehicle.make, job.vehicle.model]
+                                              .filter(Boolean)
+                                              .join(" ")}
+                                          </span>
+                                        </div>
+                                      )}
+                                      {job.customer && (
+                                        <div className="text-sm text-muted-foreground">
+                                          {job.customer.full_name}
+                                        </div>
+                                      )}
+                                    </Stack>
+                                    {/* Metadata group (12 px gap above — signals
+                                        "different logical level than identity") */}
+                                    {(job.assignments.length > 0 ||
+                                      job.work_logs.some((wl) => !wl.ended_at)) && (
+                                      <div className="mt-3 space-y-2">
+                                        {job.assignments.length > 0 && (
+                                          <div className="flex flex-wrap gap-1">
+                                            {job.assignments.map((a, i) => (
+                                              <span
+                                                key={i}
+                                                className="rounded-full bg-muted px-2 py-1 text-xs"
+                                              >
+                                                {a.staff.full_name}
+                                              </span>
+                                            ))}
+                                          </div>
+                                        )}
+                                        {job.work_logs.some(
+                                          (wl) => !wl.ended_at,
+                                        ) && (
+                                          <div className="flex items-center gap-1 text-xs text-success">
+                                            <span className="h-2 w-2 animate-pulse rounded-full bg-success" />
+                                            Work in progress
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
+                                  </Link>
+                                </div>
+                              </CardContent>
+                            </Card>
                           )}
                         </Draggable>
                       ))}

@@ -4,6 +4,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { serverEnv } from "@/lib/env";
+import { getJobTimelineEvents } from "@/lib/timeline/fetch";
 
 /**
  * GET /api/status/state
@@ -72,7 +73,7 @@ export async function GET(): Promise<NextResponse> {
   const supabase = createSupabaseAdminClient();
   const { data: job } = await supabase
     .from("jobs")
-    .select("status, estimated_ready_at, job_number")
+    .select("id, status, estimated_ready_at, job_number")
     .eq("vehicle_id", payload.vehicle_id)
     .is("deleted_at", null)
     .neq("status", "cancelled")
@@ -99,10 +100,30 @@ export async function GET(): Promise<NextResponse> {
     completed: "Completed",
   };
 
+  // P54 — Fetch the curated customer-facing timeline. `getJobTimelineEvents`
+  // with the admin client bypasses RLS, but the HMAC cookie gate upstream
+  // already restricts this whole route to the verified customer's own
+  // vehicle, and the fetcher filters to the customer-safe kind subset +
+  // redacts last names before returning.
+  const timeline = await getJobTimelineEvents(job.id, {
+    audience: "customer",
+    limit: 50,
+    client: supabase,
+  });
+
+  const customerTimeline = timeline.map((e) => ({
+    eventId: e.eventId,
+    kind: e.kind,
+    at: e.at,
+    line: e.customerCopy?.line ?? "",
+    detail: e.customerCopy?.detail ?? null,
+  }));
+
   return NextResponse.json({
     status: job.status,
     label: statusLabels[job.status] ?? job.status,
     estimatedReady: job.estimated_ready_at,
     jobNumber: job.job_number,
+    timeline: customerTimeline,
   });
 }

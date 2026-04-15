@@ -1,5 +1,7 @@
 # FEATURE_GAP_PLAN.md — Missing features execution plan
 
+> **⚠️ STATUS (2026-04-14): SUPERSEDED.** All five gaps have been implemented and merged (commit `c44a5bb`, Part D). This document is kept as an audit trail only. See `MASTER_PLAN.md > Master tracker` for the current state of every phase.
+
 > **Context:** An audit on 2026-04-12 compared the codebase against `dudley-requirements-v1.md` and the UI plan (`AUDIT_PROMPT.md`). Five feature gaps were found. This document is the execution plan for closing them. It follows the same phase-tracker-with-audit-gate pattern used in `BACKEND_AUDIT_PROMPT.md` and `AUDIT_PROMPT.md`.
 
 > **Status:** AWAITING REVIEW — Hossein must approve this plan before any phase is executed.

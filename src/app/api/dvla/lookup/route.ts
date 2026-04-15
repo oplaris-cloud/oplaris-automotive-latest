@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 
 import { serverEnv } from "@/lib/env";
-import { requireManagerOrTester } from "@/lib/auth/session";
+import { requireManager } from "@/lib/auth/session";
 import { getDvsaAccessToken } from "@/lib/dvla/token";
 
 const requestSchema = z.object({
@@ -17,7 +17,7 @@ const requestSchema = z.object({
  * Returns make, model, colour, year, fuel type, mileage, MOT status.
  */
 export async function POST(request: NextRequest): Promise<NextResponse> {
-  await requireManagerOrTester();
+  await requireManager();
 
   const env = serverEnv();
   if (!env.DVSA_CLIENT_ID || !env.DVSA_API_KEY || !env.DVSA_BASE_URL) {

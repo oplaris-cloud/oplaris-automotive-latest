@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { verifyKioskCookie } from "@/lib/security/kiosk-cookie";
+import { checkRateLimit } from "@/lib/security/rate-limit";
 
 const bookingSchema = z.object({
   service: z.enum(["mot", "electrical", "maintenance"]),
@@ -49,6 +50,35 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
   const userAgent = request.headers.get("user-agent") ?? null;
 
+  // M1 Go-Live Blocker B9 — rate-limit kiosk bookings.
+  // Pattern mirrors /api/status/* (Postgres-backed checkRateLimit). The
+  // kiosk cookie already proves the request comes from a paired device,
+  // but a paired tablet left unattended in reception is the realistic
+  // attack surface — bored customers, walk-ins, kids spamming submit.
+  //
+  // Two buckets per the M1 kickstart guidance:
+  //   - 5 bookings / IP / hour  (overall spam ceiling)
+  //   - 3 bookings / (IP + normalised reg) / hour  (a single legit
+  //     customer should not need to resubmit the same reg 4 times)
+  //
+  // Note: checkRateLimit windows are hourly (rate_limits table truncates
+  // to the hour). Per-minute windows would need a schema change; hourly
+  // is sufficient for v1 spam prevention.
+  const rateIp = ip ?? "unknown";
+  const normalisedReg = parsed.data.registration.replace(/\s+/g, "").toUpperCase();
+
+  const ipLimit = await checkRateLimit(`kiosk_booking_ip:${rateIp}`, 5);
+  if (!ipLimit.allowed) {
+    return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+  }
+  const ipRegLimit = await checkRateLimit(
+    `kiosk_booking_ip_reg:${rateIp}|${normalisedReg}`,
+    3,
+  );
+  if (!ipRegLimit.allowed) {
+    return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+  }
+
   const supabase = createSupabaseAdminClient();
   const { data, error } = await supabase
     .from("bookings")
@@ -59,7 +89,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       customer_name: parsed.data.customerName,
       customer_phone: parsed.data.customerPhone,
       customer_email: parsed.data.customerEmail || null,
-      registration: parsed.data.registration.replace(/\s+/g, "").toUpperCase(),
+      registration: normalisedReg,
       make: parsed.data.make || null,
       model: parsed.data.model || null,
       preferred_date: parsed.data.preferredDate || null,

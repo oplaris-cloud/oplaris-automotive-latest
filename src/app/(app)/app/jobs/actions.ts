@@ -66,6 +66,20 @@ export async function updateJobStatus(
   const parsed = updateJobStatusSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Validation failed" };
 
+  // P52 guard: the pass-back handoff lives in the P51 RPC
+  // (pass_job_to_mechanic) which writes an audit row to job_passbacks and
+  // flips jobs.current_role. A raw status flip to 'awaiting_mechanic'
+  // would bypass that entirely, so we refuse it here even though the UI
+  // no longer offers it. Belt-and-braces; applies to manager *and* tester
+  // paths.
+  if (parsed.data.status === "awaiting_mechanic") {
+    return {
+      ok: false,
+      error:
+        "Use Pass to Mechanic dialog — status transitions no longer flip to awaiting_mechanic (P51).",
+    };
+  }
+
   const supabase = await createSupabaseServerClient();
 
   // Read current status
@@ -85,20 +99,20 @@ export async function updateJobStatus(
     };
   }
 
-  const updates: Record<string, unknown> = { status: parsed.data.status };
-  if (parsed.data.status === "completed") {
-    updates.completed_at = new Date().toISOString();
-  }
-
-  const { error } = await supabase
-    .from("jobs")
-    .update(updates)
-    .eq("id", parsed.data.jobId);
+  // P54 — call the SECURITY DEFINER helper so the status flip + the
+  // job_status_events insert happen in one transaction. completed_at
+  // is set inside the RPC when targeting 'completed'.
+  const { error } = await supabase.rpc("set_job_status", {
+    p_job_id: parsed.data.jobId,
+    p_new_status: parsed.data.status,
+    p_reason: null,
+  });
 
   if (error) return { ok: false, error: error.message };
 
   revalidatePath("/app/jobs");
   revalidatePath("/app/bay-board");
+  revalidatePath(`/app/jobs/${parsed.data.jobId}`);
   return { ok: true, id: parsed.data.jobId };
 }
 

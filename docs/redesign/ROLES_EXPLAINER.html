@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>How roles work</title>
+<style>
+  body {
+    font-family: -apple-system, system-ui, sans-serif;
+    max-width: 720px;
+    margin: 40px auto;
+    padding: 0 24px 60px;
+    color: #222;
+    line-height: 1.6;
+    background: #fafaf7;
+  }
+  h1 { font-size: 26px; margin-bottom: 8px; }
+  h2 { font-size: 18px; margin-top: 36px; }
+  p  { margin: 10px 0; }
+  code {
+    background: #eee;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 13px;
+  }
+  .flow { margin: 24px 0; }
+  .step {
+    background: #fff;
+    border: 1.5px solid #c8c8c8;
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin: 6px 0;
+  }
+  .arrow { text-align: center; color: #999; font-size: 18px; }
+  .pill {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 999px;
+    margin-right: 4px;
+  }
+  .m { background: #dbeafe; color: #1e40af; }
+  .t { background: #fef3c7; color: #92400e; }
+  .x { background: #dcfce7; color: #166534; }
+  .c { background: #fce7f3; color: #9f1239; }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 12px 0;
+    background: #fff;
+    font-size: 14px;
+  }
+  th, td { border: 1px solid #e0e0e0; padding: 8px 10px; text-align: center; }
+  th { background: #f3f3ee; }
+  td.l { text-align: left; }
+  .y { background: #ecfdf5; color: #065f46; font-weight: 600; }
+  .n { background: #fef2f2; color: #991b1b; }
+</style>
+</head>
+<body>
+
+<h1>How roles work</h1>
+
+<h2>Four roles</h2>
+<p>
+  <span class="pill m">manager</span> runs the shop.
+  <span class="pill t">mot_tester</span> does MOT tests.
+  <span class="pill x">mechanic</span> fixes cars.
+  <span class="pill c">customer</span> is not a real user — just phone + SMS code on the public status page.
+</p>
+<p>A staff person can hold more than one role (e.g. mechanic + tester).</p>
+
+<h2>The flow</h2>
+<div class="flow">
+  <div class="step"><strong>1.</strong> Manager sets your role in Settings → Staff</div>
+  <div class="arrow">↓</div>
+  <div class="step"><strong>2.</strong> Role is saved in a locked database table (users can't touch it)</div>
+  <div class="arrow">↓</div>
+  <div class="step"><strong>3.</strong> You log in → Supabase stamps your role(s) into your login token</div>
+  <div class="arrow">↓</div>
+  <div class="step"><strong>4.</strong> Every page reads the token → allow or redirect to /403</div>
+  <div class="arrow">↓</div>
+  <div class="step"><strong>5.</strong> Every database query also re-checks the token → backup guard</div>
+</div>
+<p>Two checks (page + database) so a bug in one can't leak through the other.</p>
+
+<h2>Who can do what</h2>
+<table>
+  <tr>
+    <th class="l">Action</th>
+    <th>manager</th><th>mot_tester</th><th>mechanic</th><th>customer</th>
+  </tr>
+  <tr><td class="l">Full dashboard / staff / invoicing</td><td class="y">yes</td><td class="n">no</td><td class="n">no</td><td class="n">—</td></tr>
+  <tr><td class="l">MOT queue / DVSA lookup / close MOT</td><td class="y">yes</td><td class="y">yes</td><td class="n">no</td><td class="n">—</td></tr>
+  <tr><td class="l">Tech mobile — start/pause/complete job</td><td class="y">yes</td><td class="y">yes</td><td class="y">yes</td><td class="n">—</td></tr>
+  <tr><td class="l">View own vehicle status (phone + code)</td><td class="n">—</td><td class="n">—</td><td class="n">—</td><td class="y">yes</td></tr>
+  <tr><td class="l">See other garages' data</td><td class="n">never</td><td class="n">never</td><td class="n">never</td><td class="n">never</td></tr>
+</table>
+
+<h2>Two quick examples</h2>
+<p><strong>Dave (mechanic).</strong> Logs in → token says <code>roles: ["mechanic"]</code>. Types <code>/app/settings/staff</code> → page sees his token has no <code>manager</code> → redirects to /403.</p>
+<p><strong>Karen (walk-in customer).</strong> No account. Visits /status → enters reg + phone → gets 6-digit SMS code → short session tied to her car only → expires.</p>
+
+</body>
+</html>

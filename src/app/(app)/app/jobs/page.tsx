@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { Plus, Wrench } from "lucide-react";
 
-import { requireManagerOrTester } from "@/lib/auth/session";
+import { requireManager } from "@/lib/auth/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { EmptyState } from "@/components/ui/empty-state";
+import { JobsListRealtime } from "@/lib/realtime/shims";
 import {
   Table,
   TableBody,
@@ -21,7 +22,7 @@ interface JobsPageProps {
 }
 
 export default async function JobsPage({ searchParams }: JobsPageProps) {
-  await requireManagerOrTester();
+  const session = await requireManager();
   const { status } = await searchParams;
   const supabase = await createSupabaseServerClient();
 
@@ -44,11 +45,12 @@ export default async function JobsPage({ searchParams }: JobsPageProps) {
 
   return (
     <div>
+      <JobsListRealtime garageId={session.garageId} />
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Jobs</h1>
         <Link href="/app/jobs/new">
           <Button size="sm">
-            <Plus className="mr-1.5 h-4 w-4" />
+            <Plus className="mr-2 h-4 w-4" />
             New Job
           </Button>
         </Link>
@@ -117,7 +119,7 @@ export default async function JobsPage({ searchParams }: JobsPageProps) {
                     </TableCell>
                     <TableCell className="hidden sm:table-cell">
                       {(vehicle as { registration: string } | null)?.registration && (
-                        <span className="inline-block rounded bg-yellow-400 px-1.5 py-0.5 font-mono text-xs font-bold text-black">
+                        <span className="inline-block rounded bg-yellow-400 px-2 py-1 font-mono text-xs font-bold text-black">
                           {(vehicle as { registration: string }).registration}
                         </span>
                       )}

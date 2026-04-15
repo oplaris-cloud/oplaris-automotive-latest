@@ -84,13 +84,73 @@ Font stack: `Inter` via `next/font/google`, `font-feature-settings: "cv11", "ss0
 
 Tech mobile bumps everything one step up. Kiosk is huge on purpose.
 
-### 1.3 Spacing, radius, shadow
+### 1.3 Spacing, density & rhythm
 
-- Spacing: Tailwind default 4 px scale. Minimum padding inside clickable card = 16 px.
-- Radius: `rounded-lg` (8 px) default, `rounded-xl` (12 px) for cards, `rounded-2xl` (16 px) for kiosk tiles.
-- Shadow: `shadow-sm` for cards, `shadow-md` on hover/press (desktop only), no shadow on kiosk (flat for sunlight).
+> Authoritative as of P56.0 (2026-04-15). Supersedes the earlier one-line rule. Rooted in `Oplaris-Skills/ux-audit/references/visual-hierarchy-and-layout.md §Spacing System` and `§Grid & Layout`. Every spacing violation register lives in `docs/redesign/PHASE3_SPACING_AUDIT.md`.
 
-### 1.4 Motion
+**Base scale** (Tailwind increments, 1 unit = 4 px):
+
+| Token | px | Tailwind class | Role |
+|---|---|---|---|
+| `space-0` | 0 | `gap-0 / p-0` | Collapsed |
+| `space-1` | 4 | `gap-1 / p-1 / mt-1` | Micro — icon-cluster tightening |
+| `space-icon` | 6 | `gap-1.5` | **Only off-grid value.** Icon-label pair optical gap. |
+| `space-2` | 8 | `gap-2 / p-2 / mt-2` | Tight — between dense rows |
+| `space-3` | 12 | `gap-3 / p-3 / mt-3` | Small — heading-to-body, sparse rows |
+| `space-4` | 16 | `gap-4 / p-4 / mt-4` | **Base** — card padding, grid gutter |
+| `space-5` | 20 | `p-5 / space-y-5` | Comfortable — form-field rhythm |
+| `space-6` | 24 | `p-6 / mt-6` | Medium — hero card padding, header-to-body |
+| `space-8` | 32 | `mt-8` | **Section gap** — between named sections |
+| `space-12` | 48 | `mt-12` | Page-level — above page footer, between unrelated panels |
+| `space-16` | 64 | `mt-16` | Rare — landing-page sections only |
+
+**Forbidden values:** every Tailwind `.5` class except the one `gap-1.5` icon token (listed above as `space-icon`). A lint rule in `scripts/check-spacing-tokens.ts` enforces this and fails CI when off-grid values creep back in. The `py-0.5` on `<RegPlate>` is an explicit exception documented in the primitive.
+
+**Card density tokens:**
+
+| Variant | Padding | Use |
+|---|---|---|
+| `<Card size="sm">` | `p-3` (12 px) | Dense rows, inline banners, mobile list items |
+| `<Card size="default">` | `p-4` (16 px) | Standard — KPI, list item, detail card |
+| `<Card size="lg">` | `p-6` (24 px) | Hero / summary cards |
+
+Ad-hoc `rounded-lg border bg-card p-*` divs are banned — use `<Card size>`.
+
+**Page-padding tokens** (owned by `<PageContainer>` primitive, P56.3):
+
+| Prop | Width | Mobile padding | Desktop padding |
+|---|---|---|---|
+| `full` | 100 % | `px-4` (16 px) | `px-6` (24 px) |
+| `default` | `max-w-5xl` (1024 px) | `px-4` | `px-6` |
+| `narrow` | `max-w-3xl` (768 px) | `px-4` | `px-6` |
+| `form` | `max-w-xl` (576 px) | `px-4` | `px-6` |
+
+Vertical page padding is `py-6` (24 px) for every variant; `env(safe-area-inset-bottom)` applied on mobile.
+
+**Layout rhythm — the canonical rule:**
+
+> `card-padding > section-gap ≥ 2 × stack-md ≥ 4 × within-row`
+>
+> Concretely: card-padding 16 px, section-gap 32 px, between-row 8–16 px, within-row 4–8 px (or `space-icon` 6 px for icon-label pairs).
+
+Enforced via:
+
+- `<Section title description>children</Section>` primitive — owns `mt-8 first:mt-0` and heading rhythm (P56.3).
+- `<Stack gap="sm|md|lg">` primitive — owns `space-y-2 | space-y-4 | space-y-6` (P56.3).
+- ESLint rule forbidding `mt-*` / `mb-*` on direct children of an element with `space-y-*`.
+
+**Grid & layout:**
+
+- Grids: `gap-4` (16 px) default; `gap-6` (24 px) for sparse hero layouts; `gap-2` (8 px) for dense chip clusters.
+- Tables: `<Table density="comfortable" | "compact">`. Comfortable uses shadcn default padding; compact is `py-1.5 text-sm` for data-heavy pages (stock, reports, audit-log).
+- Sidebar–main alignment: both columns share `pt-6` from `<AppShell>` — top edges meet.
+
+### 1.4 Radius & shadow
+
+- Radius: `rounded-lg` (8 px) default, `rounded-xl` (12 px) for cards, `rounded-2xl` (16 px) for kiosk tiles. Nested radius rule: inner-radius = outer-radius − padding.
+- Shadow: `shadow-sm` for cards, `shadow-md` on hover/press (desktop only), no shadow on kiosk (flat for sunlight). In dark mode shadows are replaced by a lighter `--card` surface — never combine shadow and border on the same element.
+
+### 1.5 Motion
 
 - Durations: 120 ms (micro), 200 ms (default), 320 ms (page). Use Framer Motion only for the bay-board drag animation; everything else is Tailwind `transition-*`.
 - Respect `prefers-reduced-motion`: reduce to opacity fades only.

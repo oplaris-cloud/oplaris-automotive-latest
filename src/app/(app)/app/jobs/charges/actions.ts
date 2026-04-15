@@ -5,6 +5,8 @@ import { z } from "zod";
 
 import { requireManager } from "@/lib/auth/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { sendSms } from "@/lib/sms/twilio";
+import { serverEnv } from "@/lib/env";
 
 import type { ActionResult } from "../../customers/actions";
 
@@ -116,17 +118,27 @@ export async function removeCharge(chargeId: string): Promise<ActionResult> {
 // Calculate labour charge from work logs
 // ------------------------------------------------------------------
 
-export async function calculateLabourFromLogs(jobId: string): Promise<{
+/**
+ * P40 — suggest a labour line for a job based on its work logs.
+ *
+ * Returns a pre-fill payload for the Add Charge dialog rather than
+ * auto-inserting a row. The manager can still edit any field before
+ * saving — this is a suggestion, not a commitment.
+ *
+ * Rounding: to the nearest 0.25 hour (so 1h 22m → 1.5, not ceil to 2).
+ * Labels: uses the garage's configured `labour_default_description` when
+ * set, otherwise auto-generates one from the duration.
+ */
+export async function suggestLabourFromLogs(jobId: string): Promise<{
   ok: boolean;
   hours?: number;
   ratePence?: number;
-  totalPence?: number;
+  description?: string;
   error?: string;
 }> {
   const session = await requireManager();
   const supabase = await createSupabaseServerClient();
 
-  // Get total logged seconds
   const { data: workLogs } = await supabase
     .from("work_logs")
     .select("duration_seconds")
@@ -142,26 +154,31 @@ export async function calculateLabourFromLogs(jobId: string): Promise<{
     return { ok: false, error: "No completed work logs found" };
   }
 
-  // Get labour rate from garage (column may not exist yet — fall back to £75/hr)
-  let ratePence = 7500;
-  try {
-    const { data: garage } = await supabase
-      .from("garages")
-      .select("labour_rate_pence")
-      .eq("id", session.garageId)
-      .single();
-    if (garage?.labour_rate_pence) {
-      ratePence = garage.labour_rate_pence;
-    }
-  } catch {
-    // Column doesn't exist yet — use default
-  }
+  const { data: garage } = await supabase
+    .from("garages")
+    .select("labour_rate_pence, labour_default_description")
+    .eq("id", session.garageId)
+    .single();
 
-  const hours = Math.ceil(totalSeconds / 3600);
-  const totalPence = hours * ratePence;
+  const ratePence = garage?.labour_rate_pence ?? 7500;
 
-  return { ok: true, hours, ratePence, totalPence };
+  // Round to nearest 0.25h. Floor at 0.25 so a short log still bills.
+  const rawHours = totalSeconds / 3600;
+  const hours = Math.max(0.25, Math.round(rawHours * 4) / 4);
+
+  const hoursPart = Math.floor(rawHours);
+  const minsPart = Math.round((rawHours - hoursPart) * 60);
+  const autoDescription =
+    hoursPart > 0
+      ? `Labour — ${hoursPart}h${minsPart > 0 ? ` ${minsPart}m` : ""}`
+      : `Labour — ${minsPart}m`;
+  const description = garage?.labour_default_description || autoDescription;
+
+  return { ok: true, hours, ratePence, description };
 }
+
+// Back-compat alias so existing callers don't blow up. Prefer suggestLabourFromLogs.
+export const calculateLabourFromLogs = suggestLabourFromLogs;
 
 // ------------------------------------------------------------------
 // Get or create invoice record for a job
@@ -292,6 +309,48 @@ export async function markAsQuoted(jobId: string): Promise<ActionResult> {
     .eq("quote_status", "draft");
 
   if (error) return { ok: false, error: error.message };
+
+  // P39.1 — text the customer to let them know the quote is ready. We
+  // point them at the existing status page (phone + reg + 6-digit code)
+  // rather than building a new HMAC quote-approval route — the status
+  // page already shows the quote breakdown once verified.
+  try {
+    const env = serverEnv();
+    const { data: details } = await supabase
+      .from("jobs")
+      .select(
+        `customers!customer_id ( phone ),
+         vehicles!vehicle_id ( registration ),
+         invoices ( invoice_number, total_pence )`,
+      )
+      .eq("id", jobId)
+      .single();
+
+    const customer = Array.isArray(details?.customers)
+      ? details?.customers[0]
+      : details?.customers;
+    const vehicle = Array.isArray(details?.vehicles)
+      ? details?.vehicles[0]
+      : details?.vehicles;
+    const invoice = Array.isArray(details?.invoices)
+      ? details?.invoices[0]
+      : details?.invoices;
+
+    const phone = (customer as { phone?: string } | null)?.phone;
+    if (phone && invoice) {
+      const reg = (vehicle as { registration?: string } | null)?.registration ?? "your vehicle";
+      const total = `£${(((invoice as { total_pence: number }).total_pence ?? 0) / 100).toFixed(2)}`;
+      const ref = (invoice as { invoice_number: string }).invoice_number;
+      const link = `${env.NEXT_PUBLIC_APP_URL}/status`;
+      await sendSms(
+        phone,
+        `Dudley Auto Service: Your quote ${ref} for ${reg} is ready. Total ${total}. Review: ${link}`,
+      );
+    }
+  } catch (smsErr) {
+    // Don't fail the action — quote status already moved; manager can resend.
+    console.error("[charges] Send Quote SMS failed:", smsErr);
+  }
 
   revalidatePath(`/app/jobs/${jobId}`);
   return { ok: true };

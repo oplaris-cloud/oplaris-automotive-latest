@@ -10,16 +10,15 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { ThemeToggle } from "./theme-toggle";
 
 interface TopBarProps {
-  garageName: string;
   userEmail: string;
   userRole: string;
   onMenuClick?: () => void;
 }
 
 export function TopBar({
-  garageName,
   userEmail,
   userRole,
   onMenuClick,
@@ -41,7 +40,8 @@ export function TopBar({
         >
           <Menu className="h-5 w-5" />
         </Button>
-        <h1 className="text-sm font-semibold">{garageName}</h1>
+        {/* Business name lives in the sidebar (desktop) + mobile Sheet
+            drawer title; no need to repeat it here. */}
       </div>
 
       <DropdownMenu>
@@ -59,10 +59,12 @@ export function TopBar({
             </DropdownMenuLabel>
           </DropdownMenuGroup>
           <DropdownMenuSeparator />
+          <ThemeToggle />
+          <DropdownMenuSeparator />
           <form action="/logout" method="post">
             <button
               type="submit"
-              className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-muted"
+              className="flex w-full items-center gap-2 rounded-sm px-2 py-2 text-sm hover:bg-muted"
             >
               <LogOut className="h-4 w-4" />
               Sign out
