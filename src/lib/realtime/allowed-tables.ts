@@ -25,6 +25,10 @@ export const ALLOWED_TABLES = [
   "warranties",
   "staff",
   "bays",
+  // Migration 047 — Messages page subscribes to row updates (status
+  // flips from queued → sent → delivered) so the manager sees Twilio
+  // delivery reports land live without a refresh.
+  "sms_outbox",
 ] as const;
 
 export type AllowedTable = (typeof ALLOWED_TABLES)[number];

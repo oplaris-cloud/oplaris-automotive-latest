@@ -5,7 +5,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { checkRateLimit } from "@/lib/security/rate-limit";
 import { normaliseRegistration } from "@/lib/validation/registration";
 import { serverEnv } from "@/lib/env";
-import { sendSms } from "@/lib/sms/twilio";
+import { queueSms } from "@/lib/sms/queue";
 
 /**
  * POST /api/status/request-code
@@ -79,9 +79,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   // Only store + send if phone matches
   const phoneMatches = customerPhone && normalisePhoneSimple(rawPhone) === customerPhone;
+  // STAGING_SMS_BYPASS — dev/staging only. Gated both by the env var
+  // AND a belt-and-braces `NODE_ENV !== production` check so a
+  // misconfiguration can't leak codes in prod. The env-parse guard in
+  // `serverEnv()` would already have thrown at boot.
+  const bypass = env.STATUS_DEV_BYPASS_SMS && env.NODE_ENV !== "production";
 
   if (phoneMatches && vehicle) {
-    // Store code
+    // Store code — same in both bypass and real-Twilio paths.
     await supabase.rpc("store_status_code", {
       p_garage_id: vehicle.garage_id,
       p_vehicle_id: vehicle.id,
@@ -92,15 +97,52 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       p_ip: ip,
     });
 
-    // Send SMS
+    if (bypass) {
+      // Audit every bypass so staging has a trace. The code value
+      // itself is NEVER written to the audit log — only the fact
+      // that a bypass happened + who it was for.
+      await supabase.from("audit_log").insert({
+        garage_id: vehicle.garage_id,
+        actor_staff_id: null,
+        actor_ip: ip,
+        action: "status_dev_sms_bypass",
+        target_table: "vehicles",
+        target_id: vehicle.id,
+        meta: { reg, expires_at: expiresAt.toISOString() },
+      });
+      // stdout only — never log to a persistent sink.
+      console.warn(
+        `[status] Dev-bypass code for ${reg}: ${code}  (expires ${expiresAt.toISOString()})`,
+      );
+      // Return the code inline. The same-response-shape rule holds
+      // for the no-match path below; the extra `devCode` field is
+      // only attached when the reg/phone actually matched, so
+      // enumeration from outside the server is still impossible.
+      return padded(
+        startMs,
+        NextResponse.json({ ...OK_RESPONSE, devCode: code }),
+      );
+    }
+
+    // Migration 047 — track 6-digit code SMS in the outbox so the
+    // manager has a single source of truth for delivery.
+    // The CODE itself is logged in `message_body` (sms_outbox is
+    // manager-RLS-gated + the code expires in 10 minutes — same
+    // sensitivity envelope as the audit_log row).
     try {
-      await sendSms(customerPhone, `Your vehicle status code: ${code}\nExpires in 10 minutes.`);
+      await queueSms({
+        garageId: vehicle.garage_id,
+        vehicleId: vehicle.id,
+        phone: customerPhone,
+        messageType: "status_code",
+        messageBody: `Your vehicle status code: ${code}\nExpires in 10 minutes.`,
+      });
     } catch (err) {
-      console.error("[status] SMS send failed:", err);
+      console.error("[status] queueSms failed:", err);
     }
   }
 
-  // Always return the same response
+  // Always return the same response (no `devCode` on the no-match path)
   return padded(startMs, NextResponse.json(OK_RESPONSE));
 }
 

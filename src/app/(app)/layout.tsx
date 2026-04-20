@@ -22,19 +22,28 @@ export default async function AppLayout({
   // another round-trip.
   const brand = await getGarageBrand();
 
-  // Sidebar Check-ins badge is manager-only now — mechanic + mot_tester see
-  // their relevant check-ins inline on /app/tech (My Work).
+  // Sidebar badges — manager-only. Two surfaces today:
+  //   /app/bookings  → unconverted check-ins (existing)
+  //   /app/messages  → failed SMS delivery rows (migration 047) so
+  //                    Twilio failures stop being invisible
   let badges: Record<string, number> | undefined;
   if (session.roles.includes("manager")) {
     const supabase = await createSupabaseServerClient();
-    const { count } = await supabase
-      .from("bookings")
-      .select("id", { count: "exact", head: true })
-      .is("job_id", null)
-      .is("deleted_at", null);
-    if (count && count > 0) {
-      badges = { "/app/bookings": count };
-    }
+    const [{ count: pendingCheckIns }, { count: failedSms }] = await Promise.all([
+      supabase
+        .from("bookings")
+        .select("id", { count: "exact", head: true })
+        .is("job_id", null)
+        .is("deleted_at", null),
+      supabase
+        .from("sms_outbox")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "failed"),
+    ]);
+    const next: Record<string, number> = {};
+    if (pendingCheckIns && pendingCheckIns > 0) next["/app/bookings"] = pendingCheckIns;
+    if (failedSms && failedSms > 0) next["/app/messages"] = failedSms;
+    if (Object.keys(next).length > 0) badges = next;
   }
 
   return (

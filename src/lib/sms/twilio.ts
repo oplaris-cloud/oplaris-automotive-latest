@@ -10,10 +10,19 @@ import { serverEnv } from "@/lib/env";
  * Twilio service. We only need one endpoint:
  *   POST /2010-04-01/Accounts/{SID}/Messages.json
  */
+export interface SendSmsOptions {
+  /** Twilio status-callback URL. Twilio POSTs delivery updates here
+   *  as the message moves from queued → sent → delivered (or failed).
+   *  Migration 047 — wired so the Messages page can show real
+   *  delivery status, not just "we asked Twilio to send it". */
+  statusCallback?: string;
+}
+
 export async function sendSms(
   to: string,
   body: string,
   from?: string,
+  options?: SendSmsOptions,
 ): Promise<{ sid: string }> {
   const env = serverEnv();
   const sid = env.TWILIO_ACCOUNT_SID;
@@ -24,6 +33,15 @@ export async function sendSms(
     throw new Error("Twilio credentials not configured");
   }
 
+  const params: Record<string, string> = {
+    To: to,
+    From: fromNumber,
+    Body: body,
+  };
+  if (options?.statusCallback) {
+    params.StatusCallback = options.statusCallback;
+  }
+
   const url = `https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`;
   const res = await fetch(url, {
     method: "POST",
@@ -31,7 +49,7 @@ export async function sendSms(
       "Content-Type": "application/x-www-form-urlencoded",
       Authorization: `Basic ${Buffer.from(`${sid}:${token}`).toString("base64")}`,
     },
-    body: new URLSearchParams({ To: to, From: fromNumber, Body: body }),
+    body: new URLSearchParams(params),
   });
 
   if (!res.ok) {

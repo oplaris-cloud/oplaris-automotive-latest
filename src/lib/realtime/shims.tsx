@@ -152,6 +152,18 @@ export function StockRealtime({ garageId }: { garageId: string }) {
 // Reports — debounced 10 s because aggregates are expensive.
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Messages page (migration 047). Twilio status callbacks update rows
+// in `sms_outbox` — manager sees delivery state flip from sent →
+// delivered (or failed) without a refresh. No debounce: status
+// updates arrive on a per-message cadence, not a flood.
+// ---------------------------------------------------------------------------
+
+export function MessagesRealtime({ garageId }: { garageId: string }) {
+  useRealtimeRouterRefresh({ table: "sms_outbox", filter: garageFilter(garageId) });
+  return null;
+}
+
 export function ReportsRealtime({ garageId }: { garageId: string }) {
   useRealtimeRouterRefresh({ table: "jobs",        filter: garageFilter(garageId), debounceMs: 10_000 });
   useRealtimeRouterRefresh({ table: "work_logs",   filter: garageFilter(garageId), debounceMs: 10_000 });

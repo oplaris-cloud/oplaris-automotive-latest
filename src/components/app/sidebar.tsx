@@ -10,6 +10,7 @@ import {
   Package,
   Settings,
   Wrench,
+  MessageSquare,
 } from "lucide-react";
 
 import type { StaffRole } from "@/lib/auth/session";
@@ -81,6 +82,14 @@ const NAV_ITEMS: NavItem[] = [
     href: "/app/stock",
     label: "Stock & Warranties",
     icon: <Package className="h-5 w-5" />,
+    roles: ["manager"],
+  },
+  // Migration 047 — Messages between operational tools and Settings.
+  // Failed-SMS badge wired in (app)/layout.tsx.
+  {
+    href: "/app/messages",
+    label: "Messages",
+    icon: <MessageSquare className="h-5 w-5" />,
     roles: ["manager"],
   },
   {
@@ -180,7 +189,7 @@ export function Sidebar({
 }: SidebarProps) {
   return (
     <aside
-      className="hidden w-56 shrink-0 border-r bg-sidebar md:block"
+      className="hidden w-56 shrink-0 flex-col border-r bg-sidebar md:flex"
       aria-label="Main navigation"
     >
       <div className="flex h-14 items-center border-b px-4">
@@ -195,6 +204,15 @@ export function Sidebar({
         currentPath={currentPath}
         badges={badges}
       />
+      {/* V5.4 — Resale credit line. Small + muted so the garage brand
+       *  stays dominant, but always present so the Oplaris signature
+       *  travels with the product. */}
+      <div className="mt-auto border-t px-4 py-2 text-[11px] text-sidebar-foreground/50">
+        Powered by{" "}
+        <span className="font-semibold text-sidebar-foreground/70">
+          Oplaris
+        </span>
+      </div>
     </aside>
   );
 }

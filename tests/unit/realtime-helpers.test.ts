@@ -26,7 +26,7 @@ const VALID_UUID = "aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa";
 const VALID_UUID_2 = "bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb";
 
 describe("ALLOWED_TABLES", () => {
-  it("matches the publication membership we expect (manual sync with migrations 035 + 036)", () => {
+  it("matches the publication membership we expect (manual sync with migrations 035 + 036 + 047)", () => {
     expect([...ALLOWED_TABLES].sort()).toEqual([
       "approval_requests",
       "bays",
@@ -41,6 +41,9 @@ describe("ALLOWED_TABLES", () => {
       // that feeds the unified Job Activity timeline.
       "job_status_events",
       "jobs",
+      // Added by migration 047 — universal SMS outbox; Messages page
+      // subscribes to status flips from Twilio's status callback.
+      "sms_outbox",
       "staff",
       "stock_items",
       "stock_movements",
