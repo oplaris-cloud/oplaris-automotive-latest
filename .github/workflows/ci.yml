@@ -94,6 +94,20 @@ jobs:
           path: playwright-report
           retention-days: 7
 
+  prod-env-guard:
+    name: Block dev-only flags in prod
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Reject STATUS_DEV_BYPASS_SMS=true
+        run: |
+          if grep -rqE '^STATUS_DEV_BYPASS_SMS=true' .env .env.production .env.production.local 2>/dev/null; then
+            echo "::error::STATUS_DEV_BYPASS_SMS must be false (or unset) for production deploys"
+            exit 1
+          fi
+
   secret-scan:
     name: Secret scan (gitleaks)
     runs-on: ubuntu-latest

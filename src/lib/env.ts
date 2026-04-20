@@ -59,6 +59,16 @@ const serverEnvSchema = z.object({
   // App
   NEXT_PUBLIC_APP_URL: z.string().url(),
   NEXT_PUBLIC_STATUS_URL: z.string().url(),
+
+  /** Dev/staging only — returns the SMS code inline in the
+   *  /api/status/request-code response instead of dispatching via
+   *  Twilio. See docs/redesign/STAGING_SMS_BYPASS.md. A runtime
+   *  assertion in `serverEnv()` below FORBIDS this being `true`
+   *  when NODE_ENV === 'production'. */
+  STATUS_DEV_BYPASS_SMS: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((v) => v === "true"),
 });
 
 type ServerEnv = z.infer<typeof serverEnvSchema>;
@@ -82,6 +92,17 @@ export function serverEnv(): ServerEnv {
         `See .env.example for the complete list.`,
     );
   }
+  // STATUS_DEV_BYPASS_SMS prod-guard — fail the boot loudly rather
+  // than silently run a bypassed production. CI also guards at
+  // deploy time (see docs/redesign/STAGING_SMS_BYPASS.md Step 7),
+  // but this is the last-resort runtime defence.
+  if (parsed.data.STATUS_DEV_BYPASS_SMS && parsed.data.NODE_ENV === "production") {
+    throw new Error(
+      "STATUS_DEV_BYPASS_SMS=true is forbidden in production. " +
+        "Either unset the variable or deploy with NODE_ENV !== 'production'.",
+    );
+  }
+
   cached = parsed.data;
   return cached;
 }
