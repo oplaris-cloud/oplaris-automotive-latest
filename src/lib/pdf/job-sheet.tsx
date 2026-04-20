@@ -12,7 +12,15 @@ import {
 // ---------------------------------------------------------------------------
 
 export interface JobSheetData {
-  garage: { name: string };
+  /** V5 — brand goes through the same pipeline the on-screen UI uses
+   *  (V1 brand-tokens). `primaryHex` paints the header bar + section
+   *  underlines; `accentHex` paints the totals row. Both fall back to
+   *  the Oplaris house defaults when a garage hasn't customised them. */
+  garage: {
+    name: string;
+    primaryHex?: string;
+    accentHex?: string | null;
+  };
   job: {
     jobNumber: string;
     status: string;
@@ -51,38 +59,70 @@ export interface JobSheetData {
 // Styles
 // ---------------------------------------------------------------------------
 
-const s = StyleSheet.create({
-  page: { padding: 40, fontSize: 10, fontFamily: "Helvetica" },
-  header: { marginBottom: 20 },
-  title: { fontSize: 18, fontWeight: "bold" },
-  subtitle: { fontSize: 10, color: "#666", marginTop: 4 },
-  proforma: {
-    fontSize: 12,
-    fontWeight: "bold",
-    color: "#c00",
-    textAlign: "center",
-    marginBottom: 15,
-    padding: 6,
-    borderWidth: 1,
-    borderColor: "#c00",
-  },
-  section: { marginBottom: 12 },
-  sectionTitle: { fontSize: 11, fontWeight: "bold", marginBottom: 4, borderBottomWidth: 1, borderBottomColor: "#ccc", paddingBottom: 2 },
-  row: { flexDirection: "row", marginBottom: 2 },
-  label: { width: 100, fontWeight: "bold" },
-  value: { flex: 1 },
-  table: { marginTop: 6 },
-  tableHeader: { flexDirection: "row", fontWeight: "bold", borderBottomWidth: 1, borderBottomColor: "#333", paddingBottom: 3, marginBottom: 3 },
-  tableRow: { flexDirection: "row", paddingVertical: 2, borderBottomWidth: 0.5, borderBottomColor: "#ddd" },
-  colDesc: { flex: 3 },
-  colQty: { width: 40, textAlign: "right" },
-  colPrice: { width: 70, textAlign: "right" },
-  colTotal: { width: 70, textAlign: "right" },
-  totalRow: { flexDirection: "row", marginTop: 8, paddingTop: 4, borderTopWidth: 1, borderTopColor: "#333" },
-  totalLabel: { flex: 1, fontWeight: "bold", textAlign: "right", paddingRight: 10 },
-  totalValue: { width: 70, textAlign: "right", fontWeight: "bold" },
-  footer: { position: "absolute", bottom: 30, left: 40, right: 40, fontSize: 8, color: "#999", textAlign: "center" },
-});
+const DEFAULT_BRAND_PRIMARY = "#276DB0";
+const DEFAULT_BRAND_ACCENT = "#E69514";
+
+function styleSheetFor(primary: string, accent: string) {
+  return StyleSheet.create({
+    page: { paddingTop: 0, paddingBottom: 40, paddingHorizontal: 40, fontSize: 10, fontFamily: "Helvetica" },
+    /** V5 — Brand bar runs full-bleed across the top of the page. */
+    brandBar: {
+      backgroundColor: primary,
+      paddingHorizontal: 40,
+      paddingVertical: 18,
+      marginHorizontal: -40,
+      marginBottom: 16,
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+    },
+    brandTitle: { fontSize: 16, fontWeight: "bold", color: "#FFFFFF" },
+    brandTagline: { fontSize: 9, color: "#FFFFFF", opacity: 0.9 },
+    brandAccent: {
+      backgroundColor: accent,
+      height: 4,
+      marginHorizontal: -40,
+      marginBottom: 18,
+    },
+    header: { marginBottom: 20 },
+    title: { fontSize: 18, fontWeight: "bold" },
+    subtitle: { fontSize: 10, color: "#666", marginTop: 4 },
+    proforma: {
+      fontSize: 12,
+      fontWeight: "bold",
+      color: "#c00",
+      textAlign: "center",
+      marginBottom: 15,
+      padding: 6,
+      borderWidth: 1,
+      borderColor: "#c00",
+    },
+    section: { marginBottom: 12 },
+    sectionTitle: {
+      fontSize: 11,
+      fontWeight: "bold",
+      marginBottom: 4,
+      borderBottomWidth: 1.5,
+      borderBottomColor: primary,
+      paddingBottom: 2,
+      color: primary,
+    },
+    row: { flexDirection: "row", marginBottom: 2 },
+    label: { width: 100, fontWeight: "bold" },
+    value: { flex: 1 },
+    table: { marginTop: 6 },
+    tableHeader: { flexDirection: "row", fontWeight: "bold", borderBottomWidth: 1, borderBottomColor: "#333", paddingBottom: 3, marginBottom: 3 },
+    tableRow: { flexDirection: "row", paddingVertical: 2, borderBottomWidth: 0.5, borderBottomColor: "#ddd" },
+    colDesc: { flex: 3 },
+    colQty: { width: 40, textAlign: "right" },
+    colPrice: { width: 70, textAlign: "right" },
+    colTotal: { width: 70, textAlign: "right" },
+    totalRow: { flexDirection: "row", marginTop: 8, paddingTop: 4, borderTopWidth: 1, borderTopColor: accent },
+    totalLabel: { flex: 1, fontWeight: "bold", textAlign: "right", paddingRight: 10 },
+    totalValue: { width: 70, textAlign: "right", fontWeight: "bold", color: accent },
+    footer: { position: "absolute", bottom: 30, left: 40, right: 40, fontSize: 8, color: "#999", textAlign: "center" },
+  });
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -114,17 +154,23 @@ function fmtDate(iso: string | null): string {
 
 export function JobSheetDocument({ data }: { data: JobSheetData }) {
   const partsTotalPence = data.partsLines.reduce((sum, l) => sum + l.totalPence, 0);
+  const primary = data.garage.primaryHex || DEFAULT_BRAND_PRIMARY;
+  const accent = data.garage.accentHex || DEFAULT_BRAND_ACCENT;
+  const s = styleSheetFor(primary, accent);
 
   return (
     <Document>
       <Page size="A4" style={s.page}>
-        {/* Header */}
-        <View style={s.header}>
-          <Text style={s.title}>{data.garage.name}</Text>
-          <Text style={s.subtitle}>
-            Job Sheet {data.job.jobNumber} — {fmtDate(data.job.createdAt)}
+        {/* V5 — branded header band: primary bar carries the garage name
+         *  + job-sheet identifier; thin accent stripe underneath gives
+         *  the sheet a recognisable spine before any content lands. */}
+        <View style={s.brandBar}>
+          <Text style={s.brandTitle}>{data.garage.name}</Text>
+          <Text style={s.brandTagline}>
+            Job Sheet · {data.job.jobNumber} · {fmtDate(data.job.createdAt)}
           </Text>
         </View>
+        <View style={s.brandAccent} />
 
         <Text style={s.proforma}>PRO-FORMA — NOT A VAT INVOICE</Text>
 

@@ -129,9 +129,9 @@ export function BayBoardClient({ initialBays }: BayBoardClientProps) {
                               ref={provided.innerRef}
                               {...provided.draggableProps}
                               className={cn(
-                                "transition-shadow",
+                                "transition-all duration-150",
                                 snapshot.isDragging
-                                  ? "shadow-lg ring-2 ring-primary/30"
+                                  ? "scale-[1.02] shadow-xl ring-2 ring-primary/40"
                                   : "hover:shadow-md",
                               )}
                             >

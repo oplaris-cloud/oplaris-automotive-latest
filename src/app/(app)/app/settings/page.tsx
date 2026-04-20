@@ -4,6 +4,7 @@ import { Package, Palette, Receipt, ScrollText, UserCircle, Users } from "lucide
 import { requireStaffSession } from "@/lib/auth/session";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { PageContainer } from "@/components/app/page-container";
 import { PairTabletButton } from "./PairTabletButton";
 
 export default async function SettingsPage() {
@@ -20,7 +21,7 @@ export default async function SettingsPage() {
   ].filter((l) => !l.managerOnly || isManager);
 
   return (
-    <div>
+    <PageContainer width="default">
       <h1 className="text-2xl font-semibold">Settings</h1>
       <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {links.map((l) => (
@@ -53,6 +54,6 @@ export default async function SettingsPage() {
           </div>
         </>
       )}
-    </div>
+    </PageContainer>
   );
 }

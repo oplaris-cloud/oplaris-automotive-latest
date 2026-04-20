@@ -8,10 +8,11 @@ import { addJobPart } from "../parts/actions";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { FormCard } from "@/components/ui/form-card";
+import { FormActions } from "@/components/ui/form-actions";
 import {
   Dialog,
   DialogContent,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -81,7 +82,9 @@ export function AddPartForm({ jobId }: { jobId: string }) {
         <DialogHeader>
           <DialogTitle>Add Part</DialogTitle>
         </DialogHeader>
-        <form ref={formRef} onSubmit={handleSubmit} className="space-y-3">
+        <FormCard variant="plain">
+        <form ref={formRef} onSubmit={handleSubmit}>
+          <FormCard.Fields>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="sm:col-span-2">
               <Label htmlFor="part-desc" required>Description</Label>
@@ -144,15 +147,17 @@ export function AddPartForm({ jobId }: { jobId: string }) {
 
           {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
 
-          <DialogFooter>
-            <Button type="button" size="sm" variant="ghost" onClick={() => setOpen(false)}>
+          </FormCard.Fields>
+          <FormActions>
+            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
               Cancel
             </Button>
-            <Button type="submit" size="sm" disabled={isPending}>
+            <Button type="submit" disabled={isPending}>
               {isPending ? "Adding…" : "Add Part"}
             </Button>
-          </DialogFooter>
+          </FormActions>
         </form>
+        </FormCard>
       </DialogContent>
     </Dialog>
   );

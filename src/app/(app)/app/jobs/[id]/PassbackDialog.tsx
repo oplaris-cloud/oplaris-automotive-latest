@@ -8,11 +8,12 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { FormCard } from "@/components/ui/form-card";
+import { FormActions } from "@/components/ui/form-actions";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -128,7 +129,9 @@ export function PassbackDialog({ jobId, variant = "outline" }: PassbackDialogPro
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <FormCard variant="plain">
+        <form onSubmit={handleSubmit}>
+          <FormCard.Fields>
           <div className="grid grid-cols-2 gap-2">
             {PASSBACK_ITEMS.map((def) => {
               const state = items[def.value]!;
@@ -174,10 +177,11 @@ export function PassbackDialog({ jobId, variant = "outline" }: PassbackDialogPro
             </p>
           ) : null}
 
-          <DialogFooter>
+          </FormCard.Fields>
+          <FormActions>
             <Button
               type="button"
-              variant="ghost"
+              variant="outline"
               onClick={() => setOpen(false)}
               disabled={isPending}
             >
@@ -186,8 +190,9 @@ export function PassbackDialog({ jobId, variant = "outline" }: PassbackDialogPro
             <Button type="submit" disabled={!canSubmit}>
               {isPending ? "Passing…" : "Pass to Mechanic"}
             </Button>
-          </DialogFooter>
+          </FormActions>
         </form>
+        </FormCard>
       </DialogContent>
     </Dialog>
   );

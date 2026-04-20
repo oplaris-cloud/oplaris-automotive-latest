@@ -4,6 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import { requireManager } from "@/lib/auth/session";
 import { getGarageBrand } from "@/lib/brand/garage-brand";
 import { Separator } from "@/components/ui/separator";
+import { PageContainer } from "@/components/app/page-container";
 
 import { BrandingForm } from "./BrandingForm";
 
@@ -13,7 +14,7 @@ export default async function BrandingSettingsPage(): Promise<React.JSX.Element>
   const brand = await getGarageBrand();
 
   return (
-    <div className="max-w-2xl">
+    <PageContainer width="narrow">
       <Link
         href="/app/settings"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
@@ -40,6 +41,6 @@ export default async function BrandingSettingsPage(): Promise<React.JSX.Element>
           logoUrl: brand?.logoUrl ?? null,
         }}
       />
-    </div>
+    </PageContainer>
   );
 }

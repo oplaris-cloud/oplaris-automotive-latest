@@ -2,6 +2,47 @@
 
 ---
 
+## Mon 20 Apr 2026 — Daily Standup
+
+**Yesterday (Sun + Mon early):** Scoped + started SMS queue work. `docs/redesign/SMS_QUEUE_PLAN.md` agreed with Hossein 2026-04-20 — universal `sms_outbox` (all message types) + MOT reminder automation with DVSA pre-checks + manager Messages page. Migration `047_sms_outbox.sql` written (outbox table + indexes + CHECK constraints on type/status/dvsa_result). `src/lib/sms/queue.ts` wired as the new single path for every outgoing SMS (replaces direct `sendSms()` calls for audit + delivery tracking). New `/app/messages/` page (list + `ExpiredMotList`), `twilio/status` webhook extended to upgrade queued→sent→delivered, charges/approvals actions migrated to the queue, `status/request-code` rewired. New unit tests: sms-queue, twilio-status-webhook, charges-actions-revisions, status-dev-bypass.
+
+**Today:** Finish migration 047 (`private.insert_sms_outbox` SDF + RLS + revoke), push to remote Supabase, wire the MOT-reminder cron (Edge Function) + DVSA pre-check, retry/cancel buttons on Messages page. Then commit the 146-file changeset (still zero commits since `f969ee5` Sat) — per-feature split recommended.
+
+**Blockers:** Commit-strategy decision carried from Sat. Twilio creds still placeholders in `.env.local` (SID doesn't start with `AC`) — SMS logs-and-skips locally; needs real creds before staging. Phase 4 deploy blocked on Dokploy access + prod Supabase URL/service-role + domain/TLS from Hossein.
+
+**Decision from Hossein:** Phase 4 deploy credentials — when can Dokploy + prod Supabase + Twilio live creds drop in? That's the long pole to go-live.
+
+**Calendar:** M1 (Thu 16 Apr) was 4 days ago; M2 (Thu 23 Apr) is 3 days out. Both superseded by 2026-04-14 quality-over-deadline decision — NOT flagged overdue under current policy, but noting the original M2 is this week for visibility.
+
+---
+
+## Sat 18 Apr 2026 — Daily Standup
+
+**Yesterday into today:** Phase 3 closed end-to-end, plus two net-new features on top.
+
+**Phase 3 closed:**
+- **P56.0–P56.10** — spacing scale codemod (100 off-grid tokens across 39 files), `<Section>` / `<Stack>` / `Card size` primitives, button size scale aligned to 44-px rule, `<FormCard>` + `<FormActions>` migrated across 14 staff forms, 7-primitive batch (`<PageContainer>`, `<PageTitle>`, `<RegPlate>`, `<PassbackBadge>`, `<ConfirmDialog>`, `<LoadingState>`, `<Combobox>` + `lib/toast.ts`), 22-page `<PageContainer>` width migration, tech surface polish, `alert()`/`confirm()` sweep to `toast`/`ConfirmDialog`, 52 hardcoded colours → semantic tokens, cmdk-backed `<Combobox>` on NewJobForm, global reduced-motion rule, visual regression scaffold (`tests/e2e/visual/spacing.spec.ts`), DESIGN_SYSTEM §2.1 documents the full primitive set.
+- **V2** — Phosphor icon install + automotive icon barrel (Engine, CarBattery, GasPump) + 5 custom SVGs (BrakeDisc, OilDrop, Tyre, ObdPort, SparkPlug).
+- **V3** — 8 list pages wired to themed Undraw-class illustrations via expanded `<EmptyState illustration>`; import script fixed (CSS `<style>` tags wrapped in JSX template literals — latent TSX parse error closed); illustration catalogue audited + scrubbed to 20 male-only / figure-free illustrations (Hossein cultural preference).
+- **V4.1 / V4.2** — bespoke `<PatternBackground>` primitive consuming `public/pattern/pattern.svg` (hand-drawn car parts, same artist as V3 kit); swapped on login (4%), bay-board (3%), kiosk welcome (4%), kiosk done (3%), status page (3% full bg).
+- **V5 / V5.7** — public-surface dynamic brand resolution: new `getPublicGarageBrand()` service-role helper + `(public)/layout.tsx` + `(auth)/layout.tsx` inject brand tokens on all three pre-auth surfaces. Kiosk + status split into server-component wrappers passing brand props to client. `GarageLogo` wired on kiosk hero + status header + sidebar + PDF. **PDF job-sheet branded header** — full-bleed brand-primary bar + accent stripe + brand-coloured section underlines + accent-coloured totals row. Sidebar gained quiet "Powered by Oplaris" resale credit.
+- **V6** — page fade-in 200ms (`.page-fade-in` keyframe with `key={pathname}` re-trigger), bay-board drag elevation (scale-1.02 + shadow-xl + ring), dark-mode toggle already shipped, active-job pulse already shipped.
+
+**Net-new on top of Phase 3:**
+- **Migration 045 — invoice revisions.** `invoices.revision` + `updated_at` + trigger. Tiered editing by `quote_status`: `draft` free, `quoted` editable with revision bump + Updated chip, `invoiced` locked with manager override via **Revert to quoted**. New `resendQuote()` action fires SMS with rev-aware copy. Status page gets an "Updated" chip on revised tiles. Self-healing bug fix baked in: `markAsQuoted` / `markAsInvoiced` now call `getOrCreateInvoice` first (previous silent-no-op bug fixed).
+- **Migration 046 — invoice payments.** `invoices.paid_at` + `payment_method` + CHECK constraint widened to `paid`. New **Mark as paid** dialog (radio picker: Cash / Card / Bank transfer / Other), PAID banner on the charges panel, `revertToInvoiced()` escape hatch. Status page gets a green PAID badge. Invoice PDF gets a diagonal green PAID watermark. Reports page grew a **Receivables** section: outstanding / paid-this-period / still-quoted KPIs + aging table (0-7 / 8-30 / 30+ days, with "chase hard" amber on the 30+ row).
+- **Network-dev unblock.** `pnpm dev` rebound to `0.0.0.0`, `next.config.ts` `allowedDevOrigins` added (glob format, not CIDR), `.env.local` `NEXT_PUBLIC_APP_URL` now `http://192.168.4.82:3000`. iPad + phone can hit the dev server over LAN for testing.
+
+**Stats:** 193/193 unit (was 186 before this session), typecheck clean, spacing lint clean. 11 migrations pushed to remote Supabase via MCP `apply_migration` in this session (039–041 shipped earlier in week, 042–044 mid-week, 045–046 today).
+
+**Today's remaining:** Phase 4 (deploy infra) is the next major milestone. Commit strategy still open: massive uncommitted changeset grew further, now ~250 files dirty across the Phase 3 close-out + revisions + payments + docs.
+
+**Blockers:** Same commit-strategy decision as Wed — one omnibus or split per-feature? Per-feature recommended for reviewability.
+
+**Decision from Hossein:** SMS pending — `.env.local` Twilio creds look like placeholders (SID doesn't start with `AC`). Quote SMS / resend SMS currently log an error + skip gracefully. Real SMS works once real creds drop in.
+
+---
+
 ## Wed 15 Apr 2026 — Daily Standup
 
 **Yesterday:** Phase 2 closed end-to-end. P51 pass-back-as-event (migrations 033/033b + RPCs + mechanic pull queue + timeline chip), P52 job-detail header reorg, P50 universal realtime (migration 035, shared `useRealtimeRouterRefresh` hook across 14 staff surfaces + status-page polling), P46 assign-tech modal polish, P38 mobile-first responsive pass, P53 override-handler command palette (migration 037 + atomic RPC), P54 unified Job Activity timeline (migration 036 + `set_job_status` RPC + customer-facing feed), P55 real pause/resume with worked-time accounting (migration 038). Today: Phase 3 kicked off — V1 theming infrastructure (migrations 039/040/041, brand columns + logos bucket + the silently-missing `garages` UPDATE policy, OKLCH token injection, Settings → Branding page) and P56.0 spacing scale + density primitives (codemod rewrote 100 off-grid tokens across 39 files, new `<Section>` / `<Stack>` / `Card size` primitives, `pnpm lint:spacing` gate). 180/180 unit + 82/82 RLS green.

@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FormCard } from "@/components/ui/form-card";
+import { FormActions } from "@/components/ui/form-actions";
 
 import { updateBillingSettings } from "./actions";
 
@@ -47,7 +49,9 @@ export function BillingForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <FormCard variant="plain">
+    <form onSubmit={handleSubmit}>
+      <FormCard.Fields>
       <div>
         <Label htmlFor="labourRatePounds" required>
           Default labour rate (£ / hour)
@@ -85,11 +89,13 @@ export function BillingForm({
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
       {saved ? <p className="text-sm text-success">Saved.</p> : null}
 
-      <div className="flex justify-end">
-        <Button type="submit" size="sm" disabled={isPending}>
+      </FormCard.Fields>
+      <FormActions>
+        <Button type="submit" disabled={isPending}>
           {isPending ? "Saving…" : "Save"}
         </Button>
-      </div>
+      </FormActions>
     </form>
+    </FormCard>
   );
 }

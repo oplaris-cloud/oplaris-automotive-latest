@@ -9,10 +9,11 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { RegPlateInput } from "@/components/ui/reg-plate";
+import { FormCard } from "@/components/ui/form-card";
+import { FormActions } from "@/components/ui/form-actions";
 import {
   Dialog,
   DialogContent,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -161,7 +162,9 @@ export function AddVehicleForm({ customerId }: { customerId: string }) {
         <DialogHeader>
           <DialogTitle>Add Vehicle</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <FormCard variant="plain">
+        <form onSubmit={handleSubmit}>
+          <FormCard.Fields>
           {/* Gov.uk style reg plate input with lookup */}
       <div>
         <Label htmlFor="registration" className="text-base font-semibold" required>
@@ -212,7 +215,7 @@ export function AddVehicleForm({ customerId }: { customerId: string }) {
 
       {/* DVLA result badge */}
       {dvlaData && (
-        <div className="flex items-start gap-2 rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-800">
+        <div className="flex items-start gap-2 rounded-md border border-success/40 bg-success/10 p-3 text-sm text-success">
           <CheckCircle2 className="mt-1 h-4 w-4 flex-shrink-0" />
           <div>
             <strong>{dvlaData.make}</strong>
@@ -223,7 +226,7 @@ export function AddVehicleForm({ customerId }: { customerId: string }) {
             {dvlaData.mileage && ` — ${dvlaData.mileage.toLocaleString()} mi`}
             {dvlaData.motStatus && (
               <span className="ml-2">
-                MOT: <span className={dvlaData.motStatus === "PASSED" ? "font-semibold text-green-700" : "font-semibold text-red-600"}>{dvlaData.motStatus}</span>
+                MOT: <span className={dvlaData.motStatus === "PASSED" ? "font-semibold text-success" : "font-semibold text-destructive"}>{dvlaData.motStatus}</span>
                 {dvlaData.motExpiry && ` (expires ${dvlaData.motExpiry})`}
               </span>
             )}
@@ -261,15 +264,17 @@ export function AddVehicleForm({ customerId }: { customerId: string }) {
 
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
 
-          <DialogFooter>
-            <Button type="button" size="sm" variant="ghost" onClick={() => { setOpen(false); setReg(""); setDvlaData(null); setLooked(false); }}>
+          </FormCard.Fields>
+          <FormActions>
+            <Button type="button" variant="outline" onClick={() => { setOpen(false); setReg(""); setDvlaData(null); setLooked(false); }}>
               Cancel
             </Button>
-            <Button type="submit" size="sm" disabled={isPending}>
+            <Button type="submit" disabled={isPending}>
               {isPending ? "Adding…" : "Add Vehicle"}
             </Button>
-          </DialogFooter>
+          </FormActions>
         </form>
+        </FormCard>
       </DialogContent>
     </Dialog>
   );

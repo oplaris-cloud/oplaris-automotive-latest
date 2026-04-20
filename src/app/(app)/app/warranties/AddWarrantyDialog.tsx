@@ -9,12 +9,13 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { FormCard } from "@/components/ui/form-card";
+import { FormActions } from "@/components/ui/form-actions";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
   DialogTrigger,
 } from "@/components/ui/dialog";
 
@@ -70,7 +71,9 @@ export function AddWarrantyDialog({ stockItems }: AddWarrantyDialogProps) {
         <DialogHeader>
           <DialogTitle>Add Part Warranty</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <FormCard variant="plain">
+        <form onSubmit={handleSubmit}>
+          <FormCard.Fields>
           <div>
             <Label required>Stock Item</Label>
             <select
@@ -109,12 +112,14 @@ export function AddWarrantyDialog({ stockItems }: AddWarrantyDialogProps) {
             <Textarea name="notes" rows={2} placeholder="Any additional notes..." className="mt-1" />
           </div>
           {error && <p className="text-sm text-destructive">{error}</p>}
-          <DialogFooter>
-            <Button type="submit" size="sm" disabled={isPending}>
+          </FormCard.Fields>
+          <FormActions>
+            <Button type="submit" disabled={isPending}>
               {isPending ? "Creating..." : "Add Warranty"}
             </Button>
-          </DialogFooter>
+          </FormActions>
         </form>
+        </FormCard>
       </DialogContent>
     </Dialog>
   );

@@ -82,6 +82,24 @@ const nextConfig: NextConfig = {
   // Hides the "X-Powered-By: Next.js" fingerprint header
   poweredByHeader: false,
 
+  // Next 15+ blocks Server Action / HMR / dev-asset requests from
+  // non-localhost origins by default. When `pnpm dev` binds to 0.0.0.0
+  // so phones + tablets can hit the dev server over Wi-Fi, those
+  // origins must be allow-listed here.
+  //
+  // IMPORTANT: `allowedDevOrigins` matches as literal strings or globs,
+  // NOT CIDR notation. `192.168.0.0/16` is read as a literal hostname
+  // and never matches a real device. Use globs (`192.168.*.*`) or list
+  // specific IPs. Local LAN ranges only — never expose dev publicly.
+  allowedDevOrigins: [
+    "localhost",
+    "127.0.0.1",
+    "192.168.*.*",
+    "10.*.*.*",
+    "172.16.*.*",
+    "*.local",
+  ],
+
   // Strict React for catching subtle render bugs
   reactStrictMode: true,
 

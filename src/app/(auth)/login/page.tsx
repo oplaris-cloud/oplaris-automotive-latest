@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 
+import { PatternBackground } from "@/components/ui/pattern-background";
+
 import { LoginForm } from "./LoginForm";
 
 export const metadata: Metadata = {
@@ -15,14 +17,16 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   const { next } = await searchParams;
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-sm items-center justify-center p-6">
-      <div className="w-full">
-        <h1 className="text-2xl font-semibold text-neutral-900">Sign in</h1>
-        <p className="mt-2 text-sm text-neutral-500">
-          Oplaris Workshop — staff access only.
-        </p>
-        <LoginForm next={next} />
-      </div>
-    </main>
+    <PatternBackground className="min-h-screen" opacity={0.04}>
+      <main className="mx-auto flex min-h-screen max-w-sm items-center justify-center p-6">
+        <div className="w-full rounded-xl bg-card/95 p-8 shadow-lg backdrop-blur-sm">
+          <h1 className="font-heading text-2xl font-semibold">Sign in</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Oplaris Workshop — staff access only.
+          </p>
+          <LoginForm next={next} />
+        </div>
+      </main>
+    </PatternBackground>
   );
 }

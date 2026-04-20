@@ -2,6 +2,7 @@ import "server-only";
 
 import { cache } from "react";
 
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { foregroundFor, hexToOklch, oklchCss } from "./oklch";
 
@@ -40,7 +41,11 @@ export interface GarageBrand {
   };
 }
 
-const DEFAULT_PRIMARY = "#3b82f6";
+// Oplaris house defaults — every new garage inherits these until a
+// manager customises them on Settings > Branding. Kept in sync with
+// `OPLARIS_DEFAULT` in `./presets.ts`.
+const DEFAULT_PRIMARY = "#276DB0";
+const DEFAULT_ACCENT = "#E69514";
 const DEFAULT_FONT = "Inter";
 
 function toTokens(
@@ -134,7 +139,52 @@ export const getGarageBrandById = cache(
       .maybeSingle();
     if (error || !data) return null;
     const primaryHex = data.brand_primary_hex || DEFAULT_PRIMARY;
-    const accentHex = data.brand_accent_hex || null;
+    const accentHex = data.brand_accent_hex || DEFAULT_ACCENT;
+    const primaryForegroundHex =
+      (data.brand_primary_foreground_hex as string | null) || null;
+    const showName =
+      (data.brand_show_name as boolean | null) ?? true;
+    return {
+      garageId: data.id as string,
+      name: (data.brand_name as string | null) || (data.name as string),
+      logoUrl: (data.logo_url as string | null) || null,
+      primaryHex,
+      accentHex,
+      primaryForegroundHex,
+      showName,
+      font: (data.brand_font as string | null) || DEFAULT_FONT,
+      tokens: toTokens(primaryHex, accentHex, primaryForegroundHex),
+    };
+  },
+);
+
+/** V5.7 — Public-surface brand resolution.
+ *
+ *  The kiosk and status pages have no JWT (anonymous customers), so
+ *  `getGarageBrand()` returns null for them. This helper uses the
+ *  service-role client to fetch the single garage row that owns this
+ *  deployment — v1 is single-tenant Dudley; the resale product flips
+ *  on by adding rows + a host→garage_id mapping table.
+ *
+ *  Hardening:
+ *    - Only reads brand-display columns; nothing PII / financial
+ *    - `cache()` per RSC request keeps it to one round-trip per render
+ *    - Returns `null` only if the garages table is empty (fresh install)
+ */
+export const getPublicGarageBrand = cache(
+  async (): Promise<GarageBrand | null> => {
+    const supabase = createSupabaseAdminClient();
+    const { data, error } = await supabase
+      .from("garages")
+      .select(
+        "id, name, slug, brand_primary_hex, brand_accent_hex, brand_primary_foreground_hex, brand_show_name, brand_name, brand_font, logo_url",
+      )
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (error || !data) return null;
+    const primaryHex = data.brand_primary_hex || DEFAULT_PRIMARY;
+    const accentHex = data.brand_accent_hex || DEFAULT_ACCENT;
     const primaryForegroundHex =
       (data.brand_primary_foreground_hex as string | null) || null;
     const showName =

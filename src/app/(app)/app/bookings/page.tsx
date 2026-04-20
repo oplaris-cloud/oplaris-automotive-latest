@@ -1,9 +1,13 @@
-import { CalendarCheck, Zap } from "lucide-react";
+import { CalendarCheck } from "lucide-react";
 
 import { requireManager } from "@/lib/auth/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { EmptyState } from "@/components/ui/empty-state";
+import { RiskAnalysisIllustration } from "@/components/illustrations";
 import { Badge } from "@/components/ui/badge";
+import { PageContainer } from "@/components/app/page-container";
+import { PassbackBadge } from "@/components/ui/passback-badge";
+import { RegPlate } from "@/components/ui/reg-plate";
 import { BookingsListRealtime } from "@/lib/realtime/shims";
 import {
   Table,
@@ -39,7 +43,7 @@ export default async function BookingsPage() {
     .order("created_at", { ascending: true });
 
   return (
-    <div>
+    <PageContainer width="full">
       <BookingsListRealtime garageId={session.garageId} />
       <h1 className="text-2xl font-semibold">Check-ins</h1>
       <p className="mt-1 text-sm text-muted-foreground">
@@ -48,7 +52,7 @@ export default async function BookingsPage() {
 
       {!bookings || bookings.length === 0 ? (
         <EmptyState
-          icon={CalendarCheck}
+          illustration={RiskAnalysisIllustration}
           title="No pending check-ins"
           description="Walk-in check-ins from the reception kiosk will appear here."
           className="mt-8"
@@ -78,14 +82,7 @@ export default async function BookingsPage() {
                     >
                       {b.service}
                     </Badge>
-                    {isPassback ? (
-                      <Badge
-                        variant="outline"
-                        className="gap-1 border-amber-500 bg-amber-50 text-[10px] font-bold uppercase text-amber-900 dark:bg-amber-950 dark:text-amber-200"
-                      >
-                        <Zap className="h-3 w-3" /> Passback
-                      </Badge>
-                    ) : null}
+                    {isPassback ? <PassbackBadge /> : null}
                     <span className="ml-auto text-xs text-muted-foreground">
                       {new Date(b.created_at).toLocaleDateString("en-GB", {
                         day: "numeric",
@@ -98,9 +95,7 @@ export default async function BookingsPage() {
                     {b.customer_phone}
                   </div>
                   <div className="mt-2">
-                    <span className="inline-block rounded bg-yellow-400 px-2 py-1 font-mono text-xs font-bold text-black">
-                      {b.registration}
-                    </span>
+                    <RegPlate reg={b.registration} size="sm" />
                     {b.make ? (
                       <span className="ml-2 text-xs text-muted-foreground">
                         {b.make} {b.model ?? ""}
@@ -108,7 +103,7 @@ export default async function BookingsPage() {
                     ) : null}
                   </div>
                   {summary ? (
-                    <div className="mt-2 text-xs text-amber-900 dark:text-amber-200">
+                    <div className="mt-2 text-xs text-warning">
                       {summary}
                       {b.passback_note ? ` — ${b.passback_note}` : ""}
                     </div>
@@ -159,14 +154,7 @@ export default async function BookingsPage() {
                         >
                           {b.service}
                         </Badge>
-                        {isPassback ? (
-                          <Badge
-                            variant="outline"
-                            className="gap-1 border-amber-500 bg-amber-50 text-[10px] font-bold uppercase text-amber-900 dark:bg-amber-950 dark:text-amber-200"
-                          >
-                            <Zap className="h-3 w-3" /> Passback
-                          </Badge>
-                        ) : null}
+                        {isPassback ? <PassbackBadge /> : null}
                       </div>
                     </TableCell>
 
@@ -177,7 +165,7 @@ export default async function BookingsPage() {
                         {b.customer_phone}
                       </div>
                       {summary ? (
-                        <div className="mt-1 text-xs text-amber-900 dark:text-amber-200">
+                        <div className="mt-1 text-xs text-warning">
                           {summary}
                           {b.passback_note ? ` — ${b.passback_note}` : ""}
                         </div>
@@ -186,9 +174,7 @@ export default async function BookingsPage() {
 
                     {/* Vehicle */}
                     <TableCell className="align-top">
-                      <span className="inline-block rounded bg-yellow-400 px-2 py-1 font-mono text-xs font-bold text-black">
-                        {b.registration}
-                      </span>
+                      <RegPlate reg={b.registration} size="sm" />
                       {b.make ? (
                         <div className="mt-1 text-xs text-muted-foreground">
                           {b.make} {b.model ?? ""}
@@ -226,6 +212,6 @@ export default async function BookingsPage() {
           </div>
         </>
       )}
-    </div>
+    </PageContainer>
   );
 }

@@ -6,6 +6,7 @@ import { Play } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { toast } from "@/lib/toast";
 import { startWorkFromCheckIn } from "./actions";
 
 export function StartWorkButton({
@@ -25,7 +26,7 @@ export function StartWorkButton({
       if (result.ok && result.id) {
         router.push(`/app/jobs/${result.id}`);
       } else {
-        alert(result.error ?? "Failed to start work");
+        toast.error(result.error ?? "Failed to start work");
       }
     });
   }

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ArrowRightLeft } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { toast } from "@/lib/toast";
 import { claimPassback } from "./claim-actions";
 
 interface ClaimPassbackButtonProps {
@@ -28,7 +29,7 @@ export function ClaimPassbackButton({
         router.push(`/app/tech/job/${jobId}`);
         router.refresh();
       } else {
-        alert(result.error ?? "Failed to claim job");
+        toast.error(result.error ?? "Failed to claim job");
       }
     });
   }

@@ -1,5 +1,6 @@
 import { requireStaffSession } from "@/lib/auth/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { PageContainer } from "@/components/app/page-container";
 import { AvatarUpload } from "./AvatarUpload";
 
 export default async function ProfilePage() {
@@ -13,7 +14,7 @@ export default async function ProfilePage() {
     .single();
 
   return (
-    <div className="max-w-lg">
+    <PageContainer width="form">
       <h1 className="text-2xl font-semibold">Profile</h1>
       <p className="mt-1 text-sm text-muted-foreground">
         Update your profile picture. This is shown on the bay board and job assignments.
@@ -25,6 +26,6 @@ export default async function ProfilePage() {
           staffName={staff?.full_name ?? session.email}
         />
       </div>
-    </div>
+    </PageContainer>
   );
 }

@@ -5,9 +5,12 @@ import { useRouter } from "next/navigation";
 
 import { createJob } from "../actions";
 import { Button } from "@/components/ui/button";
+import { Combobox } from "@/components/ui/combobox";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { FormCard } from "@/components/ui/form-card";
+import { FormActions } from "@/components/ui/form-actions";
 
 interface Customer {
   id: string;
@@ -37,9 +40,18 @@ export function NewJobForm({
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [customerId, setCustomerId] = useState(defaultCustomerId ?? "");
+  const [vehicleId, setVehicleId] = useState(defaultVehicleId ?? "");
 
   const selectedCustomer = customers.find((c) => c.id === customerId);
   const vehicles = selectedCustomer?.vehicles ?? [];
+
+  // When the customer changes, the previously-selected vehicle no
+  // longer belongs to the visible list — drop it so the combobox doesn't
+  // submit a vehicle that isn't owned by the chosen customer.
+  function handleCustomerChange(next: string) {
+    setCustomerId(next);
+    if (next !== customerId) setVehicleId("");
+  }
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -47,7 +59,6 @@ export function NewJobForm({
     setFieldErrors({});
 
     const form = new FormData(e.currentTarget);
-    const vehicleId = form.get("vehicleId") as string;
     const description = form.get("description") as string;
     const bayId = (form.get("bayId") as string) || undefined;
     const estimatedReadyAt = (form.get("estimatedReadyAt") as string) || undefined;
@@ -84,47 +95,59 @@ export function NewJobForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="mt-6 space-y-5">
-      {/* Customer */}
+    <FormCard variant="plain" className="mt-6">
+    <form onSubmit={handleSubmit}>
+      <FormCard.Fields>
+      {/* Customer — searchable combobox; matches across name, phone, and
+          the reg plate of any of the customer's vehicles so a manager can
+          punch in "AB12 CDE" and land on the right record. */}
       <div>
         <Label htmlFor="customerId" required>Customer</Label>
-        <select
-          id="customerId"
-          value={customerId}
-          onChange={(e) => setCustomerId(e.target.value)}
-          className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus:border-ring focus:ring-2 focus:ring-ring focus:outline-none"
-        >
-          <option value="">Select a customer…</option>
-          {customers.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.fullName} ({c.phone})
-            </option>
-          ))}
-        </select>
+        <div className="mt-1">
+          <Combobox
+            id="customerId"
+            value={customerId}
+            onChange={handleCustomerChange}
+            options={customers}
+            getValue={(c) => c.id}
+            getLabel={(c) => c.fullName}
+            getDescription={(c) => c.phone}
+            getSearchKeywords={(c) => [
+              c.fullName,
+              c.phone,
+              ...c.vehicles.map((v) => v.registration),
+            ]}
+            placeholder="Select a customer…"
+            searchPlaceholder="Search by name, phone, or reg…"
+            emptyLabel="No customers match."
+            aria-invalid={Boolean(fieldErrors.customerId)}
+          />
+        </div>
         {fieldErrors.customerId && (
           <p className="mt-1 text-sm text-destructive">{fieldErrors.customerId}</p>
         )}
       </div>
 
-      {/* Vehicle */}
+      {/* Vehicle — scoped to the selected customer's vehicles. */}
       <div>
         <Label htmlFor="vehicleId" required>Vehicle</Label>
-        <select
-          id="vehicleId"
-          name="vehicleId"
-          disabled={!customerId}
-          defaultValue={defaultVehicleId ?? ""}
-          className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus:border-ring focus:ring-2 focus:ring-ring focus:outline-none disabled:opacity-50"
-        >
-          <option value="">
-            {customerId ? "Select a vehicle…" : "Select a customer first"}
-          </option>
-          {vehicles.map((v) => (
-            <option key={v.id} value={v.id}>
-              {v.label}
-            </option>
-          ))}
-        </select>
+        <div className="mt-1">
+          <Combobox
+            id="vehicleId"
+            name="vehicleId"
+            value={vehicleId}
+            onChange={setVehicleId}
+            options={vehicles}
+            getValue={(v) => v.id}
+            getLabel={(v) => v.label}
+            getSearchKeywords={(v) => [v.registration, v.label]}
+            disabled={!customerId}
+            placeholder={customerId ? "Select a vehicle…" : "Select a customer first"}
+            searchPlaceholder="Search by reg or model…"
+            emptyLabel="No vehicles for this customer."
+            aria-invalid={Boolean(fieldErrors.vehicleId)}
+          />
+        </div>
         {fieldErrors.vehicleId && (
           <p className="mt-1 text-sm text-destructive">{fieldErrors.vehicleId}</p>
         )}
@@ -177,19 +200,20 @@ export function NewJobForm({
         </p>
       )}
 
-      <div className="flex flex-col-reverse gap-3 sm:flex-row">
+      </FormCard.Fields>
+      <FormActions>
         <Button
           type="button"
           variant="outline"
-          className="w-full sm:w-auto"
           onClick={() => router.push("/app/jobs")}
         >
           Cancel
         </Button>
-        <Button type="submit" disabled={isPending} className="w-full sm:w-auto">
+        <Button type="submit" disabled={isPending}>
           {isPending ? "Creating…" : "Create Job"}
         </Button>
-      </div>
+      </FormActions>
     </form>
+    </FormCard>
   );
 }

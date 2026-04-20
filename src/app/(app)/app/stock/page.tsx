@@ -3,7 +3,12 @@ import { Package, AlertTriangle, Shield } from "lucide-react";
 import { requireManager } from "@/lib/auth/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { EmptyState } from "@/components/ui/empty-state";
+import {
+  OrganizedFilingSystemIllustration,
+  DataSecurityIllustration,
+} from "@/components/illustrations";
 import { Badge } from "@/components/ui/badge";
+import { PageContainer } from "@/components/app/page-container";
 import {
   Table,
   TableBody,
@@ -70,7 +75,7 @@ export default async function StockPage() {
     <>
       {!items || items.length === 0 ? (
         <EmptyState
-          icon={Package}
+          illustration={OrganizedFilingSystemIllustration}
           title="No stock items"
           description="Add stock items to track inventory levels."
           className="mt-6"
@@ -205,7 +210,7 @@ export default async function StockPage() {
     <>
       {(warranties ?? []).length === 0 ? (
         <EmptyState
-          icon={Shield}
+          illustration={DataSecurityIllustration}
           title="No part warranties"
           description="Add warranty details when creating stock items."
           className="mt-6"
@@ -367,7 +372,7 @@ export default async function StockPage() {
   );
 
   return (
-    <div>
+    <PageContainer width="full">
       <StockRealtime garageId={session.garageId} />
       <div className="flex items-center justify-between">
         <div>
@@ -384,6 +389,6 @@ export default async function StockPage() {
         warrantiesTab={warrantiesTab}
         warrantyCount={warrantyCount}
       />
-    </div>
+    </PageContainer>
   );
 }

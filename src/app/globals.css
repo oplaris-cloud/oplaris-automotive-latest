@@ -156,3 +156,32 @@
     @apply font-sans;
   }
 }
+
+/* V6 — page-mount fade-in. 200 ms is below the Doherty threshold so it
+ * reads as instantaneous yet kills the perceived flicker between a
+ * soft-navigation and the new page rendering. The reduced-motion rule
+ * below kills it for users who opt out. */
+@keyframes page-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.page-fade-in {
+  animation: page-fade-in 200ms ease-out both;
+}
+
+/* P56.8 (UX-H8) — honour the OS-level reduced-motion preference. WCAG
+ * 2.3.3. Zero out every animation/transition rather than relying on
+ * each call-site remembering `motion-safe:` — that pattern is too easy
+ * to drift away from over time. Keeps a hairline duration so focus
+ * rings and accordion reveals still flicker enough to be perceived
+ * but not enough to trigger vestibular distress. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

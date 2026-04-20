@@ -19,6 +19,12 @@ import {
 } from "../../../jobs/work-logs/actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { RegPlate } from "@/components/ui/reg-plate";
+import { StatusBadge } from "@/components/ui/status-badge";
+import type { JobStatus } from "@/lib/validation/job-schemas";
+import { cn } from "@/lib/utils";
 import { formatRunningTimer } from "@/lib/format";
 import {
   isPaused,
@@ -151,14 +157,12 @@ export function TechJobClient({
   const isWorking = !!activeWorkLog;
 
   return (
-    <div className="mx-auto max-w-lg space-y-4">
+    <div className="space-y-4">
       {/* Job header */}
       <div>
         <div className="flex items-center gap-2">
           <span className="font-mono text-xl font-bold">{jobNumber}</span>
-          <span className="rounded-full bg-muted px-3 py-1 text-xs font-medium capitalize">
-            {status.replace(/_/g, " ")}
-          </span>
+          <StatusBadge status={status as JobStatus} />
         </div>
         {description && (
           <p className="mt-1 text-sm text-muted-foreground">{description}</p>
@@ -170,9 +174,7 @@ export function TechJobClient({
         {vehicleReg && (
           <Card>
             <CardContent className="p-3">
-              <div className="inline-block rounded bg-yellow-400 px-2 py-1 font-mono text-lg font-bold text-black">
-                {vehicleReg}
-              </div>
+              <RegPlate reg={vehicleReg} size="lg" />
               <div className="mt-1 text-xs text-muted-foreground">{vehicleMakeModel}</div>
             </CardContent>
           </Card>
@@ -182,40 +184,42 @@ export function TechJobClient({
             <CardContent className="p-3">
               <div className="text-sm font-medium">{customerName}</div>
               {customerPhone && (
-                <a
-                  href={`tel:${customerPhone}`}
-                  className="mt-1 inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs font-medium text-primary-foreground"
+                <Button
+                  asChild
+                  size="sm"
+                  className="mt-2 w-full"
                 >
-                  <Phone className="h-3.5 w-3.5" />
-                  Call
-                </a>
+                  <a href={`tel:${customerPhone}`}>
+                    <Phone className="h-4 w-4" />
+                    Call
+                  </a>
+                </Button>
               )}
             </CardContent>
           </Card>
         )}
       </div>
 
-      {/* Timer display — greens while running, amber while paused. */}
+      {/* Timer display — green while running, warning (amber token) while paused. */}
       {isWorking && (
         <Card
-          className={
-            paused
-              ? "border-amber-400/60 bg-amber-50/50 dark:bg-amber-950/20"
-              : "border-success/50 bg-success/5"
-          }
+          className={cn(
+            paused ? "border-warning/60 bg-warning/10" : "border-success/50 bg-success/5",
+          )}
         >
           <CardContent className="flex items-center justify-between p-4">
             <div className="flex items-center gap-2">
-              {paused ? (
-                <span className="h-3 w-3 rounded-full bg-amber-500" />
-              ) : (
-                <span className="h-3 w-3 animate-pulse rounded-full bg-success" />
-              )}
+              <span
+                className={cn(
+                  "h-3 w-3 rounded-full",
+                  paused ? "bg-warning" : "animate-pulse bg-success",
+                )}
+              />
               <span className="text-sm font-medium capitalize">
                 {activeWorkLog.task_type.replace(/_/g, " ")}
               </span>
               {paused ? (
-                <span className="rounded bg-amber-200/60 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
+                <span className="rounded bg-warning px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-warning-foreground">
                   Paused
                 </span>
               ) : null}
@@ -231,51 +235,54 @@ export function TechJobClient({
       {/* Action buttons */}
       {!isWorking ? (
         <div className="space-y-3">
-          {/* Task type picker */}
+          {/* Task type picker — aria-pressed toggles drive the variant */}
           <div>
-            <label className="text-sm font-medium">Task Type</label>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {TASK_TYPES.map((t) => (
-                <button
-                  key={t.value}
-                  type="button"
-                  onClick={() => setTaskType(t.value)}
-                  className={`rounded-full border px-3 py-2 text-sm font-medium transition-colors ${
-                    taskType === t.value
-                      ? "border-primary bg-primary text-primary-foreground"
-                      : "border-input hover:bg-accent"
-                  }`}
-                  style={{ minHeight: 40 }}
-                >
-                  {t.label}
-                </button>
-              ))}
+            <Label className="text-sm font-medium">Task Type</Label>
+            <div
+              role="radiogroup"
+              aria-label="Task type"
+              className="mt-2 flex flex-wrap gap-2"
+            >
+              {TASK_TYPES.map((t) => {
+                const active = taskType === t.value;
+                return (
+                  <Button
+                    key={t.value}
+                    type="button"
+                    size="sm"
+                    variant={active ? "default" : "outline"}
+                    role="radio"
+                    aria-checked={active}
+                    onClick={() => setTaskType(t.value)}
+                  >
+                    {t.label}
+                  </Button>
+                );
+              })}
             </div>
           </div>
 
           {/* Optional description */}
           <div>
-            <label htmlFor="taskDesc" className="text-sm font-medium">
-              Notes (optional)
-            </label>
-            <input
+            <Label htmlFor="taskDesc">Notes (optional)</Label>
+            <Input
               id="taskDesc"
               type="text"
               value={taskDesc}
               onChange={(e) => setTaskDesc(e.target.value)}
               placeholder="What are you working on?"
-              className="mt-1 block w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/30"
+              className="mt-1"
             />
           </div>
 
           {/* Start button */}
           <Button
+            size="xl"
             onClick={handleStart}
             disabled={isPending}
-            className="h-16 w-full gap-2 text-lg"
-            style={{ minHeight: 64 }}
+            className="w-full"
           >
-            <Play className="h-6 w-6" />
+            <Play />
             {isPending ? "Starting..." : "Start Work"}
           </Button>
         </div>
@@ -283,34 +290,34 @@ export function TechJobClient({
         <div className="flex gap-3">
           {paused ? (
             <Button
+              size="xl"
               onClick={handleResume}
               disabled={isPending}
               variant="outline"
-              className="h-16 flex-1 gap-2 border-emerald-500 text-lg text-emerald-700 hover:bg-emerald-50"
-              style={{ minHeight: 64 }}
+              className="flex-1 border-success text-success"
             >
-              <PlayCircle className="h-6 w-6" />
+              <PlayCircle />
               {isPending ? "..." : "Resume"}
             </Button>
           ) : (
             <Button
+              size="xl"
               onClick={handlePause}
               disabled={isPending}
               variant="outline"
-              className="h-16 flex-1 gap-2 border-amber-400 text-lg text-amber-600 hover:bg-amber-50"
-              style={{ minHeight: 64 }}
+              className="flex-1 border-warning text-warning"
             >
-              <Pause className="h-6 w-6" />
+              <Pause />
               {isPending ? "..." : "Pause"}
             </Button>
           )}
           <Button
+            size="xl"
             onClick={handleComplete}
             disabled={isPending}
-            className="h-16 flex-1 gap-2 text-lg"
-            style={{ minHeight: 64 }}
+            className="flex-1"
           >
-            <CheckCircle2 className="h-6 w-6" />
+            <CheckCircle2 />
             {isPending ? "..." : "Complete"}
           </Button>
         </div>

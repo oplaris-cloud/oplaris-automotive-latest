@@ -83,9 +83,17 @@ function Button({
     // `render` prop so the outer element becomes the child (anchor,
     // Link, etc.) while still picking up the button styling + focus
     // + aria-* behaviour from ButtonPrimitive.
+    //
+    // `nativeButton={false}` is required here — Base UI defaults to
+    // `true` and emits a dev-time warning when the rendered element
+    // isn't a native <button>. We're intentionally rendering an <a>
+    // (e.g. the "Download PDF" link on the status page + any
+    // `<Button asChild><Link>…</Link></Button>` pattern), so the
+    // warning is a false positive unless we opt out here.
     return (
       <ButtonPrimitive
         data-slot="button"
+        nativeButton={false}
         className={mergedClassName}
         render={children as React.ReactElement}
         {...props}

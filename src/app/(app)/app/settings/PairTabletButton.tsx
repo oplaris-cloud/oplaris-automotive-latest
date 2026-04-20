@@ -37,7 +37,7 @@ export function PairTabletButton() {
         {isPending ? "Pairing…" : "Pair This Device as Kiosk"}
       </Button>
       {status === "success" && (
-        <p className="mt-2 text-sm text-green-600">{message}</p>
+        <p className="mt-2 text-sm text-success">{message}</p>
       )}
       {status === "error" && (
         <p className="mt-2 text-sm text-destructive">{message}</p>

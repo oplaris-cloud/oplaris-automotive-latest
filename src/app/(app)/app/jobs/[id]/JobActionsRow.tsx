@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,6 +21,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { toast } from "@/lib/toast";
 import {
   Sheet,
   SheetContent,
@@ -181,7 +183,7 @@ function StatusTransitionButton({
     startTransition(async () => {
       const result = await updateJobStatus({ jobId, status: target });
       if (result.ok) router.refresh();
-      else alert(result.error ?? "Failed to update status");
+      else toast.error(result.error ?? "Failed to update status");
     });
   }, [jobId, target, router]);
 
@@ -223,33 +225,20 @@ function StatusTransitionButton({
 // ---------------------------------------------------------------------------
 
 interface CancelMenuItemProps {
-  jobId: string;
-  onClose: () => void;
+  onRequestCancel: () => void;
 }
 
-function CancelMenuItem({ jobId, onClose }: CancelMenuItemProps) {
-  const router = useRouter();
-  const [isPending, startTransition] = React.useTransition();
+function CancelMenuItem({ onRequestCancel }: CancelMenuItemProps) {
   return (
     <DropdownMenuItem
       variant="destructive"
       onClick={(e) => {
         e.preventDefault();
-        if (!confirm("Cancel this job? This cannot be undone.")) return;
-        startTransition(async () => {
-          const result = await updateJobStatus({
-            jobId,
-            status: "cancelled",
-          });
-          onClose();
-          if (result.ok) router.refresh();
-          else alert(result.error ?? "Failed to cancel");
-        });
+        onRequestCancel();
       }}
-      disabled={isPending}
     >
       <XCircle className="h-4 w-4" />
-      {isPending ? "Cancelling…" : "Cancel job"}
+      Cancel job
     </DropdownMenuItem>
   );
 }
@@ -267,6 +256,13 @@ interface OverflowMenuProps {
   onOpenChangeHandler: () => void;
 }
 
+interface OverflowMenuContentCallbacks {
+  onClose: () => void;
+  router: ReturnType<typeof useRouter>;
+  onRequestComplete: () => void;
+  onRequestCancel: () => void;
+}
+
 function OverflowMenuContent({
   jobId,
   status,
@@ -275,7 +271,9 @@ function OverflowMenuContent({
   onClose,
   onOpenChangeHandler,
   router,
-}: OverflowMenuProps & { onClose: () => void; router: ReturnType<typeof useRouter> }) {
+  onRequestComplete,
+  onRequestCancel,
+}: OverflowMenuProps & OverflowMenuContentCallbacks) {
   const canCancel = (STATUS_TRANSITIONS[status] ?? []).includes("cancelled");
   const canMarkComplete = (STATUS_TRANSITIONS[status] ?? []).includes(
     "completed",
@@ -286,7 +284,7 @@ function OverflowMenuContent({
     void (async () => {
       const result = await updateJobStatus({ jobId, status: target });
       if (result.ok) router.refresh();
-      else alert(result.error ?? "Failed to update status");
+      else toast.error(result.error ?? "Failed to update status");
     })();
   };
 
@@ -316,8 +314,7 @@ function OverflowMenuContent({
         <DropdownMenuItem
           onClick={(e) => {
             e.preventDefault();
-            if (!confirm("Mark this job complete?")) return;
-            fireTransition("completed");
+            onRequestComplete();
           }}
         >
           <CheckCircle2 className="h-4 w-4" />
@@ -341,7 +338,7 @@ function OverflowMenuContent({
       {canCancel && (
         <>
           {(canMarkComplete || isManager) && <DropdownMenuSeparator />}
-          <CancelMenuItem jobId={jobId} onClose={onClose} />
+          <CancelMenuItem onRequestCancel={onRequestCancel} />
         </>
       )}
     </>
@@ -352,6 +349,8 @@ function OverflowMenu(props: OverflowMenuProps) {
   const isMobile = useMediaQuery("(max-width: 639px)");
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
+  const [confirmCompleteOpen, setConfirmCompleteOpen] = React.useState(false);
+  const [confirmCancelOpen, setConfirmCancelOpen] = React.useState(false);
 
   // The "is it worth showing" check: if there are no overflow items, the
   // trigger renders nothing.
@@ -369,61 +368,84 @@ function OverflowMenu(props: OverflowMenuProps) {
 
   if (!anyContent) return null;
 
-  if (isMobile) {
-    return (
-      <Sheet open={open} onOpenChange={setOpen}>
-        <SheetTrigger
-          render={
-            <Button
-              size="sm"
-              variant="ghost"
-              aria-label="More actions"
-              className="px-2"
-            />
-          }
-        >
-          <MoreHorizontal className="h-4 w-4" />
-        </SheetTrigger>
-        <SheetContent side="bottom" className="rounded-t-xl">
-          <SheetHeader>
-            <SheetTitle>More actions</SheetTitle>
-          </SheetHeader>
-          <Separator />
-          <div className="flex flex-col gap-1 p-2 pb-6">
-            {/* Reuse the dropdown items in the sheet — they style fine. */}
-            <OverflowMenuContent
-              {...props}
-              onClose={() => setOpen(false)}
-              router={router}
-            />
-          </div>
-        </SheetContent>
-      </Sheet>
-    );
+  async function runTransition(target: JobStatus, errorLabel: string) {
+    const result = await updateJobStatus({ jobId: props.jobId, status: target });
+    if (result.ok) router.refresh();
+    else toast.error(result.error ?? errorLabel);
   }
 
+  // Closing the menu before opening the ConfirmDialog makes the focus
+  // trap work cleanly: shadcn/Base UI will restore focus to the trigger
+  // when the dialog closes, and we don't end up with two competing
+  // overlays on mobile.
+  const handleRequestComplete = () => {
+    setOpen(false);
+    setConfirmCompleteOpen(true);
+  };
+  const handleRequestCancel = () => {
+    setOpen(false);
+    setConfirmCancelOpen(true);
+  };
+
+  const content = (
+    <OverflowMenuContent
+      {...props}
+      onClose={() => setOpen(false)}
+      router={router}
+      onRequestComplete={handleRequestComplete}
+      onRequestCancel={handleRequestCancel}
+    />
+  );
+
+  const trigger = (
+    <Button size="sm" variant="ghost" aria-label="More actions" className="px-2" />
+  );
+
   return (
-    <DropdownMenu open={open} onOpenChange={setOpen}>
-      <DropdownMenuTrigger
-        render={
-          <Button
-            size="sm"
-            variant="ghost"
-            aria-label="More actions"
-            className="px-2"
-          />
-        }
-      >
-        <MoreHorizontal className="h-4 w-4" />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <OverflowMenuContent
-          {...props}
-          onClose={() => setOpen(false)}
-          router={router}
-        />
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <>
+      {isMobile ? (
+        <Sheet open={open} onOpenChange={setOpen}>
+          <SheetTrigger render={trigger}>
+            <MoreHorizontal className="h-4 w-4" />
+          </SheetTrigger>
+          <SheetContent side="bottom" className="rounded-t-xl">
+            <SheetHeader>
+              <SheetTitle>More actions</SheetTitle>
+            </SheetHeader>
+            <Separator />
+            <div className="flex flex-col gap-1 p-2 pb-6">{content}</div>
+          </SheetContent>
+        </Sheet>
+      ) : (
+        <DropdownMenu open={open} onOpenChange={setOpen}>
+          <DropdownMenuTrigger render={trigger}>
+            <MoreHorizontal className="h-4 w-4" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">{content}</DropdownMenuContent>
+        </DropdownMenu>
+      )}
+
+      {/* P56.6 — confirm dialogs replace `window.confirm()` for destructive
+       *  and irreversible transitions so the prompt follows theme + focus
+       *  + aria-busy conventions. */}
+      <ConfirmDialog
+        open={confirmCompleteOpen}
+        onOpenChange={setConfirmCompleteOpen}
+        title="Mark this job complete?"
+        description="The timeline + invoicing views will flip to the completed state."
+        confirmLabel="Mark complete"
+        onConfirm={() => runTransition("completed", "Failed to update status")}
+      />
+      <ConfirmDialog
+        open={confirmCancelOpen}
+        onOpenChange={setConfirmCancelOpen}
+        title="Cancel this job?"
+        description="This cannot be undone. The job will be removed from all active queues."
+        confirmLabel="Cancel job"
+        destructive
+        onConfirm={() => runTransition("cancelled", "Failed to cancel")}
+      />
+    </>
   );
 }
 

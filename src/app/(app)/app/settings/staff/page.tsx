@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { StaffAvatar } from "@/components/ui/staff-avatar";
+import { PageContainer } from "@/components/app/page-container";
 import { AddStaffDialog } from "./AddStaffDialog";
 import { EditStaffButton, DeactivateStaffButton } from "./StaffActions";
 import { StaffSettingsRealtime } from "@/lib/realtime/shims";
@@ -17,9 +18,9 @@ const ROLE_LABELS: Record<string, string> = {
 };
 
 const ROLE_COLOURS: Record<string, string> = {
-  manager: "bg-blue-100 text-blue-800",
-  mot_tester: "bg-purple-100 text-purple-800",
-  mechanic: "bg-green-100 text-green-800",
+  manager: "bg-primary/10 text-primary",
+  mot_tester: "bg-info/10 text-info",
+  mechanic: "bg-success/10 text-success",
 };
 
 export default async function StaffPage() {
@@ -41,7 +42,7 @@ export default async function StaffPage() {
   const inactive = staff.filter((s) => s.is_active === false);
 
   return (
-    <div>
+    <PageContainer width="default">
       <StaffSettingsRealtime garageId={session.garageId} />
       <div className="flex items-center justify-between">
         <div>
@@ -68,7 +69,7 @@ export default async function StaffPage() {
               return (
                 <Card key={s.id}>
                   <CardContent className="flex items-center gap-4 p-4">
-                    <div className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-green-400 bg-green-50 text-green-600">
+                    <div className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-success bg-success/10 text-success">
                       <StaffAvatar
                         src={(s as Record<string, unknown>).avatar_url as string | null}
                         name={s.full_name}
@@ -127,6 +128,6 @@ export default async function StaffPage() {
           )}
         </>
       )}
-    </div>
+    </PageContainer>
   );
 }

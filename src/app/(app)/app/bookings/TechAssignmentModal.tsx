@@ -112,7 +112,7 @@ export function TechAssignmentModal({
           <div className="mt-8 space-y-6">
             {/* Available section — listed first per spec */}
             <section>
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-green-700">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-success">
                 Available now ({available.length})
               </h3>
               {available.length === 0 ? (
@@ -138,7 +138,7 @@ export function TechAssignmentModal({
                 <hr className="border-gray-200" />
                 {/* Busy section — divider above per spec */}
                 <section>
-                  <h3 className="text-xs font-semibold uppercase tracking-wide text-red-700">
+                  <h3 className="text-xs font-semibold uppercase tracking-wide text-destructive">
                     Busy ({busy.length})
                   </h3>
                   <div className="mt-3 flex flex-wrap justify-center gap-6">
@@ -159,7 +159,7 @@ export function TechAssignmentModal({
 
         {/* Busy-tech confirmation (P46.4 / P46.5) */}
         {confirmBusy && (
-          <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-center">
+          <div className="mt-6 rounded-xl border border-warning/40 bg-warning/10 p-4 text-center">
             <p className="text-sm text-gray-700">
               <strong>{confirmBusy.full_name}</strong> is currently working on{" "}
               {confirmBusy.currentJobId ? (
@@ -198,7 +198,7 @@ export function TechAssignmentModal({
         )}
 
         {error && (
-          <p className="mt-4 text-center text-sm text-red-600">{error}</p>
+          <p className="mt-4 text-center text-sm text-destructive">{error}</p>
         )}
 
         {isPending && !confirmBusy && (
@@ -227,8 +227,8 @@ function TechAvatarButton({ tech, onSelect, disabled }: TechAvatarButtonProps) {
       <div
         className={`flex h-20 w-20 items-center justify-center rounded-full border-[3px] ${
           tech.isBusy
-            ? "border-red-300 bg-red-50 text-red-400"
-            : "border-green-400 bg-green-50 text-green-600"
+            ? "border-destructive/40 bg-destructive/10 text-destructive/60"
+            : "border-success bg-success/10 text-success"
         }`}
       >
         <StaffAvatar src={tech.avatar_url} name={tech.full_name} size={74} />
@@ -237,7 +237,7 @@ function TechAvatarButton({ tech, onSelect, disabled }: TechAvatarButtonProps) {
         {shortName(tech.full_name)}
       </span>
       {tech.isBusy && tech.currentJobNumber && (
-        <span className="font-mono text-[10px] text-red-700">
+        <span className="font-mono text-[10px] text-destructive">
           on {tech.currentJobNumber}
         </span>
       )}

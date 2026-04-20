@@ -4,6 +4,7 @@ import { requireManager } from "@/lib/auth/session";
 import { getAuditLog } from "../../customers/gdpr/actions";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
+import { PageContainer } from "@/components/app/page-container";
 import {
   Table,
   TableBody,
@@ -26,7 +27,7 @@ export default async function AuditLogPage({ searchParams }: AuditLogPageProps) 
   const totalPages = Math.ceil(total / perPage);
 
   return (
-    <div>
+    <PageContainer width="full">
       <h1 className="text-2xl font-semibold">Audit Log</h1>
       <p className="mt-1 text-sm text-muted-foreground">
         All staff actions recorded for compliance.
@@ -123,6 +124,6 @@ export default async function AuditLogPage({ searchParams }: AuditLogPageProps) 
           )}
         </>
       )}
-    </div>
+    </PageContainer>
   );
 }

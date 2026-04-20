@@ -1,11 +1,15 @@
 import Link from "next/link";
-import { ArrowRightLeft, UserCheck, Wrench, Zap } from "lucide-react";
+import { ArrowRightLeft, UserCheck, Wrench } from "lucide-react";
 
 import { requireStaffSession } from "@/lib/auth/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { MilestoneAchievementIllustration } from "@/components/illustrations";
+import { PageContainer } from "@/components/app/page-container";
+import { PassbackBadge } from "@/components/ui/passback-badge";
+import { RegPlate } from "@/components/ui/reg-plate";
 import { Section } from "@/components/ui/section";
 import { Stack } from "@/components/ui/stack";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -170,7 +174,7 @@ export default async function MyWorkPage() {
     passbackRows.length === 0;
 
   return (
-    <div className="mx-auto max-w-3xl pb-8">
+    <PageContainer width="narrow" className="pb-8">
       <MyWorkRealtime garageId={session.garageId} />
       <h1 className="text-2xl font-semibold">My Work</h1>
       <p className="mt-1 text-sm text-muted-foreground">
@@ -179,7 +183,7 @@ export default async function MyWorkPage() {
 
       {hasNothing ? (
         <EmptyState
-          icon={Wrench}
+          illustration={MilestoneAchievementIllustration}
           title="Nothing on your plate"
           description="New check-ins and assigned jobs will appear here."
           className="mt-8"
@@ -264,7 +268,7 @@ export default async function MyWorkPage() {
           </Stack>
         </Section>
       )}
-    </div>
+    </PageContainer>
   );
 }
 
@@ -307,14 +311,7 @@ function JobRow({ job, href }: { job: AssignedJob; href: string }) {
                   {job.service}
                 </Badge>
               ) : null}
-              {job.awaiting_passback ? (
-                <Badge
-                  variant="outline"
-                  className="gap-1 border-amber-500 bg-amber-50 text-[10px] font-bold uppercase text-amber-900 dark:bg-amber-950 dark:text-amber-200"
-                >
-                  <Zap className="h-3 w-3" /> Paused
-                </Badge>
-              ) : null}
+              {job.awaiting_passback ? <PassbackBadge /> : null}
             </div>
           ) : null}
 
@@ -364,18 +361,11 @@ function PassbackRow({ job }: { job: AssignedJob }) {
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <span className="font-mono text-sm font-bold">{job.job_number}</span>
-              <Badge
-                variant="outline"
-                className="gap-1 border-amber-500 bg-amber-50 text-[10px] font-bold uppercase text-amber-900 dark:bg-amber-950 dark:text-amber-200"
-              >
-                <Zap className="h-3 w-3" /> Passback
-              </Badge>
+              <PassbackBadge />
             </div>
             {job.vehicle ? (
               <div className="mt-2 font-mono text-sm">
-                <span className="inline-block rounded bg-yellow-400 px-2 py-1 font-bold text-black">
-                  {job.vehicle.registration}
-                </span>
+                <RegPlate reg={job.vehicle.registration} size="sm" />
                 <span className="ml-2 font-sans text-xs text-muted-foreground">
                   {[job.vehicle.make, job.vehicle.model].filter(Boolean).join(" ")}
                 </span>
@@ -432,21 +422,12 @@ function CheckInRow({
               >
                 {checkIn.service}
               </Badge>
-              {isPassback ? (
-                <Badge
-                  variant="outline"
-                  className="gap-1 border-amber-500 bg-amber-50 text-[10px] font-bold uppercase text-amber-900 dark:bg-amber-950 dark:text-amber-200"
-                >
-                  <Zap className="h-3 w-3" /> Passback
-                </Badge>
-              ) : null}
+              {isPassback ? <PassbackBadge /> : null}
             </div>
 
             {/* Line 3 — vehicle */}
             <div className="mt-2 text-sm text-muted-foreground">
-              <span className="inline-block rounded bg-yellow-400 px-2 py-1 font-mono text-[11px] font-bold text-black">
-                {checkIn.registration}
-              </span>
+              <RegPlate reg={checkIn.registration} size="sm" />
               {checkIn.make ? (
                 <span className="ml-2">
                   {checkIn.make} {checkIn.model ?? ""}
@@ -456,7 +437,7 @@ function CheckInRow({
 
             {/* Line 4 — checklist summary / free-form notes */}
             {summary ? (
-              <div className="mt-1 text-xs text-amber-900 dark:text-amber-200">
+              <div className="mt-1 text-xs text-warning">
                 {summary}
                 {checkIn.passback_note ? ` — ${checkIn.passback_note}` : ""}
               </div>

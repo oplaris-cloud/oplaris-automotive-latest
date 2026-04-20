@@ -144,6 +144,10 @@ describe("getJobTimelineEvents — customer audience", () => {
         payload: { from_status: null, to_status: "checked_in" },
       },
       {
+        // Filtered — `work_running` was dropped from CUSTOMER_KIND_COPY
+        // in 2026-04-18 (showing "Sarah is working on your car now"
+        // felt invasive on the customer side). Left in the fixture to
+        // assert the filter still rejects it.
         event_id: "5",
         job_id: JOB,
         garage_id: "g",
@@ -158,17 +162,15 @@ describe("getJobTimelineEvents — customer audience", () => {
       client: makeClient(rows),
     });
 
-    // Only 3 rows should make the cut (1, 3, 5).
-    expect(result.map((r) => r.eventId)).toEqual(["1", "3", "5"]);
+    // Only 2 rows make the cut (1, 3) — status + passback. See comment
+    // on event 5 for why `work_running` is no longer customer-visible.
+    expect(result.map((r) => r.eventId)).toEqual(["1", "3"]);
 
     const byId = new Map(result.map((r) => [r.eventId, r]));
     expect(byId.get("1")!.customerCopy!.line).toBe(
       "Passed to mechanic for repair work",
     );
     expect(byId.get("3")!.customerCopy!.line).toBe("Ready for collection");
-    expect(byId.get("5")!.customerCopy!.line).toBe(
-      "Sarah is working on your car now",
-    );
   });
 
   it("returns an empty list when no rows are customer-visible", async () => {

@@ -67,14 +67,17 @@ export async function GET(
     .eq("job_id", jobId)
     .order("created_at");
 
-  // Fetch invoice record
+  // Fetch invoice record — migration 046 adds paid_at + payment_method
+  // so the PDF can stamp PAID when applicable.
   const { data: invoice } = await supabase
     .from("invoices")
-    .select("invoice_number, quote_status")
+    .select("invoice_number, quote_status, paid_at, payment_method")
     .eq("job_id", jobId)
     .maybeSingle();
 
-  const isInvoiced = invoice?.quote_status === "invoiced";
+  const isPaid = invoice?.quote_status === "paid";
+  const isInvoiced =
+    invoice?.quote_status === "invoiced" || isPaid;
   const title = isInvoiced ? "INVOICE" : "QUOTE";
   const reference = invoice?.invoice_number ?? `Q-${job.job_number}`;
 
@@ -98,6 +101,19 @@ export async function GET(
     : new Date().toLocaleDateString("en-GB");
 
   const g = garage;
+  const paidBlock = isPaid && invoice?.paid_at
+    ? {
+        at: new Date(invoice.paid_at).toLocaleDateString("en-GB"),
+        method:
+          invoice.payment_method === "bank_transfer"
+            ? "Bank transfer"
+            : invoice.payment_method
+              ? invoice.payment_method.charAt(0).toUpperCase() +
+                invoice.payment_method.slice(1)
+              : "",
+      }
+    : null;
+
   const invoiceData: InvoiceData = {
     garage: {
       name: (g.name as string) ?? "Garage",
@@ -112,6 +128,7 @@ export async function GET(
     title,
     reference,
     date: invoiceDate,
+    paid: paidBlock,
     customer: {
       fullName: (customer as { full_name: string })?.full_name ?? "Unknown",
       phone: (customer as { phone: string })?.phone ?? "",

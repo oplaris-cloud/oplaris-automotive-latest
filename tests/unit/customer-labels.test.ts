@@ -19,14 +19,16 @@ describe("isCustomerVisibleKind", () => {
   it.each([
     "passed_to_mechanic",
     "returned_from_mechanic",
-    "work_running",
-    "work_session",
     "status_changed",
   ])("returns true for the curated subset member %s", (kind) => {
     expect(isCustomerVisibleKind(kind)).toBe(true);
   });
 
+  // work_running and work_session were removed 2026-04-18 (Hossein
+  // decision: customers must not see work durations or technician names).
   it.each([
+    "work_running",
+    "work_session",
     "passed_to_mot_tester",
     "returned_from_mot_tester",
     "unknown_kind",
@@ -45,28 +47,12 @@ describe("CUSTOMER_KIND_COPY builders", () => {
     expect(r?.line).toBe("Passed to mechanic for repair work");
   });
 
-  it("work_running uses the actor first name", () => {
-    const r = CUSTOMER_KIND_COPY.work_running!({
-      payload: {},
-      actorFirstName: "Sarah",
-    });
-    expect(r?.line).toBe("Sarah is working on your car now");
+  it("work_running is NOT in the customer copy map (privacy, 2026-04-18)", () => {
+    expect(CUSTOMER_KIND_COPY.work_running).toBeUndefined();
   });
 
-  it("work_running falls back to a generic line when the actor is unknown", () => {
-    const r = CUSTOMER_KIND_COPY.work_running!({
-      payload: {},
-      actorFirstName: null,
-    });
-    expect(r?.line).toBe("A technician is working on your car now");
-  });
-
-  it("work_session formats the duration and uses the first name", () => {
-    const r = CUSTOMER_KIND_COPY.work_session!({
-      payload: { duration_seconds: 3700 },
-      actorFirstName: "Anna",
-    });
-    expect(r?.line).toBe("Anna worked for 1h 1m 40s");
+  it("work_session is NOT in the customer copy map (privacy, 2026-04-18)", () => {
+    expect(CUSTOMER_KIND_COPY.work_session).toBeUndefined();
   });
 
   it("status_changed returns null for statuses not in the customer-safe map", () => {

@@ -8,7 +8,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   generateApprovalToken,
 } from "@/lib/security/approval-tokens";
-import { sendSms } from "@/lib/sms/twilio";
+import { queueSms } from "@/lib/sms/queue";
 import { serverEnv } from "@/lib/env";
 import { isValidTransition, type JobStatus } from "@/lib/validation/job-schemas";
 
@@ -45,7 +45,7 @@ export async function requestApproval(
   // trying to request approval on a draft or completed job).
   const { data: job, error: jobErr } = await supabase
     .from("jobs")
-    .select("id, status, customer_id, customers!customer_id ( phone )")
+    .select("id, status, customer_id, vehicle_id, customers!customer_id ( phone )")
     .eq("id", parsed.data.jobId)
     .single();
 
@@ -98,16 +98,24 @@ export async function requestApproval(
   // Build the approval URL
   const approvalUrl = `${env.NEXT_PUBLIC_APP_URL}/api/approvals/${encodeURIComponent(token)}`;
 
-  // Send SMS
+  // Migration 047 — fire through queueSms so failures land in the
+  // sms_outbox row instead of getting swallowed by console.error.
+  // The approval_request row already records the request itself —
+  // this just tracks the customer-notification side.
   try {
-    await sendSms(
+    await queueSms({
+      garageId: session.garageId,
+      jobId: parsed.data.jobId,
+      vehicleId: (job as { vehicle_id?: string }).vehicle_id ?? undefined,
+      customerId: job.customer_id,
       phone,
-      `Dudley Auto Service needs your approval: ${parsed.data.description} — £${(parsed.data.amountPence / 100).toFixed(2)}.\n\nApprove or decline: ${approvalUrl}`,
-    );
+      messageType: "approval_request",
+      messageBody: `Dudley Auto Service needs your approval: ${parsed.data.description} — £${(parsed.data.amountPence / 100).toFixed(2)}.\n\nApprove or decline: ${approvalUrl}`,
+    });
   } catch (smsErr) {
-    // Log the error but don't fail the action — the approval request is
-    // already in the DB and the manager can resend or share the link manually.
-    console.error("SMS send failed:", smsErr);
+    // Outbox insert itself failed (RPC unreachable). The approval
+    // request is still in the DB; manager can resend via /app/messages.
+    console.error("approval queueSms failed:", smsErr);
   }
 
   // Update job status

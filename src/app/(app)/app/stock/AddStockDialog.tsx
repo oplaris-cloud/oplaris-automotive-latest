@@ -9,13 +9,14 @@ import { createStockWarranty } from "../jobs/warranties/actions";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { FormCard } from "@/components/ui/form-card";
+import { FormActions } from "@/components/ui/form-actions";
 import { LocationSelect } from "./LocationSelect";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
   DialogTrigger,
 } from "@/components/ui/dialog";
 
@@ -90,7 +91,9 @@ export function AddStockDialog({ locations }: AddStockDialogProps) {
         <DialogHeader>
           <DialogTitle>Add Stock Item</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-3">
+        <FormCard variant="plain">
+        <form onSubmit={handleSubmit}>
+          <FormCard.Fields>
           <div>
             <Label htmlFor="stock-desc" required>Description</Label>
             <Input id="stock-desc" name="description" required placeholder="e.g. Oil filter" className="mt-1" />
@@ -161,12 +164,14 @@ export function AddStockDialog({ locations }: AddStockDialogProps) {
           )}
 
           {error && <p className="text-sm text-destructive">{error}</p>}
-          <DialogFooter>
-            <Button type="submit" size="sm" disabled={isPending}>
+          </FormCard.Fields>
+          <FormActions>
+            <Button type="submit" disabled={isPending}>
               {isPending ? "Adding..." : "Add Item"}
             </Button>
-          </DialogFooter>
+          </FormActions>
         </form>
+        </FormCard>
       </DialogContent>
     </Dialog>
   );

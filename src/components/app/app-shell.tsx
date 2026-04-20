@@ -78,9 +78,10 @@ export function AppShell({
           onMenuClick={() => setDrawerOpen(true)}
         />
         <main
+          key={pathname}
           id="main-content"
           role="main"
-          className="flex-1 overflow-y-auto p-4 sm:p-6"
+          className="page-fade-in flex-1 overflow-y-auto p-4 sm:p-6"
         >
           {children}
         </main>

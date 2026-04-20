@@ -58,10 +58,11 @@ export async function generateJobSheet(
     .eq("job_id", jobId)
     .order("created_at", { ascending: true });
 
-  // Fetch garage name
+  // V5 — Fetch garage name + brand colours so the PDF header re-skins
+  // per garage (resale-ready). RLS scopes to the manager's own garage.
   const { data: garage } = await supabase
     .from("garages")
-    .select("name")
+    .select("name, brand_name, brand_primary_hex, brand_accent_hex")
     .eq("id", session.garageId)
     .single();
 
@@ -70,7 +71,18 @@ export async function generateJobSheet(
   const vehicle = Array.isArray(job.vehicles) ? job.vehicles[0] : job.vehicles;
 
   const sheetData: JobSheetData = {
-    garage: { name: garage?.name ?? "Garage" },
+    garage: {
+      name:
+        (garage as { brand_name: string | null } | null)?.brand_name ||
+        garage?.name ||
+        "Garage",
+      primaryHex:
+        (garage as { brand_primary_hex: string | null } | null)?.brand_primary_hex ??
+        undefined,
+      accentHex:
+        (garage as { brand_accent_hex: string | null } | null)?.brand_accent_hex ??
+        null,
+    },
     job: {
       jobNumber: job.job_number,
       status: job.status,

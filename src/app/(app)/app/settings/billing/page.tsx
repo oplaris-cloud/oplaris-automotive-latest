@@ -1,6 +1,7 @@
 import { requireManager } from "@/lib/auth/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageContainer } from "@/components/app/page-container";
 
 import { BillingForm } from "./BillingForm";
 
@@ -15,7 +16,7 @@ export default async function BillingSettingsPage() {
     .single();
 
   return (
-    <div className="max-w-xl">
+    <PageContainer width="form">
       <h1 className="text-2xl font-semibold">Billing</h1>
       <p className="mt-1 text-sm text-muted-foreground">
         Defaults for labour charges. You can still override any of these on a per-job basis.
@@ -32,6 +33,6 @@ export default async function BillingSettingsPage() {
           />
         </CardContent>
       </Card>
-    </div>
+    </PageContainer>
   );
 }

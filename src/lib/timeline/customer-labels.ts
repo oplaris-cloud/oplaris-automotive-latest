@@ -10,8 +10,6 @@
 // Decision #3 on 2026-04-14). The fetcher redacts before passing into
 // these builders; the builders just format.
 
-import { formatWorkLogDuration } from "@/lib/format";
-
 export type CustomerFriendlyCopy = {
   /** Primary text on the timeline row. */
   line: string;
@@ -51,20 +49,10 @@ export const CUSTOMER_KIND_COPY: Record<
   returned_from_mechanic: () => ({
     line: "Mechanic finished — back with MOT tester",
   }),
-  work_running: ({ actorFirstName }) => ({
-    line: `${actorFirstName ?? "A technician"} is working on your car now`,
-  }),
-  work_session: ({ payload, actorFirstName }) => {
-    const seconds =
-      typeof payload.duration_seconds === "number"
-        ? payload.duration_seconds
-        : null;
-    const duration = formatWorkLogDuration(seconds ?? undefined);
-    const who = actorFirstName ?? "A technician";
-    return {
-      line: `${who} worked for ${duration}`,
-    };
-  },
+  // work_running and work_session intentionally EXCLUDED (2026-04-18,
+  // Hossein decision). Customers should not see work durations, technician
+  // names, or internal labour details — only status progression.
+  // The fetcher already drops any kind absent from this map.
   status_changed: ({ payload }) => {
     const to =
       typeof payload.to_status === "string" ? payload.to_status : null;

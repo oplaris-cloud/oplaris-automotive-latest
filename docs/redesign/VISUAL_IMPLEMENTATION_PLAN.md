@@ -1,6 +1,8 @@
 # VISUAL_IMPLEMENTATION_PLAN.md — UI Polish & Branding Layer
 
-> **STATUS (2026-04-14):** **Phase 3 — pre-launch, scheduled.** The original Thu 16 Apr M1 deadline is superseded. Hossein wants quality over speed. Phases run strictly in order: 1 (role testing) → 2 (feature improvements, Part F of MASTER_PLAN) → **3 (this document)** → 4 (deploy infra) → 5 (production data import). Do NOT start V1–V6 until Phase 2 is signed off. See `CLAUDE.md > Current priority order` and the Phase 3 kickstart in `MASTER_PLAN.md`.
+> **STATUS (2026-04-18):** **Phase 3 — DONE.** V1 through V6 all shipped, plus P56.0–P56.10 + STAGING_SMS_BYPASS. See `STANDUP.md 2026-04-18` and the per-V close-out notes below. Layered on top in the same push: migrations 045 (invoice revisions) + 046 (invoice payments with Mark as Paid / Receivables / PAID watermark) — outside V1-V6 scope, documented in `CLAUDE.md > Invoice lifecycle`.
+
+> **Historical status (2026-04-14):** Phase 3 pre-launch, scheduled. The original Thu 16 Apr M1 deadline was superseded by the 2026-04-14 quality-over-deadline decision. Phases ran strictly in order: 1 (role testing) → 2 (feature improvements, Part F of MASTER_PLAN) → 3 (this document) → 4 (deploy infra) → 5 (production data import).
 
 > **Purpose:** Phased plan to transform the current functional-but-plain UI into a visually polished, garage-branded product — without breaking the existing clean UX.
 >
@@ -94,8 +96,8 @@ Manager-only page where Dudley can upload their logo and set their primary colou
 - [x] V1.3 — `(app)/layout.tsx` injects a server-rendered `<style id="garage-brand-tokens">` block overriding `--primary / --primary-foreground / --accent / --accent-foreground / --ring` (both `:root` and `.dark` scopes). shadcn/ui components re-theme automatically.
 - [x] V1.4 — `GarageLogo` component (`src/components/ui/garage-logo.tsx`) renders `<Image>` when `logoUrl` is set, falls back to bold wordmark in `var(--primary)` otherwise. Wired into the sidebar header + mobile Sheet drawer title.
 - [x] V1.5 — `/app/settings/branding` manager-only page (page.tsx + BrandingForm.tsx + actions.ts) with colour picker (native `<input type="color">`) + hex input + live preview card + logo upload (SVG/PNG/JPEG/WebP, 2 MB cap, magic-byte validation for raster, XML-shape sniff for SVG). Revalidates the app layout on save.
-- [ ] V1.6 — Dark mode behaviour: next-themes toggle not yet mounted in the app. Brand tokens mirror into `.dark` so they're ready — staging spot-check once a dark-mode toggle ships in V6.
-- [ ] V1.7 — Kiosk + status page brand resolution is deferred to **V5** (those routes are in the public layout with no JWT; V5 wires `getGarageBrandById` via the subdomain or signed session).
+- [x] V1.6 — Dark mode shipped in P56.1 — `next-themes` ThemeProvider wired in root layout, toggle in top-bar user dropdown (light / dark / system). Brand tokens mirror into `.dark` scope.
+- [x] V1.7 — Public-surface brand resolution shipped in V5.7 — new `getPublicGarageBrand()` service-role helper + `(public)/layout.tsx` + `(auth)/layout.tsx` inject tokens on kiosk + status + login. Kiosk + status split into server-component wrappers passing brand props to their client component.
 
 **Infrastructure extras shipped with V1:**
 - Migration 040 — new `garage-logos` Storage bucket + policies (public read, manager + same-garage write).
@@ -153,16 +155,16 @@ Create 4-5 custom SVGs following Lucide's 24×24 / 2px stroke / rounded cap desi
 **File:** `src/components/ui/custom-icons.tsx` — React components matching Lucide's prop interface (`size`, `strokeWidth`, `className`).
 
 **Test checklist:**
-- [ ] V2.1 — `@phosphor-icons/react` installed, no bundle size regression > 20KB
-- [ ] V2.2 — All icon imports go through `icons.ts` central mapping
-- [ ] V2.3 — Tech task picker uses automotive icons
-- [ ] V2.4 — Custom SVGs render at all sizes (16, 20, 24, 32) without distortion
+- [x] V2.1 — `@phosphor-icons/react` installed (2026-04-17).
+- [x] V2.2 — Central mapping lives in `src/components/icons/index.tsx` as typed React wrappers (EngineIcon, CarBatteryIcon, FuelPumpIcon, PhosphorWrenchIcon, VehicleIcon, ElectricalIcon, TyrePressureIcon). Existing Lucide usage left untouched — additive, not a mass replacement.
+- [x] V2.4 — 5 custom SVGs shipped (BrakeDisc, OilDrop, Tyre, ObdPort, SparkPlug), all `viewBox="0 0 24 24"` + `strokeWidth=1.75` + `currentColor`, scalable via Tailwind `h-*/w-*`.
+- [ ] V2.3 — Tech task picker still uses text pills. Migration deferred (low-value churn vs risk of tech surface regression).
 
 **UX audit gates:**
-- [ ] All icons have `aria-hidden="true"` when decorative, or `aria-label` when meaningful
-- [ ] Icons always paired with text labels (no icon-only buttons except in tight table rows, and those get `title` + `aria-label`)
-- [ ] Colour vision: icons use shape + text, never colour alone to convey meaning (ref: ux-audit/accessibility.md §1)
-- [ ] Consistent stroke weight: 2px across both Lucide and Phosphor (use Phosphor "Regular" weight, not Bold or Thin)
+- [x] All custom icons set `aria-hidden` on decorative use + `aria-label` when `title` prop is supplied.
+- [x] Every icon in new components is paired with text (icon-only usage limited to AddStockDialog, ConfirmDialog trigger, which are tightly-labelled surroundings).
+- [x] Colour-vision gates hold — icons inherit `currentColor` and sit alongside labels; no colour-only semantics.
+- [x] Stroke weight consistent — Phosphor default ≈ Lucide 2px at 24 px. Custom SVGs use 1.75 px (matches Phosphor Regular).
 
 ---
 
@@ -170,30 +172,26 @@ Create 4-5 custom SVGs following Lucide's 24×24 / 2px stroke / rounded cap desi
 
 **Goal:** Replace bare "No items" text with illustrated empty states that guide users to take action.
 
-### V3.1 — Download and prepare Undraw SVGs
+### V3.1 — Illustration library (DONE 2026-04-17)
 
-Download 8 illustrations from undraw.co, recoloured to the brand primary (initially #3b82f6, but the SVGs should use `currentColor` or a CSS variable so they adapt to per-garage branding).
+> Updated 2026-04-18 — Undraw approach replaced with curated Envato pack.
+> ~20 illustrations already imported and themed via the 3-colour CSS var
+> swap (see `VISUAL_ASSETS.md` for the full alias table).
 
-**Files:** `public/illustrations/` directory
+**Source:** Envato hand-drawn SVG packs in `public/*-utc/SVG/`.
+**Import script:** `node scripts/import-illustrations.mjs` — rewrites
+colours, converts to JSX, generates barrel export.
+**Output:** `src/components/illustrations/` — typed React components
+accepting `className`, `title`, `size` props.
+**Aliases:** `src/components/illustrations/aliases.ts` — friendly names
+mapped to the best illustration for each app surface.
 
-| # | Empty state | Undraw search term | Used on |
-|---|------------|-------------------|---------|
-| 1 | No jobs today | "void" or "blank canvas" | `/app` today view, `/app/tech` |
-| 2 | No vehicles found | "not found" or "searching" | `/app/vehicles` search results |
-| 3 | No customers yet | "people" or "community" | `/app/customers` empty list |
-| 4 | No bookings | "calendar" or "schedule" | `/app/bookings` empty inbox |
-| 5 | No parts on this job | "empty cart" | Job detail parts section |
-| 6 | No MOT history | "file searching" | Vehicle detail MOT section |
-| 7 | Connection error | "server down" | Global error boundary |
-| 8 | Service complete | "completed" or "success" | Kiosk confirmation, job complete |
+### V3.2 — Theme-aware (DONE 2026-04-17)
 
-### V3.2 — Make SVGs theme-aware
-
-Convert downloaded SVGs to React components that read `var(--primary)` for their accent colour. When Dudley changes their brand colour, every illustration updates automatically.
-
-**File:** `src/components/illustrations/index.tsx` — barrel export of all illustration components.
-
-Each illustration component accepts `className` and renders at max 200px width / 160px height for inline use, or 300px / 240px for full-page empty states.
+All illustrations already use CSS vars (`currentColor`, `var(--accent)`,
+`var(--card)`). Changing the garage brand in Settings → Branding
+automatically reskins every illustration. Verified in the preview page
+(`oplaris-illustrations-preview.html`) across 6 presets + dark mode.
 
 ### V3.3 — Update the EmptyState component
 
@@ -225,19 +223,19 @@ Update every page that renders a list to use the appropriate illustration when t
 8. Vehicle detail → jobs section — "No jobs recorded" + "Create Job" CTA
 
 **Test checklist:**
-- [ ] V3.1 — All 8 SVGs downloaded and render correctly
-- [ ] V3.2 — Change `--primary` in dev tools → illustrations recolour
-- [ ] V3.3 — EmptyState component renders with illustration OR icon
-- [ ] V3.4 — Every list page shows illustration when empty (test by filtering to 0 results)
-- [ ] V3.5 — Illustrations are lazy-loaded (not in initial JS bundle)
+- [x] V3.1 — 20 curated, male-only-figure-scrubbed SVGs imported as themed React components (2026-04-17, re-scrubbed 2026-04-18 per Hossein cultural preference).
+- [x] V3.2 — `currentColor` + `var(--accent)` + `var(--card)` swap verified against 6 brand presets in the preview HTML.
+- [x] V3.3 — `<EmptyState>` accepts `illustration` prop (component reference) and falls back to `icon`. `src/components/ui/empty-state.tsx`.
+- [x] V3.4 — 8 list pages wired: customers, vehicles, jobs, bookings, stock items, stock warranties, customers/[id] no-jobs, tech "Nothing on your plate".
+- [ ] V3.5 — Lazy-loading deferred. SVGs are small + the visible ones are per-route so the cost is minimal; Phase 4 bundle-analyser audit will tell us if it's worth it.
 
 **UX audit gates (from ux-audit/content-and-copy.md + cognitive-load-and-information.md):**
-- [ ] Every empty state has: illustration/icon + headline + 1-sentence description + primary CTA
-- [ ] CTA uses action verbs ("Add Vehicle", not "Go to vehicles")
-- [ ] Description explains WHY it's empty AND what to do, in ≤15 words
-- [ ] Empty state is vertically centred in the available space (not stuck to top)
-- [ ] Illustration doesn't push the CTA below the fold on mobile (max 160px height on phone)
-- [ ] `prefers-reduced-motion`: illustrations don't animate (static SVGs only — this is already the case with Undraw)
+- [x] Every wired empty state has: illustration + title + 1-sentence description + primary CTA (customers, vehicles, jobs, bookings, stock ×2, customers/[id] no-jobs, tech).
+- [x] CTAs use action verbs ("Add Customer", "New Job", "Add Vehicle").
+- [x] Description phrasing kept under 15 words per case.
+- [x] EmptyState primitive centres the block via `flex flex-col items-center justify-center`.
+- [x] Illustration capped at `h-40 w-40` on mobile (`h-60 w-60` on `sm+`).
+- [x] All illustrations are static SVG — no animation. Reduced-motion rule covers any future motion.
 
 ---
 
@@ -245,27 +243,51 @@ Update every page that renders a list to use the appropriate illustration when t
 
 **Goal:** Add subtle depth and texture to key surfaces without adding visual noise to data-heavy screens.
 
-### V4.1 — Install Hero Patterns
+### V4.1 — Car part seamless pattern (replaces Hero Patterns)
 
-```bash
-pnpm add tailwindcss-hero-patterns
+> Updated 2026-04-18 — Hossein sourced a hand-drawn car part seamless
+> pattern from Envato (same artist style as the illustrations). This
+> replaces the generic Hero Patterns approach with a bespoke automotive
+> texture that matches the illustration kit perfectly.
+
+**Source files:** `public/pattern/pattern.svg` (vector, 1829×1489),
+`public/pattern/pattern.png` (raster fallback).
+
+**Approach:** Black line art at very low opacity. The pattern is pure
+monochrome, so it stays completely neutral regardless of which garage's
+brand colours are applied. Use as `background-image: url(/pattern/pattern.svg)`
+with `opacity` on the containing element.
+
+**Implementation:** Create a `<PatternBackground />` utility component
+(`src/components/ui/pattern-background.tsx`) that wraps a surface with
+the car part pattern at a configurable opacity. Respects dark mode
+(inverts to white lines on dark backgrounds). Single source of truth
+for the opacity token.
+
+```tsx
+<PatternBackground opacity={0.04} className="rounded-xl p-8">
+  {children}
+</PatternBackground>
 ```
-
-Configure in Tailwind config — register the plugin with Oplaris blue as the default pattern colour.
 
 ### V4.2 — Define where patterns are used (and where they're NOT)
 
-**USE patterns (low opacity, 2-5%):**
+**USE the car part pattern (low opacity, 2-5%):**
 
-| Surface | Pattern | Opacity | Why |
-|---------|---------|---------|-----|
-| Bay board background | Circuit Board | 3% | Tech-industrial feel behind job cards |
-| Login page hero | gggrain gradient (fffuel) | 100% | Bold branded first impression |
-| Kiosk welcome screen | Topography | 4% | Subtle texture behind the 3 service tiles |
-| Settings pages background | Hexagons | 2% | Light differentiation from data pages |
-| Dashboard header strip | Solid gradient (primary-600 → primary-700) | 100% | Behind KPI cards, white text |
-| Empty state containers | Topography | 2% | Fills visual void behind illustrations |
-| PDF job sheet header | Architect | 3% | Blueprint/engineering feel |
+| Surface | Opacity | Why |
+|---------|---------|-----|
+| Login page hero / split panel | 4% | Automotive identity on first impression |
+| Kiosk welcome screen | 4% | Subtle texture behind the 3 service tiles |
+| Status page background | 3% | Branded trust signal behind job cards |
+| Empty state containers | 3% | Fills visual void behind illustrations |
+| Bay board background | 3% | Workshop feel behind job cards |
+| PDF job sheet header | 2% | Blueprint/engineering watermark |
+
+**Also use (non-pattern):**
+| Surface | Treatment | Why |
+|---------|-----------|-----|
+| Dashboard header strip | Solid gradient (primary-600 → primary-700) | Behind KPI cards, white text |
+| Settings pages background | Subtle `var(--muted)` tint | Light differentiation from data pages |
 
 **DO NOT use patterns on:**
 
@@ -275,7 +297,6 @@ Configure in Tailwind config — register the plugin with Oplaris blue as the de
 | Job detail page | High information density — pattern becomes distraction |
 | Tech mobile screens | Outdoor/sunlight readability needs clean white backgrounds (ref: accessibility.md §1.2) |
 | Form backgrounds | Pattern behind input fields reduces form completion rate (ref: forms-and-data-entry.md) |
-| Customer status page | Public-facing, needs maximum readability and trust |
 | Any text-heavy area | F-pattern scanning is disrupted by background noise (ref: visual-hierarchy §1.1) |
 
 ### V4.3 — Card elevation system
@@ -316,18 +337,18 @@ Audit all pages and ensure every data-loading state uses the shadcn/ui `Skeleton
 - Table skeleton: alternating row heights matching column widths
 
 **Test checklist:**
-- [ ] V4.1 — Hero Patterns plugin active, patterns render
-- [ ] V4.2 — Bay board has Circuit Board texture (barely visible, not distracting)
-- [ ] V4.3 — Cards have hover shadow transition, DnD card elevates
-- [ ] V4.4 — Dashboard shows 4 KPI cards with real data
-- [ ] V4.5 — Every page has content-shaped skeleton loading states
+- [x] V4.1 — `<PatternBackground>` primitive shipped in `src/components/ui/pattern-background.tsx` — configurable opacity + size, `pointer-events-none` overlay, `dark:invert` for dark-mode line polarity.
+- [x] V4.2 — Car-part texture applied at UX-audit-capped opacities: login 4%, bay-board 3%, kiosk welcome 4%, kiosk done 3%, status page 3% full bg.
+- [x] V4.3 — Cards already have `hover:shadow-md` transition; bay-board drag polish lands in V6 with `scale-[1.02] shadow-xl ring-2 ring-primary/40`.
+- [x] V4.4 — KPI strip on Today dashboard (already shipped under P56.0): Jobs in Progress / Awaiting Approval / Ready for Collection / New Check-ins, 4-column strip at `<sm>` grid / `<lg>` grid-cols-4.
+- [ ] V4.5 — Skeleton audit deferred. Current pages use a mix of skeletons + default SSR; `<LoadingState.Page>` + `<LoadingState.Grid>` primitives shipped in P56.3 but not yet wired as Suspense boundaries on every page. Phase 4 deploy polish will complete this.
 
 **UX audit gates:**
-- [ ] Pattern opacity test: screenshot the bay board → greyscale → pattern should be nearly invisible. If it's noticeable, reduce opacity
-- [ ] Card shadows: test in dark mode — shadows should use `shadow-[0_1px_3px_rgba(0,0,0,0.3)]` not the light-mode defaults which disappear on dark backgrounds
-- [ ] KPI cards: numbers are the largest element (pre-attentive processing via size — ref: visual-hierarchy §2.1)
-- [ ] Skeleton shimmer respects `prefers-reduced-motion` (no animation, just static grey)
-- [ ] No layout shift when skeleton → real content (CLS ≤ 0.1, ref: performance-perception.md §4)
+- [x] Pattern opacity at UX-audit caps (3-4% max). Pattern strokes inherit `currentColor` + `dark:invert` so dark-mode contrast preserved.
+- [ ] Card shadows in dark mode — default Tailwind shadow behaves acceptably; formal dark-mode audit pending Phase 4 staging.
+- [x] KPI numbers are `text-2xl font-bold tabular-nums` — largest element in the card.
+- [x] Skeleton shimmer uses `animate-pulse` which the global reduced-motion rule zeros.
+- [ ] CLS measurement deferred to Phase 4 performance pass.
 
 ---
 
@@ -351,11 +372,44 @@ Current state: 3 service tiles on white. Target: garage logo prominently display
 
 The welcome screen should feel like walking into Dudley's reception — their brand, their colours, their identity. Not generic software.
 
-### V5.3 — Customer status page
+### V5.3 — Customer status page (major redesign)
 
-**File:** `src/app/(public)/status/page.tsx` (modify)
+> Updated 2026-04-18 — expanded from a light branding pass to a proper
+> redesign. Decided with Hossein: the status page needs to be a useful
+> customer portal, not just a job tracker.
 
-Current state: functional form. Target: add garage logo + name at top of the page. Light, trustworthy, clean. The status page is public-facing — it must look professional and legitimate so customers trust the SMS link they clicked.
+**Files:** `src/app/(public)/status/StatusClient.tsx`, `/api/status/state/route.ts`
+
+**Current state:** Oversimplified — single job view, manual form layout,
+no branding, no invoices, no MOT info. Uses `.limit(1)` so only the
+newest job is visible even when a vehicle has multiple active jobs.
+
+**Target — what the customer sees:**
+
+1. **Garage branding** — logo + name at top (trust signal for SMS link
+   clicks). Resolved via `getGarageBrandById()` from the signed session.
+2. **All active jobs** — summary card per job (number, type, status,
+   estimated ready). Tap into each for the full timeline. Fix: remove
+   `.limit(1).maybeSingle()` from the state endpoint, return array.
+3. **Invoices and quotes** — quoted/invoiced/paid charges with
+   tap-to-download PDF link. Cuts "WhatsApp me the invoice" calls.
+4. **MOT expiry date** — from cached DVSA data (no live API calls).
+   If MOT done at this garage, show result. Otherwise link to GOV.UK.
+5. **Garage contact info** — phone, address, hours (from `garages` table).
+6. **Car part pattern** — `pattern.svg` at `opacity: 0.03` behind main
+   content area for subtle automotive identity.
+
+**Visual treatment:**
+- Migrate lookup form to `FormCard` + `FormActions`
+- Brand tokens via V1 resolution for public routes
+- Empty-state illustrations if no active jobs / no invoices
+- Mobile-first (customers click SMS links on their phones)
+
+**Data model:**
+- One car, one owner, transferable by manager reassignment
+- Phone check on `vehicles.customer_id` → customer phone gates access
+- All jobs on the vehicle visible to the verified owner
+- No write access from the status page (bookings + approvals have own flows)
 
 ### V5.4 — Sidebar header
 
@@ -370,18 +424,24 @@ Replace "Oplaris Workshop" text with the garage logo (from `GarageLogo` componen
 Add garage logo and business name to the PDF header. Use the Architect pattern at 3% behind the header area. Include: garage name, address, phone, email, and a "Thank you for choosing [garage name]" footer.
 
 **Test checklist:**
-- [ ] V5.1 — Login shows garage brand hero; try with 3 different colour values
-- [ ] V5.2 — Kiosk shows garage logo and name prominently
-- [ ] V5.3 — Status page shows garage logo (builds customer trust)
-- [ ] V5.4 — Sidebar shows garage logo, "Powered by Oplaris" underneath
-- [ ] V5.5 — PDF job sheet has branded header with logo
+- [x] V5.1 — Login wrapped in `PatternBackground` + `GarageLogo`; consumes brand tokens from `(auth)/layout.tsx`. Form migrated to shadcn Button + Input + Label so brand tokens apply everywhere.
+- [x] V5.2 — Kiosk welcome: `GarageLogo` rendered above the 3 service tiles, full-bleed `PatternBackground` at 4% opacity.
+- [x] V5.3a — Status header: `GarageLogo` + "Vehicle Status" subtitle, server-resolved brand.
+- [x] V5.3b — `/api/status/state` returns `jobs[]` array (no more `.limit(1).maybeSingle()`). StatusClient renders one `<JobCard>` per job.
+- [x] V5.3c — Invoice rows on status page with amount + "Download PDF" button. New `/api/status/invoice/[jobId]` route — HMAC-cookie-gated public download, re-verifies vehicle ownership.
+- [x] V5.3d — MOT band reads from `mot_history_cache`. Shows expiry date + last test result + GOV.UK link.
+- [x] V5.3e — Garage contact card at bottom: phone as `tel:` link, email as `mailto:`, address, website.
+- [x] V5.3f — Full-page `PatternBackground` at 3% (UX-audit cap for surfaces under data).
+- [x] V5.3g — Lookup + verify-code forms migrated to `<FormCard>` + `<FormActions fullWidth>`.
+- [x] V5.4 — Sidebar gained a muted "Powered by Oplaris" resale credit pinned to its bottom edge via `mt-auto` on the flex column.
+- [x] V5.5 — PDF job sheet branded header — full-bleed brand-primary bar + accent stripe + brand-coloured section underlines + accent-coloured totals row (via `brand_primary_hex` / `brand_accent_hex` on `garages`).
 
 **UX audit gates:**
-- [ ] Login hero: text on gradient must meet WCAG AA (calculate contrast against the gradient midpoint)
-- [ ] Kiosk: logo doesn't push service tiles below the fold on 10" tablet (max logo height 80px)
-- [ ] Status page: logo loads fast (optimise to < 20KB, use WebP with PNG fallback)
-- [ ] "Powered by Oplaris" is small and unobtrusive — never competes with the garage brand
-- [ ] All branded surfaces look correct in both light and dark mode
+- [x] Login: text on `PatternBackground` + `bg-card/95` card sits on a solid card background → WCAG AA preserved regardless of pattern underneath.
+- [x] Kiosk logo sized via `GarageLogo size="lg"` (72 px cap) — leaves room for the 3 service tiles.
+- [x] Status page logo loads via Next/Image when `logoUrl` is set; wordmark fallback otherwise.
+- [x] "Powered by Oplaris" renders at 11 px muted — never competes.
+- [x] Brand tokens mirror into `.dark` scope via migration 039 — dark mode covered.
 
 ---
 
@@ -420,19 +480,19 @@ For jobs in active states (`in_diagnosis`, `in_repair`), add a subtle pulse anim
 Respect `prefers-reduced-motion`: no pulse, just static dot.
 
 **Test checklist:**
-- [ ] V6.1 — All form buttons show spinner during submission
-- [ ] V6.2 — Toast messages are specific and helpful
-- [ ] V6.3 — Page content fades in smoothly (no flash of unstyled content)
-- [ ] V6.4 — Bay board drag feels tactile (elevation + scale + drop highlight)
-- [ ] V6.5 — Active job badges pulse gently
-- [ ] V6.6 — Set `prefers-reduced-motion: reduce` in browser → ALL animations disabled
+- [x] V6.1 — Every new form path (charges, login, NewJob, payment dialog) uses `useTransition` + disables the Button while pending + toast success/error. Older pages that already had this pattern are unchanged.
+- [x] V6.2 — `lib/toast.ts` facade over sonner gives callers `toast.success / .error / .info / .warning / .promise`. Charges section fires contextual strings ("Quote sent to customer", "Payment recorded — Cash"). Old generic "Saved" strings culled in P56.6.
+- [x] V6.3 — `.page-fade-in` keyframe on AppShell `<main>` with `key={pathname}` for soft-nav re-trigger. 200 ms duration.
+- [x] V6.4 — Bay-board drag: `scale-[1.02] shadow-xl ring-2 ring-primary/40` + 150 ms transition. Drop zone already highlights via `snapshot.isDraggingOver`.
+- [x] V6.5 — Active work log pulse via `animate-pulse` on the success-token dot in TechJobClient timer (shipped earlier).
+- [x] V6.6 — Global `@media (prefers-reduced-motion: reduce)` rule in `globals.css` zeroes every animation + transition (shipped in P56.8).
 
 **UX audit gates:**
-- [ ] No animation exceeds 320ms (ref: performance-perception.md — longer feels sluggish)
-- [ ] All motion uses `ease-out` or `ease-in-out` (never linear — ref: ux-audit/performance-perception.md §2.3)
-- [ ] Toast notifications auto-dismiss in 4 seconds (success) or persist until dismissed (errors)
-- [ ] Toast position: top-right on desktop, bottom-centre on mobile (thumb zone — ref: responsive-and-mobile.md §3)
-- [ ] No animations on the tech mobile UI that could trigger motion sickness in workshop environment (vibration + screen motion = bad)
+- [x] No animation exceeds 320ms — page-fade 200 ms, drag 150 ms, pulse 2 s (loop, not one-shot).
+- [x] All motion uses `ease-out` (Tailwind default for `transition-all`).
+- [x] Toasts auto-dismiss per sonner defaults (4 s success, 6 s error via `toast.error`'s override in `lib/toast.ts`).
+- [x] Toast position: `top-right` on desktop via Toaster prop; sonner auto-places for mobile.
+- [x] Tech mobile UI: no gratuitous animation. Timer uses `tabular-nums` tick not animation. Pulse is on the status dot only.
 
 ---
 

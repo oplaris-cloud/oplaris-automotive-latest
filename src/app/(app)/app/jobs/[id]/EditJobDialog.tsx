@@ -9,12 +9,13 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { FormCard } from "@/components/ui/form-card";
+import { FormActions } from "@/components/ui/form-actions";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
   DialogTrigger,
 } from "@/components/ui/dialog";
 
@@ -66,7 +67,9 @@ export function EditJobDialog({ jobId, description, estimatedReadyAt }: EditJobD
         <DialogHeader>
           <DialogTitle>Edit Job Details</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <FormCard variant="plain">
+        <form onSubmit={handleSubmit}>
+          <FormCard.Fields>
           <div>
             <Label htmlFor="edit-desc" optional>Description</Label>
             <Textarea
@@ -89,12 +92,14 @@ export function EditJobDialog({ jobId, description, estimatedReadyAt }: EditJobD
             />
           </div>
           {error && <p className="text-sm text-destructive">{error}</p>}
-          <DialogFooter>
-            <Button type="submit" size="sm" disabled={isPending}>
+          </FormCard.Fields>
+          <FormActions>
+            <Button type="submit" disabled={isPending}>
               {isPending ? "Saving..." : "Save Changes"}
             </Button>
-          </DialogFooter>
+          </FormActions>
         </form>
+        </FormCard>
       </DialogContent>
     </Dialog>
   );

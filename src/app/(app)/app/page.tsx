@@ -4,6 +4,7 @@ import { Wrench, MessageSquare, CheckCircle2, CalendarCheck } from "lucide-react
 import { requireStaffSession } from "@/lib/auth/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageContainer } from "@/components/app/page-container";
 import { TodayRealtime } from "@/lib/realtime/shims";
 
 export default async function TodayPage() {
@@ -79,7 +80,7 @@ export default async function TodayPage() {
   void isTester;
 
   return (
-    <div>
+    <PageContainer width="default">
       <TodayRealtime garageId={session.garageId} />
       <h1 className="text-2xl font-semibold">
         Good {getGreeting()}, {session.email.split("@")[0]}
@@ -109,7 +110,7 @@ export default async function TodayPage() {
         ))}
       </div>
 
-    </div>
+    </PageContainer>
   );
 }
 

@@ -5,7 +5,10 @@ import { requireManager } from "@/lib/auth/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { CarRepairInProgressIllustration } from "@/components/illustrations";
 import { CarImage } from "@/components/ui/car-image";
+import { RegPlate } from "@/components/ui/reg-plate";
+import { PageContainer } from "@/components/app/page-container";
 import { VehiclesListRealtime } from "@/lib/realtime/shims";
 
 interface VehiclesPageProps {
@@ -40,7 +43,7 @@ export default async function VehiclesPage({ searchParams }: VehiclesPageProps) 
   const { data: vehicles } = await query;
 
   return (
-    <div>
+    <PageContainer width="full">
       <VehiclesListRealtime garageId={session.garageId} />
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
@@ -69,6 +72,7 @@ export default async function VehiclesPage({ searchParams }: VehiclesPageProps) 
       {/* Results */}
       {!vehicles || vehicles.length === 0 ? (
         <EmptyState
+          illustration={CarRepairInProgressIllustration}
           title={q ? "No vehicles found" : "No vehicles"}
           description={
             q
@@ -97,9 +101,7 @@ export default async function VehiclesPage({ searchParams }: VehiclesPageProps) 
                     />
                   </div>
                   <CardContent className="p-4">
-                    <div className="inline-block rounded bg-yellow-400 px-2 py-1 font-mono text-sm font-bold text-black">
-                      {v.registration}
-                    </div>
+                    <RegPlate reg={v.registration} size="default" />
                     <div className="mt-2 text-sm text-muted-foreground">
                       {[v.make, v.model, v.year].filter(Boolean).join(" ") ||
                         "—"}
@@ -116,6 +118,6 @@ export default async function VehiclesPage({ searchParams }: VehiclesPageProps) 
           })}
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 }

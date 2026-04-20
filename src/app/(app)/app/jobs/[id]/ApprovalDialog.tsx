@@ -9,6 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { FormCard } from "@/components/ui/form-card";
+import { FormActions } from "@/components/ui/form-actions";
 
 interface ApprovalDialogProps {
   jobId: string;
@@ -65,9 +67,12 @@ export function ApprovalDialog({ jobId }: ApprovalDialogProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="rounded-lg border p-4 space-y-4">
-      <h3 className="text-sm font-semibold">Request Customer Approval</h3>
+    <div className="rounded-lg border p-4">
+    <FormCard variant="plain">
+    <form onSubmit={handleSubmit}>
+      <h3 className="mb-4 text-sm font-semibold">Request Customer Approval</h3>
 
+      <FormCard.Fields>
       <div>
         <Label htmlFor="approval-desc" required>Description of additional work</Label>
         <Textarea
@@ -96,19 +101,22 @@ export function ApprovalDialog({ jobId }: ApprovalDialogProps) {
 
       {error && <p className="text-sm text-destructive">{error}</p>}
       {success && (
-        <p className="text-sm text-green-600">
+        <p className="text-sm text-success">
           Approval request sent via SMS.
         </p>
       )}
 
-      <div className="flex gap-2">
-        <Button type="submit" size="sm" disabled={isPending}>
-          {isPending ? "Sending..." : "Send SMS to Customer"}
-        </Button>
-        <Button type="button" size="sm" variant="outline" onClick={() => setOpen(false)}>
+      </FormCard.Fields>
+      <FormActions>
+        <Button type="button" variant="outline" onClick={() => setOpen(false)}>
           Cancel
         </Button>
-      </div>
+        <Button type="submit" disabled={isPending}>
+          {isPending ? "Sending..." : "Send SMS to Customer"}
+        </Button>
+      </FormActions>
     </form>
+    </FormCard>
+    </div>
   );
 }

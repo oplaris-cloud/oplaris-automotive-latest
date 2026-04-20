@@ -4,8 +4,11 @@ import { Plus, Wrench } from "lucide-react";
 import { requireManager } from "@/lib/auth/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
+import { RegPlate } from "@/components/ui/reg-plate";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { EmptyState } from "@/components/ui/empty-state";
+import { MissionAndVisionIllustration } from "@/components/illustrations";
+import { PageContainer } from "@/components/app/page-container";
 import { JobsListRealtime } from "@/lib/realtime/shims";
 import {
   Table,
@@ -44,7 +47,7 @@ export default async function JobsPage({ searchParams }: JobsPageProps) {
   const { data: jobs } = await query;
 
   return (
-    <div>
+    <PageContainer width="full">
       <JobsListRealtime garageId={session.garageId} />
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Jobs</h1>
@@ -84,7 +87,7 @@ export default async function JobsPage({ searchParams }: JobsPageProps) {
 
       {!jobs || jobs.length === 0 ? (
         <EmptyState
-          icon={Wrench}
+          illustration={MissionAndVisionIllustration}
           title="No jobs found"
           description={status ? "No jobs with this status." : "Create your first job."}
           actionLabel={status ? undefined : "New Job"}
@@ -119,9 +122,10 @@ export default async function JobsPage({ searchParams }: JobsPageProps) {
                     </TableCell>
                     <TableCell className="hidden sm:table-cell">
                       {(vehicle as { registration: string } | null)?.registration && (
-                        <span className="inline-block rounded bg-yellow-400 px-2 py-1 font-mono text-xs font-bold text-black">
-                          {(vehicle as { registration: string }).registration}
-                        </span>
+                        <RegPlate
+                          reg={(vehicle as { registration: string }).registration}
+                          size="sm"
+                        />
                       )}
                       <span className="ml-2 text-sm text-muted-foreground">
                         {[(vehicle as { make?: string } | null)?.make, (vehicle as { model?: string } | null)?.model].filter(Boolean).join(" ")}
@@ -140,6 +144,6 @@ export default async function JobsPage({ searchParams }: JobsPageProps) {
           </Table>
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 }

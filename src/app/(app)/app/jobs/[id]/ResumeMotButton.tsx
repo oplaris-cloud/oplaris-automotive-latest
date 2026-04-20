@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Play } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { toast } from "@/lib/toast";
 import { resumeMotJob } from "../passback/actions";
 
 interface ResumeMotButtonProps {
@@ -21,7 +22,7 @@ export function ResumeMotButton({ jobId, variant = "default" }: ResumeMotButtonP
     startTransition(async () => {
       const result = await resumeMotJob({ jobId });
       if (result.ok) router.refresh();
-      else alert(result.error ?? "Failed to resume MOT");
+      else toast.error(result.error ?? "Failed to resume MOT");
     });
   }
 

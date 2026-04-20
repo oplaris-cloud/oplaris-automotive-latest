@@ -9,6 +9,8 @@ import {
   RefreshCw,
   ChevronDown,
   ChevronUp,
+  ExternalLink,
+  Calendar,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -81,6 +83,106 @@ export function MotHistorySection({
           {error}
         </div>
       )}
+
+      {/* Migration 047 Step 6 — MOT summary card.
+       *  Surfaces the latest test (regardless of where it was done)
+       *  + expiry date + GOV.UK link. Lives ABOVE the history list so
+       *  the most asked-about facts are at the top of the screen. */}
+      {motHistory.length > 0 ? (() => {
+        const latest = motHistory[0];
+        if (!latest) return null;
+        const passed = latest.testResult?.toUpperCase() === "PASSED";
+        const expiry = latest.expiryDate
+          ? new Date(latest.expiryDate)
+          : null;
+        const expired = expiry ? expiry.getTime() < Date.now() : false;
+        const expiringSoon =
+          expiry && !expired
+            ? expiry.getTime() - Date.now() < 30 * 86_400_000
+            : false;
+        return (
+          <Card
+            className={`mt-3 ${
+              expired
+                ? "border-destructive/40 bg-destructive/5"
+                : expiringSoon
+                  ? "border-warning/40 bg-warning/5"
+                  : ""
+            }`}
+          >
+            <CardContent className="p-4">
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div>
+                  <div className="text-xs uppercase tracking-wider text-muted-foreground">
+                    MOT expires
+                  </div>
+                  <div className="mt-1 flex items-center gap-2 text-sm font-semibold">
+                    <Calendar className="h-4 w-4" />
+                    {expiry
+                      ? expiry.toLocaleDateString("en-GB", {
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
+                        })
+                      : "—"}
+                  </div>
+                  {expired ? (
+                    <div className="mt-1 text-xs font-semibold text-destructive">
+                      EXPIRED
+                    </div>
+                  ) : expiringSoon ? (
+                    <div className="mt-1 text-xs font-semibold text-warning">
+                      Due within 30 days
+                    </div>
+                  ) : null}
+                </div>
+                <div>
+                  <div className="text-xs uppercase tracking-wider text-muted-foreground">
+                    Last test
+                  </div>
+                  <div className="mt-1 flex items-center gap-2 text-sm">
+                    {passed ? (
+                      <CheckCircle2 className="h-4 w-4 text-success" />
+                    ) : (
+                      <XCircle className="h-4 w-4 text-destructive" />
+                    )}
+                    <span className="font-medium capitalize">
+                      {latest.testResult?.toLowerCase() ?? "unknown"}
+                    </span>
+                  </div>
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    {latest.completedDate
+                      ? new Date(latest.completedDate).toLocaleDateString(
+                          "en-GB",
+                          { day: "numeric", month: "short", year: "numeric" },
+                        )
+                      : ""}
+                    {latest.odometerValue
+                      ? ` · ${parseInt(latest.odometerValue).toLocaleString()} ${latest.odometerUnit ?? "mi"}`
+                      : ""}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs uppercase tracking-wider text-muted-foreground">
+                    Defects
+                  </div>
+                  <div className="mt-1 text-sm font-semibold">
+                    {(latest.defects ?? []).length}
+                  </div>
+                  <a
+                    href={`https://www.check-mot.service.gov.uk/results?registration=${encodeURIComponent(registration)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-1 inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                  >
+                    GOV.UK MOT history <ExternalLink className="h-3 w-3" />
+                  </a>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })() : null}
 
       {motHistory.length === 0 ? (
         <p className="mt-3 text-sm text-muted-foreground">

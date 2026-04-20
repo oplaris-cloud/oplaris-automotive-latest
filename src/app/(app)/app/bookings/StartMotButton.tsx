@@ -6,6 +6,7 @@ import { Play } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { toast } from "@/lib/toast";
 import { startMotFromCheckIn } from "./actions";
 
 export function StartMotButton({
@@ -29,7 +30,7 @@ export function StartMotButton({
       if (result.ok && result.id) {
         router.push(`/app/jobs/${result.id}`);
       } else {
-        alert(result.error ?? "Failed to start MOT");
+        toast.error(result.error ?? "Failed to start MOT");
       }
     });
   }

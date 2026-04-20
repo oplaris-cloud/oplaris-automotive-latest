@@ -19,6 +19,8 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { CarImage } from "@/components/ui/car-image";
+import { RegPlate } from "@/components/ui/reg-plate";
+import { PageContainer } from "@/components/app/page-container";
 import { getVehicleDetail } from "../actions";
 import { MotHistorySection } from "./MotHistorySection";
 import { DeleteVehicleButton } from "./DeleteVehicleButton";
@@ -44,7 +46,7 @@ export default async function VehicleDetailPage({ params }: VehicleDetailProps) 
   );
 
   return (
-    <div className="max-w-4xl">
+    <PageContainer width="default">
       <VehicleDetailRealtime vehicleId={vehicle.id} />
       {/* Hero card with car image */}
       <Card className="overflow-hidden">
@@ -64,9 +66,7 @@ export default async function VehicleDetailPage({ params }: VehicleDetailProps) 
             {/* Vehicle info */}
             <div className="flex-1 space-y-3">
               <div>
-                <div className="inline-block rounded-md bg-yellow-400 px-3 py-1 font-mono text-xl font-bold text-black">
-                  {vehicle.registration}
-                </div>
+                <RegPlate reg={vehicle.registration} size="lg" />
               </div>
               <div className="text-lg font-medium">
                 {[vehicle.make, vehicle.model, vehicle.year]
@@ -224,6 +224,6 @@ export default async function VehicleDetailPage({ params }: VehicleDetailProps) 
           ))}
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 }

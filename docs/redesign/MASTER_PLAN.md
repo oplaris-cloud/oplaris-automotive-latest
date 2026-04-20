@@ -15,7 +15,9 @@
 > 4. **Phase 4 — Deploy infrastructure** (B5 + B6)
 > 5. **Phase 5 — Production data import** (B7, final step)
 
-> **Last updated:** 2026-04-14 (Phase 1 closed, Phase 2 substantially closed, passback architecture open question logged)
+> **Last updated:** 2026-04-18. **Phase 3 — DONE.** Everything in `VISUAL_IMPLEMENTATION_PLAN.md` V1–V6 + P56.0–P56.10 + STAGING_SMS_BYPASS shipped. Layered on top in the same push: **migration 045** (invoice revisions — tiered editing by `quote_status`, `<ConfirmDialog>` revert paths, revision-aware SMS copy, "Updated" chip on customer status page) and **migration 046** (invoice payments — Mark-as-Paid dialog with method picker, PAID banner + green status-page badge + diagonal PAID watermark on the PDF, new Receivables section on `/app/reports` with outstanding / paid-this-period / still-quoted KPIs + 0-7 / 8-30 / 30+ day aging table). 193/193 unit + 82/82 RLS green, typecheck clean, spacing lint clean. Next: Phase 4 (deploy infra — needs Dokploy access). See `STANDUP.md 2026-04-18` + `CLAUDE.md > Invoice lifecycle` for the long-form close-out.
+>
+> **Soak-gate still open:** P51.10 migration 034 column drop (~2026-04-28) — unchanged.
 
 ---
 

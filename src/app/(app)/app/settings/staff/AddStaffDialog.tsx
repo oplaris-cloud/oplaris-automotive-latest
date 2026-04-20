@@ -8,11 +8,12 @@ import { addStaffMember } from "./actions";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { FormCard } from "@/components/ui/form-card";
+import { FormActions } from "@/components/ui/form-actions";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -103,7 +104,9 @@ export function AddStaffDialog() {
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <FormCard variant="plain">
+        <form onSubmit={handleSubmit}>
+          <FormCard.Fields>
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <Label htmlFor="staff-name" required>Full Name</Label>
@@ -182,17 +185,19 @@ export function AddStaffDialog() {
 
           {error && <p className="text-sm text-destructive">{error}</p>}
           {success && (
-            <p className="text-sm text-green-600">
+            <p className="text-sm text-success">
               Staff member created. They can log in now.
             </p>
           )}
 
-          <DialogFooter>
-            <Button type="submit" size="sm" disabled={isPending}>
+          </FormCard.Fields>
+          <FormActions>
+            <Button type="submit" disabled={isPending}>
               {isPending ? "Creating..." : "Create Account"}
             </Button>
-          </DialogFooter>
+          </FormActions>
         </form>
+        </FormCard>
       </DialogContent>
     </Dialog>
   );

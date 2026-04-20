@@ -179,6 +179,62 @@ Installed: `button`, `input`, `label`, `textarea`, `select`, `dialog`, `sheet`, 
 
 ---
 
+## 2.1 Phase-3 primitives (P56)
+
+Land order — each one is canonical, ad-hoc replacements get lint-flagged
+in PR review:
+
+| Primitive | File | Purpose | Phase |
+|---|---|---|---|
+| `<Button size="default\|sm\|lg\|xl\|icon\|icon-sm\|icon-lg">` | `ui/button.tsx` | 44 px default, 36 px dense, 48 px primary mobile, 64 px hero | P56.1 |
+| `<Section title description actions gap="sm\|md\|lg">` | `ui/section.tsx` | `mt-8 first:mt-0` between named sections + heading row | P56.0 |
+| `<Stack gap="sm\|md\|lg">` | `ui/stack.tsx` | `space-y-2 \| 4 \| 6` rhythm, never mix `mt-*` inside | P56.0 |
+| `<Card size="sm\|default\|lg">` | `ui/card.tsx` | `p-3 \| 4 \| 6` density variants for table-row vs hero | P56.0 |
+| `<FormCard variant="card\|plain">` | `ui/form-card.tsx` | Form container + `<FormCard.Fields>` (`space-y-5`) | P56.2 |
+| `<FormActions fullWidth?>` | `ui/form-actions.tsx` | Mobile-first thumb-zone Submit-on-top + desktop right-aligned row | P56.2 |
+| `<PageContainer width="full\|default\|narrow\|form">` | `app/page-container.tsx` | Single source of truth for page max-width, no per-page `max-w-*` | P56.3/P56.4 |
+| `<PageTitle title description actions>` | `ui/page-title.tsx` | Canonical `<h1>` at `text-2xl font-heading` + `mb-6` to first block | P56.3 |
+| `<RegPlate reg size="sm\|default\|lg" variant="front\|rear">` | `ui/reg-plate.tsx` | UK reg display — replaces every `bg-yellow-400` ad-hoc plate | P56.3 |
+| `<PassbackBadge items? note?>` | `ui/passback-badge.tsx` | Warning-token chip + tooltip for the 11-item passback checklist | P56.3 |
+| `<ConfirmDialog trigger? open? onOpenChange? destructive? onConfirm>` | `ui/confirm-dialog.tsx` | Async-aware wrapper over `AlertDialog` — replaces `window.confirm()` | P56.3/P56.6 |
+| `<LoadingState.Page \| .Grid rows? \| .Inline label?>` | `ui/loading-state.tsx` | Skeleton + spinner + `aria-live` — replaces ad-hoc skeleton stacks | P56.3 |
+| `<Combobox options value onChange getValue getLabel getDescription? getSearchKeywords? name?>` | `ui/combobox.tsx` | Searchable cmdk-backed picker for >10-option lists | P56.8 |
+| `<Label required? optional?>` | `ui/label.tsx` | Required asterisk + `(optional)` hint inline | P56.2 |
+| `toast.success/.error/.info/.warning/.promise` | `lib/toast.ts` | Sonner facade — replaces every `alert()` | P56.3/P56.6 |
+
+**Token migration (P56.7) — mandatory mapping:**
+
+| Hardcoded class | Token replacement |
+|---|---|
+| `bg-amber-*` / `text-amber-*` / `border-amber-*` | `bg-warning` / `text-warning(-foreground)` / `border-warning` |
+| `bg-emerald-*` / `text-emerald-*` / `border-emerald-*` | `bg-success` / `text-success(-foreground)` / `border-success` |
+| `bg-red-*` / `text-red-*` | `bg-destructive/10` / `text-destructive` |
+| `bg-blue-*` / `text-blue-*` | `bg-info/10` / `text-info` (or `text-primary` for CTAs) |
+| `bg-yellow-400` (reg plate) | `<RegPlate>` primitive |
+
+Theme-bound colours always go through tokens so dark-mode + V1 brand
+re-skin work. Reg plates are the single colour-literal exception (UK
+plates must be physical-yellow regardless of theme).
+
+**Page-width system (P56.4) — applied to every `(app)/page.tsx`:**
+
+| Width | max-width | Use case |
+|---|---|---|
+| `full` | none | Lists, bay-board, kanban, tables, audit-log |
+| `default` | `max-w-5xl` (1024 px) | Detail pages, Today dashboard, settings root |
+| `narrow` | `max-w-3xl` (768 px) | Tech surfaces, settings sub-pages, guide |
+| `form` | `max-w-xl` (576 px) | Single-column create/edit forms |
+
+Padding (`p-4 sm:p-6`) lives on `<main>` in `AppShell` — `PageContainer`
+only owns width containment + centering so public surfaces (kiosk,
+status) can use it without inheriting app-shell padding.
+
+**Reduced-motion (P56.8/UX-H8):** a global `@media (prefers-reduced-motion)`
+rule in `globals.css` zeroes every animation/transition. Don't add
+`motion-safe:` prefixes per-call — the global rule is authoritative.
+
+---
+
 ## 3. UI 1 — Manager dashboard (`/app/*`)
 
 **Audience:** 3 managers. Desktop primary (Dudley's reception PC), phone secondary (walking around).

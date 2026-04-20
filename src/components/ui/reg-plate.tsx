@@ -3,6 +3,57 @@
 import { forwardRef } from "react";
 import { cn } from "@/lib/utils";
 
+/** P56.3 (UI-C4) — Static UK reg-plate display primitive.
+ *
+ *  Three sizes so the same vehicle plate renders consistently across
+ *  dense tables, cards, and hero surfaces. Uses the same yellow (rear)
+ *  / white (front) colour convention as the input variant.
+ *
+ *  `py-0.5` is the single off-grid exception in `DESIGN_SYSTEM.md §1.3`
+ *  — plates need the tight vertical aspect to look like real plates
+ *  (and `py-1` makes the glyph row look gappy). The spacing lint
+ *  allow-lists `py-0.5` inside `src/components/ui/reg-plate.tsx`.
+ */
+
+type RegPlateSize = "sm" | "default" | "lg";
+type RegPlateVariant = "front" | "rear";
+
+interface RegPlateProps {
+  reg: string;
+  size?: RegPlateSize;
+  variant?: RegPlateVariant;
+  className?: string;
+}
+
+const SIZE_CLASS: Record<RegPlateSize, string> = {
+  sm: "px-2 py-0.5 text-xs tracking-[0.1em]",
+  default: "px-2 py-0.5 text-sm tracking-[0.12em]",
+  lg: "px-3 py-1 text-xl tracking-[0.15em]",
+};
+
+export function RegPlate({
+  reg,
+  size = "default",
+  variant = "rear",
+  className,
+}: RegPlateProps) {
+  const isRear = variant === "rear";
+  return (
+    <span
+      data-slot="reg-plate"
+      data-size={size}
+      className={cn(
+        "inline-flex items-center rounded-[3px] border border-black font-mono font-black uppercase leading-none",
+        isRear ? "bg-[#FFD307] text-black" : "bg-white text-black",
+        SIZE_CLASS[size],
+        className,
+      )}
+    >
+      {reg}
+    </span>
+  );
+}
+
 interface RegPlateInputProps
   extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "type"> {
   /** Show as rear plate (yellow) or front plate (white). Default: front (white). */

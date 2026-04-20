@@ -4,6 +4,7 @@ import { ArrowLeft } from "lucide-react";
 
 import { requireStaffSession } from "@/lib/auth/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { PageContainer } from "@/components/app/page-container";
 import { TechJobClient } from "./TechJobClient";
 import { JobActivity } from "@/app/(app)/app/jobs/[id]/JobActivity";
 import { JobDetailRealtime } from "@/lib/realtime/shims";
@@ -48,7 +49,7 @@ export default async function TechJobDetailPage({ params }: TechJobDetailProps) 
     .maybeSingle();
 
   return (
-    <div className="mx-auto max-w-lg pb-8">
+    <PageContainer width="narrow" className="pb-8">
       <JobDetailRealtime jobId={job.id} />
       <Link
         href="/app/tech"
@@ -79,6 +80,6 @@ export default async function TechJobDetailPage({ params }: TechJobDetailProps) 
       <div className="mt-6">
         <JobActivity jobId={job.id} audience="staff" />
       </div>
-    </div>
+    </PageContainer>
   );
 }

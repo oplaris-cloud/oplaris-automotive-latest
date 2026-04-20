@@ -1,5 +1,6 @@
 import { requireManager } from "@/lib/auth/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { PageContainer } from "@/components/app/page-container";
 import { NewJobForm } from "./NewJobForm";
 
 interface NewJobPageProps {
@@ -24,7 +25,7 @@ export default async function NewJobPage({ searchParams }: NewJobPageProps) {
   ]);
 
   return (
-    <div className="max-w-xl">
+    <PageContainer width="form">
       <h1 className="text-2xl font-semibold">New Job</h1>
       <p className="mt-1 text-sm text-muted-foreground">
         Select a customer and vehicle to create a job card.
@@ -44,6 +45,6 @@ export default async function NewJobPage({ searchParams }: NewJobPageProps) {
         }))}
         bays={(bays ?? []).map((b) => ({ id: b.id, name: b.name }))}
       />
-    </div>
+    </PageContainer>
   );
 }

@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { FormCard } from "@/components/ui/form-card";
+import { FormActions } from "@/components/ui/form-actions";
 
 export function NewCustomerForm() {
   const router = useRouter();
@@ -44,7 +46,9 @@ export function NewCustomerForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="mt-6 space-y-5">
+    <FormCard variant="plain" className="mt-6">
+    <form onSubmit={handleSubmit}>
+      <FormCard.Fields>
       {/* P38.4 — pair Name + Phone, Address1 + Address2, Postcode + Email
           on sm+; stack on mobile. */}
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
@@ -112,19 +116,20 @@ export function NewCustomerForm() {
         </p>
       )}
 
-      <div className="flex flex-col-reverse gap-3 sm:flex-row">
+      </FormCard.Fields>
+      <FormActions>
         <Button
           type="button"
           variant="outline"
-          className="w-full sm:w-auto"
           onClick={() => router.push("/app/customers")}
         >
           Cancel
         </Button>
-        <Button type="submit" disabled={isPending} className="w-full sm:w-auto">
+        <Button type="submit" disabled={isPending}>
           {isPending ? "Adding…" : "Add Customer"}
         </Button>
-      </div>
+      </FormActions>
     </form>
+    </FormCard>
   );
 }

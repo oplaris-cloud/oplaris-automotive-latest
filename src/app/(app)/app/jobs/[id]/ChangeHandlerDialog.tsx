@@ -91,13 +91,13 @@ function initials(fullName: string): string {
 function AvailabilityPill({ s }: { s: EligibleStaffInfo }) {
   if (s.isBusy) {
     return (
-      <span className="text-xs text-amber-600 dark:text-amber-400">
+      <span className="text-xs text-warning">
         on {s.currentJobNumber ?? "another job"}
       </span>
     );
   }
   return (
-    <span className="text-xs text-emerald-600 dark:text-emerald-400">
+    <span className="text-xs text-success">
       · available
     </span>
   );
@@ -109,8 +109,8 @@ function PersonAvatar({ fullName, busy }: { fullName: string; busy: boolean }) {
       className={cn(
         "flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-medium",
         busy
-          ? "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-200"
-          : "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-200",
+          ? "bg-warning/20 text-warning"
+          : "bg-success/20 text-success",
       )}
     >
       {initials(fullName)}
@@ -297,7 +297,7 @@ export function ChangeHandlerDialog({
         {ambiguous ? (
           <div
             role="alert"
-            className="mx-2 mt-1 rounded-md border border-amber-200 bg-amber-50 p-2 text-xs text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-200"
+            className="mx-2 mt-1 rounded-md border border-warning/40 bg-warning/10 p-2 text-xs text-warning"
           >
             {ambiguous}
           </div>

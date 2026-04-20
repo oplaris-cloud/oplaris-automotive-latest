@@ -3,6 +3,12 @@
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 
+import { Button } from "@/components/ui/button";
+import { FormCard } from "@/components/ui/form-card";
+import { FormActions } from "@/components/ui/form-actions";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+
 import { loginAction, type LoginState } from "./actions";
 
 const initialState: LoginState = {};
@@ -11,58 +17,56 @@ export function LoginForm({ next }: { next?: string }) {
   const [state, formAction] = useActionState(loginAction, initialState);
 
   return (
-    <form action={formAction} className="mt-8 space-y-5" noValidate>
+    <FormCard variant="plain" className="mt-8">
+    <form action={formAction} noValidate>
       <input type="hidden" name="next" value={next ?? ""} />
 
+      <FormCard.Fields>
       <div>
-        <label htmlFor="email" className="block text-sm font-medium text-neutral-800">
-          Email
-        </label>
-        <input
+        <Label htmlFor="email" required>Email</Label>
+        <Input
           id="email"
           name="email"
           type="email"
           autoComplete="username"
           required
           spellCheck={false}
-          className="mt-1 block w-full rounded-md border border-neutral-300 px-3 py-2 text-base shadow-sm focus:border-neutral-900 focus:ring-2 focus:ring-neutral-900 focus:outline-none"
+          className="mt-1"
         />
       </div>
 
       <div>
-        <label htmlFor="password" className="block text-sm font-medium text-neutral-800">
-          Password
-        </label>
-        <input
+        <Label htmlFor="password" required>Password</Label>
+        <Input
           id="password"
           name="password"
           type="password"
           autoComplete="current-password"
           required
-          className="mt-1 block w-full rounded-md border border-neutral-300 px-3 py-2 text-base shadow-sm focus:border-neutral-900 focus:ring-2 focus:ring-neutral-900 focus:outline-none"
+          className="mt-1"
         />
       </div>
 
       {state.error ? (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className="text-sm text-destructive">
           {state.error}
         </p>
       ) : null}
+      </FormCard.Fields>
 
-      <SubmitButton />
+      <FormActions fullWidth>
+        <SubmitButton />
+      </FormActions>
     </form>
+    </FormCard>
   );
 }
 
 function SubmitButton() {
   const { pending } = useFormStatus();
   return (
-    <button
-      type="submit"
-      disabled={pending}
-      className="w-full rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-50"
-    >
+    <Button type="submit" size="lg" disabled={pending}>
       {pending ? "Signing in…" : "Sign in"}
-    </button>
+    </Button>
   );
 }

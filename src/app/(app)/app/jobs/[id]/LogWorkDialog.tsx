@@ -7,10 +7,11 @@ import { Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { FormCard } from "@/components/ui/form-card";
+import { FormActions } from "@/components/ui/form-actions";
 import {
   Dialog,
   DialogContent,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -98,7 +99,9 @@ export function LogWorkDialog({ jobId, garageId: _garageId, staff }: LogWorkDial
             <Clock className="h-4 w-4" /> Log Work (Retroactive)
           </DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <FormCard variant="plain">
+        <form onSubmit={handleSubmit}>
+          <FormCard.Fields>
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <Label htmlFor="log-staff" required>Staff Member</Label>
@@ -143,15 +146,17 @@ export function LogWorkDialog({ jobId, garageId: _garageId, staff }: LogWorkDial
 
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
-          <DialogFooter>
-            <Button type="button" size="sm" variant="ghost" onClick={() => setOpen(false)}>
+          </FormCard.Fields>
+          <FormActions>
+            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
               Cancel
             </Button>
-            <Button type="submit" size="sm" disabled={isPending}>
+            <Button type="submit" disabled={isPending}>
               {isPending ? "Logging…" : "Log Work"}
             </Button>
-          </DialogFooter>
+          </FormActions>
         </form>
+        </FormCard>
       </DialogContent>
     </Dialog>
   );

@@ -8,6 +8,7 @@ import {
   type ReportPeriod,
 } from "../settings/reports/actions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageContainer } from "@/components/app/page-container";
 import {
   Table,
   TableBody,
@@ -71,7 +72,7 @@ export default async function ReportsPage({
   ]);
 
   return (
-    <div>
+    <PageContainer width="full">
       <ReportsRealtime garageId={session.garageId} />
       <div className="flex items-center justify-between">
         <div>
@@ -229,6 +230,6 @@ export default async function ReportsPage({
           </CardContent>
         </Card>
       )}
-    </div>
+    </PageContainer>
   );
 }

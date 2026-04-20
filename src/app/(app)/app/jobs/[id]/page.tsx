@@ -8,6 +8,8 @@ import { RoleBadge, type CurrentRole } from "@/components/ui/role-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
+import { RegPlate } from "@/components/ui/reg-plate";
+import { PageContainer } from "@/components/app/page-container";
 import type { JobStatus } from "@/lib/validation/job-schemas";
 import { ApprovalDialog } from "./ApprovalDialog";
 import { EditJobDialog } from "./EditJobDialog";
@@ -118,7 +120,7 @@ export default async function JobDetailPage({ params }: JobDetailProps) {
     isManager
       ? supabase
           .from("invoices")
-          .select("id, invoice_number, quote_status, subtotal_pence, vat_pence, total_pence")
+          .select("id, invoice_number, quote_status, subtotal_pence, vat_pence, total_pence, revision, updated_at, paid_at, payment_method")
           .eq("job_id", id)
           .maybeSingle()
       : Promise.resolve({ data: null }),
@@ -178,7 +180,7 @@ export default async function JobDetailPage({ params }: JobDetailProps) {
   }));
 
   return (
-    <div className="md:max-w-4xl">
+    <PageContainer width="default">
       <JobDetailRealtime jobId={job.id} />
       {/* P52 — Identity row: who/what/where, no actions.
           P38 — stack the identity + metadata blocks on mobile, side-by-side at sm. */}
@@ -265,9 +267,10 @@ export default async function JobDetailPage({ params }: JobDetailProps) {
                 <CardTitle className="text-sm text-muted-foreground">Vehicle</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="inline-block rounded bg-yellow-400 px-2 py-1 font-mono text-base font-bold text-black">
-                  {(vehicle as { registration: string }).registration}
-                </div>
+                <RegPlate
+                  reg={(vehicle as { registration: string }).registration}
+                  size="default"
+                />
                 <div className="mt-1 text-sm text-muted-foreground">
                   {[(vehicle as { make?: string }).make, (vehicle as { model?: string }).model, (vehicle as { year?: number }).year].filter(Boolean).join(" ")}
                   {(vehicle as { mileage?: number }).mileage != null && ` · ${((vehicle as { mileage: number }).mileage).toLocaleString()} mi`}
@@ -409,12 +412,20 @@ export default async function JobDetailPage({ params }: JobDetailProps) {
                     subtotalPence: (invoiceResult.data as { subtotal_pence: number }).subtotal_pence,
                     vatPence: (invoiceResult.data as { vat_pence: number }).vat_pence,
                     totalPence: (invoiceResult.data as { total_pence: number }).total_pence,
+                    revision: (invoiceResult.data as { revision: number }).revision ?? 1,
+                    updatedAt:
+                      (invoiceResult.data as { updated_at: string | null }).updated_at ?? null,
+                    paidAt:
+                      (invoiceResult.data as { paid_at: string | null }).paid_at ?? null,
+                    paymentMethod:
+                      ((invoiceResult.data as { payment_method: string | null }).payment_method ??
+                        null) as "cash" | "card" | "bank_transfer" | "other" | null,
                   }
                 : null
             }
           />
         </>
       )}
-    </div>
+    </PageContainer>
   );
 }

@@ -5,9 +5,12 @@ import { useRouter } from "next/navigation";
 import { Palette, Image as ImageIcon, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { FormCard } from "@/components/ui/form-card";
+import { FormActions } from "@/components/ui/form-actions";
 import { GarageLogo } from "@/components/ui/garage-logo";
 import { hexToOklch } from "@/lib/brand/oklch";
 import { cn } from "@/lib/utils";
@@ -125,19 +128,16 @@ export function BrandingForm({ initial }: { initial: Initial }): React.JSX.Eleme
     });
   };
 
-  const handleLogoRemove = () => {
-    if (!confirm("Remove the current logo?")) return;
+  const handleLogoRemove = async () => {
     setError(null);
     setOkMessage(null);
-    startTransition(async () => {
-      const result = await removeGarageLogo();
-      if (!result.ok) {
-        setError(result.error ?? "Remove failed");
-        return;
-      }
-      setOkMessage("Logo removed. Refreshing…");
-      router.refresh();
-    });
+    const result = await removeGarageLogo();
+    if (!result.ok) {
+      setError(result.error ?? "Remove failed");
+      return;
+    }
+    setOkMessage("Logo removed. Refreshing…");
+    router.refresh();
   };
 
   return (
@@ -192,15 +192,23 @@ export function BrandingForm({ initial }: { initial: Initial }): React.JSX.Eleme
             />
           </label>
           {initial.logoUrl ? (
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={handleLogoRemove}
-              disabled={isPending}
-              className="gap-2 text-destructive"
-            >
-              <Trash2 className="h-4 w-4" /> Remove
-            </Button>
+            <ConfirmDialog
+              trigger={
+                <Button
+                  type="button"
+                  variant="ghost"
+                  disabled={isPending}
+                  className="gap-2 text-destructive"
+                >
+                  <Trash2 className="h-4 w-4" /> Remove
+                </Button>
+              }
+              title="Remove the current logo?"
+              description="The sidebar + public surfaces fall back to the wordmark until you upload again."
+              confirmLabel="Remove logo"
+              destructive
+              onConfirm={handleLogoRemove}
+            />
           ) : null}
         </div>
 
@@ -237,7 +245,9 @@ export function BrandingForm({ initial }: { initial: Initial }): React.JSX.Eleme
         </label>
       </section>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <FormCard variant="plain">
+      <form onSubmit={handleSubmit}>
+        <FormCard.Fields>
         <section className="space-y-3">
           <h2 className="text-base font-semibold">Identity</h2>
 
@@ -394,17 +404,19 @@ export function BrandingForm({ initial }: { initial: Initial }): React.JSX.Eleme
           </p>
         ) : null}
         {okMessage ? (
-          <p role="status" className="text-sm text-emerald-700">
+          <p role="status" className="text-sm text-success">
             {okMessage}
           </p>
         ) : null}
 
-        <div className="flex justify-end">
+        </FormCard.Fields>
+        <FormActions>
           <Button type="submit" disabled={isPending}>
             {isPending ? "Saving…" : "Save brand"}
           </Button>
-        </div>
+        </FormActions>
       </form>
+      </FormCard>
     </div>
   );
 }

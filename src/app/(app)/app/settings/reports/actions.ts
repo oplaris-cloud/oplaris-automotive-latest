@@ -99,6 +99,113 @@ export async function getRepeatCustomers() {
   return { data: data ?? [], error: error?.message };
 }
 
+// ------------------------------------------------------------------
+// Migration 046 — receivables / paid / outstanding breakdown.
+//
+// The reports page grew a financial-state split so managers can tell
+// at a glance: what's been invoiced but not paid (cash owed), what's
+// landed this period, and what's still in pipeline as a quote. Aging
+// bands on the unpaid stack follow the standard small-business UK
+// pattern (0-7 / 8-30 / 30+ days) — 30+ is "chase hard".
+// ------------------------------------------------------------------
+
+export interface ReceivablesSummary {
+  /** Sum of unpaid `invoiced` rows. Money owed to the garage. */
+  outstandingPence: number;
+  outstandingCount: number;
+  /** Sum of `paid` rows in the period. Banked revenue. */
+  paidInPeriodPence: number;
+  paidInPeriodCount: number;
+  /** Sum of `quoted` rows that haven't been invoiced yet. Pipeline. */
+  quotedPence: number;
+  quotedCount: number;
+  /** Aging buckets on the unpaid stack. */
+  aging: {
+    fresh: { pence: number; count: number }; // 0-7 days
+    chase: { pence: number; count: number }; // 8-30 days
+    overdue: { pence: number; count: number }; // 30+ days
+  };
+}
+
+export async function getReceivablesSummary(
+  period: ReportPeriod = "week",
+): Promise<{ data: ReceivablesSummary; error?: string }> {
+  await requireManager();
+  const supabase = await createSupabaseServerClient();
+  const cutoff = periodCutoff(period);
+
+  // Single fetch — everything non-draft in one round-trip. We bucket
+  // client-side; the row count is small (one per job) even at scale.
+  const { data, error } = await supabase
+    .from("invoices")
+    .select("total_pence, quote_status, invoiced_at, paid_at")
+    .in("quote_status", ["quoted", "invoiced", "paid"]);
+
+  if (error) {
+    return {
+      data: emptyReceivables(),
+      error: error.message,
+    };
+  }
+
+  const summary = emptyReceivables();
+  const now = Date.now();
+  const DAY_MS = 86_400_000;
+
+  for (const row of data ?? []) {
+    const total = row.total_pence ?? 0;
+    if (row.quote_status === "quoted") {
+      summary.quotedPence += total;
+      summary.quotedCount += 1;
+      continue;
+    }
+    if (row.quote_status === "paid") {
+      if (row.paid_at && row.paid_at >= cutoff) {
+        summary.paidInPeriodPence += total;
+        summary.paidInPeriodCount += 1;
+      }
+      continue;
+    }
+    // invoiced — unpaid. Bucket by age since invoiced_at.
+    summary.outstandingPence += total;
+    summary.outstandingCount += 1;
+    if (!row.invoiced_at) {
+      summary.aging.fresh.pence += total;
+      summary.aging.fresh.count += 1;
+      continue;
+    }
+    const ageDays = (now - new Date(row.invoiced_at).getTime()) / DAY_MS;
+    if (ageDays <= 7) {
+      summary.aging.fresh.pence += total;
+      summary.aging.fresh.count += 1;
+    } else if (ageDays <= 30) {
+      summary.aging.chase.pence += total;
+      summary.aging.chase.count += 1;
+    } else {
+      summary.aging.overdue.pence += total;
+      summary.aging.overdue.count += 1;
+    }
+  }
+
+  return { data: summary };
+}
+
+function emptyReceivables(): ReceivablesSummary {
+  return {
+    outstandingPence: 0,
+    outstandingCount: 0,
+    paidInPeriodPence: 0,
+    paidInPeriodCount: 0,
+    quotedPence: 0,
+    quotedCount: 0,
+    aging: {
+      fresh: { pence: 0, count: 0 },
+      chase: { pence: 0, count: 0 },
+      overdue: { pence: 0, count: 0 },
+    },
+  };
+}
+
 function periodCutoff(period: ReportPeriod): string {
   const now = new Date();
   if (period === "month") {

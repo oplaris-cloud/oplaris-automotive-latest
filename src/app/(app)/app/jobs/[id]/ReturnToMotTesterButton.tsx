@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ArrowLeftRight } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { toast } from "@/lib/toast";
 import { returnJobToMotTester } from "../passback/actions";
 
 interface ReturnToMotTesterButtonProps {
@@ -24,7 +25,7 @@ export function ReturnToMotTesterButton({
     startTransition(async () => {
       const result = await returnJobToMotTester({ jobId });
       if (result.ok) router.refresh();
-      else alert(result.error ?? "Failed to return job to MOT tester");
+      else toast.error(result.error ?? "Failed to return job to MOT tester");
     });
   }
 

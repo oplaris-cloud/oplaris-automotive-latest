@@ -36,11 +36,10 @@ export function getCategoryStyles(
     return {
       kind: "urgent",
       label: opts.isPassback ? "Passback" : "Urgent",
-      border: "border-l-4 border-l-amber-500",
-      badge:
-        "border-amber-500 bg-amber-50 text-amber-900 dark:bg-amber-950 dark:text-amber-200",
+      border: "border-l-4 border-l-warning",
+      badge: "border-warning bg-warning text-warning-foreground",
       button:
-        "bg-amber-600 text-white hover:bg-amber-700 focus-visible:ring-amber-600/50",
+        "bg-warning text-warning-foreground hover:bg-warning/90 focus-visible:ring-warning/50",
     };
   }
 

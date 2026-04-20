@@ -25,6 +25,12 @@ export interface InvoiceData {
   title: string; // "QUOTE" or "INVOICE"
   reference: string; // Q-DUD-2026-00001 or INV-DUD-2026-00001
   date: string;
+  /** Migration 046 — when set, renders a diagonal PAID watermark on
+   *  the page. Null for quotes and unpaid invoices. */
+  paid?: {
+    at: string; // formatted date
+    method: string; // "Cash" / "Card" / ...
+  } | null;
   customer: {
     fullName: string;
     phone: string;
@@ -58,6 +64,32 @@ export interface InvoiceData {
 function pounds(pence: number): string {
   return `£${(pence / 100).toFixed(2)}`;
 }
+
+// V046 — PAID watermark styles. Using a separate StyleSheet so the
+// main invoice styles stay focused on line-item layout.
+const paidWatermarkStyle = StyleSheet.create({
+  wrapper: {
+    position: "absolute",
+    top: "38%",
+    left: 0,
+    right: 0,
+    alignItems: "center",
+    opacity: 0.18,
+    transform: "rotate(-18deg)",
+  },
+  stamp: {
+    fontSize: 96,
+    fontWeight: "bold",
+    color: "#1a7f37",
+    letterSpacing: 8,
+  },
+  caption: {
+    fontSize: 14,
+    color: "#1a7f37",
+    marginTop: 4,
+    letterSpacing: 2,
+  },
+});
 
 // ---------------------------------------------------------------------------
 // Styles — clean, minimal, data-focused
@@ -222,11 +254,24 @@ const s = StyleSheet.create({
 // ---------------------------------------------------------------------------
 
 export function InvoiceDocument({ data }: { data: InvoiceData }) {
-  const { garage, title, reference, date, customer, vehicle, lineItems } = data;
+  const { garage, title, reference, date, customer, vehicle, lineItems, paid } = data;
 
   return (
     <Document>
       <Page size="A4" style={s.page}>
+        {/* V046 — PAID watermark. Diagonal, low-opacity green stamp
+         *  that sits behind the content. Only renders when the
+         *  invoice has been recorded as paid so it doesn't get stuck
+         *  on quotes or unpaid invoices. */}
+        {paid ? (
+          <View fixed style={paidWatermarkStyle.wrapper}>
+            <Text style={paidWatermarkStyle.stamp}>PAID</Text>
+            <Text style={paidWatermarkStyle.caption}>
+              {paid.at} · {paid.method}
+            </Text>
+          </View>
+        ) : null}
+
         {/* Garage header */}
         <View style={s.header}>
           <Text style={s.garageName}>{garage.name}</Text>

@@ -6,8 +6,11 @@ import { requireManager } from "@/lib/auth/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CarImage } from "@/components/ui/car-image";
+import { RegPlate } from "@/components/ui/reg-plate";
 import { Separator } from "@/components/ui/separator";
 import { EmptyState } from "@/components/ui/empty-state";
+import { BatteryReplacementIllustration } from "@/components/illustrations";
+import { PageContainer } from "@/components/app/page-container";
 import { AddVehicleForm } from "./AddVehicleForm";
 import { EditCustomerDialog } from "./EditCustomerDialog";
 import { GdprExportButton } from "./GdprExportButton";
@@ -48,7 +51,7 @@ export default async function CustomerDetailPage({ params }: CustomerDetailProps
     .limit(10);
 
   return (
-    <div className="max-w-3xl">
+    <PageContainer width="default">
       <CustomerDetailRealtime customerId={customer.id} />
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">{customer.full_name}</h1>
@@ -107,9 +110,7 @@ export default async function CustomerDetailPage({ params }: CustomerDetailProps
                   />
                 </div>
                 <CardContent className="p-4">
-                  <div className="inline-block rounded bg-yellow-400 px-2 py-1 font-mono text-sm font-bold text-black">
-                    {v.registration}
-                  </div>
+                  <RegPlate reg={v.registration} size="default" />
                   <div className="mt-1 text-sm text-muted-foreground">
                     {[v.make, v.model, v.year].filter(Boolean).join(" ") || "—"}
                   </div>
@@ -128,7 +129,12 @@ export default async function CustomerDetailPage({ params }: CustomerDetailProps
       {/* Recent jobs */}
       <h2 className="text-lg font-semibold">Recent Jobs</h2>
       {!jobs || jobs.length === 0 ? (
-        <EmptyState title="No jobs" description="No jobs for this customer yet." className="mt-4" />
+        <EmptyState
+          illustration={BatteryReplacementIllustration}
+          title="No jobs yet"
+          description="When this customer comes in for service, jobs will appear here with a full history."
+          className="mt-4"
+        />
       ) : (
         <div className="mt-3 space-y-2">
           {jobs.map((j) => (
@@ -152,6 +158,6 @@ export default async function CustomerDetailPage({ params }: CustomerDetailProps
           ))}
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 }

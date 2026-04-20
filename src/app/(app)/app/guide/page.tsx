@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { requireManager } from "@/lib/auth/session";
+import { PageContainer } from "@/components/app/page-container";
 
 export const metadata: Metadata = {
   title: "Admin Guide",
@@ -10,8 +11,9 @@ export default async function GuidePage() {
   await requireManager();
 
   return (
-    <article className="prose prose-neutral max-w-3xl dark:prose-invert">
-      <h1>Admin Guide</h1>
+    <PageContainer width="narrow">
+      <article className="prose prose-neutral dark:prose-invert">
+        <h1>Admin Guide</h1>
       <p className="lead">
         Everything you need to run the Oplaris Workshop system day-to-day.
       </p>
@@ -117,6 +119,7 @@ export default async function GuidePage() {
           <tr><td>HMAC secrets</td><td>Dokploy env panel</td><td>Generate new random string → update Dokploy → redeploy (invalidates active approval links)</td></tr>
         </tbody>
       </table>
-    </article>
+      </article>
+    </PageContainer>
   );
 }

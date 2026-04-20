@@ -135,11 +135,11 @@ function RowShell({
 }): React.JSX.Element {
   const accentClass =
     accent === "amber"
-      ? "bg-amber-50 text-amber-600 dark:bg-amber-950/60 dark:text-amber-300"
+      ? "bg-warning/10 text-warning"
       : accent === "green"
-        ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-300"
+        ? "bg-success/10 text-success"
         : accent === "live"
-          ? "bg-emerald-50 text-emerald-600 ring-2 ring-emerald-400/50 dark:bg-emerald-950/60 dark:text-emerald-300"
+          ? "bg-success/10 text-success ring-2 ring-success/50"
           : "bg-muted text-muted-foreground";
 
   return (
@@ -147,7 +147,7 @@ function RowShell({
       className={cn(
         "flex items-start gap-3 rounded-lg border px-3 py-3",
         pinned
-          ? "border-emerald-400/40 bg-emerald-50/40 dark:border-emerald-900/60 dark:bg-emerald-950/20"
+          ? "border-success/40 bg-success/5"
           : "border-border bg-background",
       )}
     >
@@ -251,8 +251,8 @@ function StaffRow({ event }: { event: TimelineRow }): React.JSX.Element {
           accent="live"
           icon={
             <span className="relative flex h-2.5 w-2.5">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400/60" />
-              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success/60" />
+              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-success" />
             </span>
           }
           primary={`${actor ?? "A technician"} is working now`}
@@ -366,8 +366,8 @@ function iconForCustomer(kind: string): React.ReactNode {
     case "work_running":
       return (
         <span className="relative flex h-2.5 w-2.5">
-          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400/60" />
-          <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success/60" />
+          <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-success" />
         </span>
       );
     case "work_session":

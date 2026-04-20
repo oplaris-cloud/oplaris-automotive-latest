@@ -14,20 +14,17 @@ const ROLE_CONFIG: Record<
 > = {
   mot_tester: {
     label: "With MOT tester",
-    className:
-      "border-blue-300 bg-blue-50 text-blue-900 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-200",
+    className: "border-info/40 bg-info/10 text-info",
     icon: ShieldCheck,
   },
   mechanic: {
     label: "With mechanic",
-    className:
-      "border-amber-400 bg-amber-50 text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200",
+    className: "border-warning/40 bg-warning/10 text-warning",
     icon: Wrench,
   },
   manager: {
     label: "With manager",
-    className:
-      "border-purple-300 bg-purple-50 text-purple-900 dark:border-purple-900 dark:bg-purple-950 dark:text-purple-200",
+    className: "border-primary/40 bg-primary/10 text-primary",
     icon: UserCheck,
   },
 };

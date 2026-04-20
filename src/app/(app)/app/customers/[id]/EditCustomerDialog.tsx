@@ -9,6 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { FormCard } from "@/components/ui/form-card";
+import { FormActions } from "@/components/ui/form-actions";
 
 interface EditCustomerDialogProps {
   customer: {
@@ -69,9 +71,12 @@ export function EditCustomerDialog({ customer }: EditCustomerDialogProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="mt-4 space-y-4 rounded-lg border p-4">
-      <h3 className="text-sm font-semibold">Edit Customer</h3>
+    <div className="mt-4 rounded-lg border p-4">
+    <FormCard variant="plain">
+    <form onSubmit={handleSubmit}>
+      <h3 className="mb-4 text-sm font-semibold">Edit Customer</h3>
 
+      <FormCard.Fields>
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <Label htmlFor="edit-fullName" required>Full Name</Label>
@@ -107,14 +112,17 @@ export function EditCustomerDialog({ customer }: EditCustomerDialogProps) {
 
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
 
-      <div className="flex gap-3">
-        <Button type="submit" size="sm" disabled={isPending}>
-          {isPending ? "Saving..." : "Save Changes"}
-        </Button>
-        <Button type="button" size="sm" variant="outline" onClick={() => setOpen(false)}>
+      </FormCard.Fields>
+      <FormActions>
+        <Button type="button" variant="outline" onClick={() => setOpen(false)}>
           Cancel
         </Button>
-      </div>
+        <Button type="submit" disabled={isPending}>
+          {isPending ? "Saving..." : "Save Changes"}
+        </Button>
+      </FormActions>
     </form>
+    </FormCard>
+    </div>
   );
 }

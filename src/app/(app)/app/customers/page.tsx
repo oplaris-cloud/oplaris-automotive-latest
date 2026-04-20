@@ -6,6 +6,8 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/ui/empty-state";
+import { GarageOwnerWelcomingCustomersIllustration } from "@/components/illustrations";
+import { PageContainer } from "@/components/app/page-container";
 import {
   Table,
   TableBody,
@@ -85,7 +87,7 @@ export default async function CustomersPage({ searchParams }: CustomersPageProps
   }
 
   return (
-    <div>
+    <PageContainer width="full">
       <CustomersListRealtime garageId={session.garageId} />
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Customers</h1>
@@ -164,6 +166,7 @@ export default async function CustomersPage({ searchParams }: CustomersPageProps
 
       {showDeleted ? null : (!customers || customers.length === 0) ? (
         <EmptyState
+          illustration={GarageOwnerWelcomingCustomersIllustration}
           title={q ? "No customers found" : "No customers yet"}
           description={q ? `No results for "${q}"` : "Add your first customer to get started."}
           actionLabel={q ? undefined : "Add Customer"}
@@ -244,6 +247,6 @@ export default async function CustomersPage({ searchParams }: CustomersPageProps
           )}
         </>
       )}
-    </div>
+    </PageContainer>
   );
 }
