@@ -43,7 +43,10 @@ describe("create_job RPC", () => {
         r.rows[0].job_id,
       ]);
       expect(job.rows[0]?.garage_id).toBe(GARAGE_A);
-      expect(job.rows[0]?.status).toBe("draft");
+      // Migration 029 retired the 'draft' / 'booked' statuses; a freshly
+      // created job now starts in 'checked_in'. This assertion was not
+      // updated at the time.
+      expect(job.rows[0]?.status).toBe("checked_in");
       expect(job.rows[0]?.job_number).toMatch(/^DUD-\d{4}-\d{5}$/);
     });
   });

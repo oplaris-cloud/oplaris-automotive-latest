@@ -39,6 +39,9 @@ const COVERAGE_TABLES = [
   // refreshes on status transitions without manual polling.
   "job_status_events",
   "jobs",
+  // Added by migration 047 so the Messages page (/app/messages) sees
+  // Twilio status flips (queued → sent → delivered / failed) land live.
+  "sms_outbox",
   "staff",
   "stock_items",
   "stock_movements",
