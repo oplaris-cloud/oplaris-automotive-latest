@@ -5,15 +5,24 @@ import { useRouter } from "next/navigation";
 import { Play } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 import { toast } from "@/lib/toast";
+import type { StaffRole } from "@/lib/auth/session";
+import { pickStartDestination } from "@/lib/tech/self-start-routing";
 import { startMotFromCheckIn } from "./actions";
 
 export function StartMotButton({
   bookingId,
+  roles,
   className,
 }: {
   bookingId: string;
+  /**
+   * The viewer's StaffRole array. Drives the post-action redirect:
+   * mot_tester / mechanic land on `/app/tech/job/[id]`; manager-only
+   * staff land on `/app/jobs/[id]`. See `pickStartDestination` and
+   * audit finding F1.
+   */
+  roles: readonly StaffRole[];
   /**
    * Optional override — callers pass `getCategoryStyles(...).button` so the
    * button picks up the row's category colour (MOT = info-blue by default,
@@ -28,7 +37,7 @@ export function StartMotButton({
     startTransition(async () => {
       const result = await startMotFromCheckIn(bookingId);
       if (result.ok && result.id) {
-        router.push(`/app/jobs/${result.id}`);
+        router.push(pickStartDestination(roles, result.id));
       } else {
         toast.error(result.error ?? "Failed to start MOT");
       }
@@ -37,12 +46,12 @@ export function StartMotButton({
 
   return (
     <Button
-      size="sm"
+      size="lg"
       onClick={handleClick}
       disabled={isPending}
-      className={cn("gap-1.5", className)}
+      className={className}
     >
-      <Play className="h-3.5 w-3.5" /> {isPending ? "Starting…" : "Start MOT"}
+      <Play className="h-5 w-5" /> {isPending ? "Starting…" : "Start MOT"}
     </Button>
   );
 }

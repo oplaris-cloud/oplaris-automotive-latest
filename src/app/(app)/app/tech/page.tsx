@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ArrowRightLeft, UserCheck, Wrench } from "lucide-react";
 
-import { requireStaffSession } from "@/lib/auth/session";
+import { requireStaffSession, type StaffRole } from "@/lib/auth/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -230,6 +230,7 @@ export default async function MyWorkPage() {
               <CheckInRow
                 key={`b-${c.id}`}
                 checkIn={c}
+                roles={session.roles}
                 canStartMot={
                   c.service === "mot" &&
                   (isManager || session.roles.includes("mot_tester"))
@@ -391,10 +392,12 @@ function PassbackRow({ job }: { job: AssignedJob }) {
 
 function CheckInRow({
   checkIn,
+  roles,
   canStartMot,
   canStartWork,
 }: {
   checkIn: OpenCheckIn;
+  roles: readonly StaffRole[];
   canStartMot: boolean;
   canStartWork: boolean;
 }) {
@@ -452,10 +455,18 @@ function CheckInRow({
           {/* Category-coloured primary action on the right */}
           <div className="flex shrink-0 flex-wrap items-center gap-2">
             {canStartMot ? (
-              <StartMotButton bookingId={checkIn.id} className={styles.button} />
+              <StartMotButton
+                bookingId={checkIn.id}
+                roles={roles}
+                className={styles.button}
+              />
             ) : null}
             {canStartWork ? (
-              <StartWorkButton bookingId={checkIn.id} className={styles.button} />
+              <StartWorkButton
+                bookingId={checkIn.id}
+                roles={roles}
+                className={styles.button}
+              />
             ) : null}
           </div>
         </div>
