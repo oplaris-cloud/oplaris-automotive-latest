@@ -184,6 +184,7 @@ export default async function VehicleDetailPage({ params }: VehicleDetailProps) 
         vehicleId={vehicle.id}
         registration={vehicle.registration}
         motHistory={motHistory}
+        now={new Date()}
       />
 
       {/* Full job history */}

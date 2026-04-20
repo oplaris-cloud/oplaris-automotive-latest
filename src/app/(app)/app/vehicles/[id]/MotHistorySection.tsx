@@ -14,18 +14,21 @@ import {
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { isMotExpired, isMotExpiringSoon } from "@/lib/mot/expiry";
 import type { MotHistoryEntry } from "../actions";
 
 interface MotHistorySectionProps {
   vehicleId: string;
   registration: string;
   motHistory: MotHistoryEntry[];
+  now: Date;
 }
 
 export function MotHistorySection({
   vehicleId,
   registration,
   motHistory: initialHistory,
+  now,
 }: MotHistorySectionProps) {
   const [motHistory, setMotHistory] = useState(initialHistory);
   const [isPending, startTransition] = useTransition();
@@ -95,11 +98,8 @@ export function MotHistorySection({
         const expiry = latest.expiryDate
           ? new Date(latest.expiryDate)
           : null;
-        const expired = expiry ? expiry.getTime() < Date.now() : false;
-        const expiringSoon =
-          expiry && !expired
-            ? expiry.getTime() - Date.now() < 30 * 86_400_000
-            : false;
+        const expired = expiry ? isMotExpired(expiry, now) : false;
+        const expiringSoon = expiry ? isMotExpiringSoon(expiry, now) : false;
         return (
           <Card
             className={`mt-3 ${
