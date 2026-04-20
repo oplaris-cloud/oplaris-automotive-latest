@@ -11,11 +11,18 @@ import {
   suggestLabourFromLogs,
   markAsQuoted,
   markAsInvoiced,
+  resendQuote,
+  revertToQuoted,
+  markAsPaid,
+  revertToInvoiced,
 } from "../charges/actions";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { toast } from "@/lib/toast";
+import { CheckCircle2, Banknote } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -33,6 +40,8 @@ interface Charge {
   unit_price_pence: number;
 }
 
+type PaymentMethod = "cash" | "card" | "bank_transfer" | "other";
+
 interface ChargesSectionProps {
   jobId: string;
   charges: Charge[];
@@ -41,12 +50,26 @@ interface ChargesSectionProps {
     subtotalPence: number;
     vatPence: number;
     totalPence: number;
+    /** Migration 045 — bumps on every CRUD while `quoted`. */
+    revision: number;
+    /** Auto-maintained by DB trigger (migration 045). */
+    updatedAt: string | null;
+    /** Migration 046 — stamped when `quoteStatus === 'paid'`. */
+    paidAt: string | null;
+    paymentMethod: PaymentMethod | null;
   } | null;
 }
 
 function pence(p: number): string {
   return `£${(p / 100).toFixed(2)}`;
 }
+
+const PAYMENT_LABELS: Record<PaymentMethod, string> = {
+  cash: "Cash",
+  card: "Card",
+  bank_transfer: "Bank transfer",
+  other: "Other",
+};
 
 function lineTotal(c: Charge): number {
   return Math.round(Number(c.quantity) * c.unit_price_pence);
@@ -72,11 +95,23 @@ export function ChargesSection({ jobId, charges, invoice }: ChargesSectionProps)
   const grandTotal = subtotal + vat;
 
   const status = invoice?.quoteStatus ?? "draft";
+  const revision = invoice?.revision ?? 1;
   const isDraft = status === "draft";
+  const isQuoted = status === "quoted";
+  const isInvoiced = status === "invoiced";
+  const isPaid = status === "paid";
+  // Migration 045 — charges are editable on both draft AND quoted.
+  // Migrations 045 + 046 — invoiced AND paid are read-only. Managers
+  // must explicitly revert to unlock.
+  const isEditable = isDraft || isQuoted;
 
   function handleRemove(chargeId: string) {
     startTransition(async () => {
-      await removeCharge(chargeId);
+      const result = await removeCharge(chargeId);
+      if (!result.ok) {
+        toast.error(result.error ?? "Could not remove charge");
+        return;
+      }
       router.refresh();
     });
   }
@@ -102,30 +137,128 @@ export function ChargesSection({ jobId, charges, invoice }: ChargesSectionProps)
 
   function handleSendQuote() {
     startTransition(async () => {
-      await markAsQuoted(jobId);
+      const result = await markAsQuoted(jobId);
+      if (!result.ok) {
+        toast.error(result.error ?? "Could not send quote");
+        return;
+      }
+      toast.success("Quote sent to customer");
+      router.refresh();
+    });
+  }
+
+  function handleResendQuote() {
+    startTransition(async () => {
+      const result = await resendQuote(jobId);
+      if (!result.ok) {
+        toast.error(result.error ?? "Could not resend quote");
+        return;
+      }
+      toast.success(
+        revision > 1
+          ? `Updated quote sent (rev ${revision})`
+          : "Quote resent to customer",
+      );
       router.refresh();
     });
   }
 
   function handleGenerateInvoice() {
     startTransition(async () => {
-      await markAsInvoiced(jobId);
+      const result = await markAsInvoiced(jobId);
+      if (!result.ok) {
+        toast.error(result.error ?? "Could not generate invoice");
+        return;
+      }
       // Also open the PDF
       window.open(`/api/invoices/${jobId}`, "_blank");
       router.refresh();
     });
   }
 
+  // Wrapped in a promise so `ConfirmDialog` can await it and show the
+  // pending spinner while the RPC round-trips.
+  async function handleRevertToQuoted() {
+    const result = await revertToQuoted(jobId);
+    if (!result.ok) {
+      toast.error(result.error ?? "Could not revert invoice");
+      return;
+    }
+    toast.success("Invoice reverted to quoted — charges are editable again");
+    router.refresh();
+  }
+
+  async function handleMarkAsPaid(method: PaymentMethod) {
+    const result = await markAsPaid({ jobId, paymentMethod: method });
+    if (!result.ok) {
+      toast.error(result.error ?? "Could not record payment");
+      return;
+    }
+    toast.success(`Payment recorded — ${PAYMENT_LABELS[method]}`);
+    router.refresh();
+  }
+
+  async function handleRevertToInvoiced() {
+    const result = await revertToInvoiced(jobId);
+    if (!result.ok) {
+      toast.error(result.error ?? "Could not revert payment");
+      return;
+    }
+    toast.success("Payment cleared — invoice is editable again");
+    router.refresh();
+  }
+
   return (
     <div>
+      {/* V046 — PAID banner sits above the Charges header so managers
+       *  see the payment state first + can't miss that the invoice is
+       *  now read-only. Green success tokens; date + method come from
+       *  the invoice row. */}
+      {isPaid && invoice ? (
+        <div className="mb-4 flex flex-wrap items-center gap-3 rounded-lg border border-success/40 bg-success/10 p-3">
+          <CheckCircle2 className="h-5 w-5 text-success" />
+          <div className="flex-1 text-sm">
+            <span className="font-semibold text-success">Paid</span>
+            {invoice.paidAt ? (
+              <span className="ml-2 text-muted-foreground">
+                {new Date(invoice.paidAt).toLocaleDateString("en-GB", {
+                  day: "numeric",
+                  month: "short",
+                  year: "numeric",
+                })}
+              </span>
+            ) : null}
+            {invoice.paymentMethod ? (
+              <span className="ml-2 text-muted-foreground">
+                · {PAYMENT_LABELS[invoice.paymentMethod]}
+              </span>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <h2 className="text-lg font-semibold">Charges</h2>
-          <Badge variant={status === "invoiced" ? "default" : status === "quoted" ? "secondary" : "outline"} className="capitalize">
+          <Badge
+            variant={
+              isPaid || isInvoiced
+                ? "default"
+                : isQuoted
+                  ? "secondary"
+                  : "outline"
+            }
+            className="capitalize"
+          >
             {status}
           </Badge>
+          {revision > 1 ? (
+            <Badge variant="outline" className="text-[11px]">
+              Rev {revision}
+            </Badge>
+          ) : null}
         </div>
-        {isDraft && (
+        {isEditable && (
           <div className="flex gap-2">
             <AddChargeDialog
               jobId={jobId}
@@ -166,7 +299,7 @@ export function ChargesSection({ jobId, charges, invoice }: ChargesSectionProps)
               <div className="col-span-2 text-right font-mono">{pence(c.unit_price_pence)}</div>
               <div className="col-span-1 text-right font-mono font-medium">{pence(lineTotal(c))}</div>
               <div className="col-span-1 flex justify-end gap-1">
-                {isDraft && (
+                {isEditable && (
                   <>
                     <EditChargeButton charge={c} />
                     <button
@@ -201,32 +334,198 @@ export function ChargesSection({ jobId, charges, invoice }: ChargesSectionProps)
         </div>
       )}
 
-      {/* Action buttons */}
+      {/* Action buttons — tiered by `quote_status` (migration 045).
+       *  draft    → Send Quote + Generate Invoice
+       *  quoted   → Resend quote (updated SMS copy on rev > 1) + Generate Invoice
+       *  invoiced → View PDF + Revert to quoted (destructive confirm) */}
       {charges.length > 0 && (
         <div className="mt-4 flex flex-wrap gap-2">
-          {isDraft && (
+          {isDraft ? (
             <Button size="sm" variant="outline" className="gap-1.5" onClick={handleSendQuote} disabled={isPending}>
               <Send className="h-4 w-4" /> Send Quote
             </Button>
-          )}
-          {(status === "quoted" || status === "draft") && (
-            <Button size="sm" className="gap-1.5" onClick={handleGenerateInvoice} disabled={isPending}>
-              <FileText className="h-4 w-4" /> Generate Invoice
-            </Button>
-          )}
-          {status === "invoiced" && (
+          ) : null}
+
+          {isQuoted ? (
             <Button
               size="sm"
               variant="outline"
               className="gap-1.5"
-              onClick={() => window.open(`/api/invoices/${jobId}`, "_blank")}
+              onClick={handleResendQuote}
+              disabled={isPending}
             >
-              <FileText className="h-4 w-4" /> View Invoice PDF
+              <Send className="h-4 w-4" />
+              {revision > 1 ? "Resend updated quote" : "Resend quote"}
+            </Button>
+          ) : null}
+
+          {(isQuoted || isDraft) && (
+            <Button size="sm" className="gap-1.5" onClick={handleGenerateInvoice} disabled={isPending}>
+              <FileText className="h-4 w-4" /> Generate Invoice
             </Button>
           )}
+
+          {isInvoiced ? (
+            <>
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1.5"
+                onClick={() => window.open(`/api/invoices/${jobId}`, "_blank")}
+              >
+                <FileText className="h-4 w-4" /> View Invoice PDF
+              </Button>
+              <MarkAsPaidDialog
+                totalPence={invoice?.totalPence ?? 0}
+                onConfirm={handleMarkAsPaid}
+                disabled={isPending}
+              />
+              <ConfirmDialog
+                trigger={
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    className="gap-1.5"
+                    disabled={isPending}
+                  >
+                    <Send className="h-4 w-4" /> Revert to quoted
+                  </Button>
+                }
+                title="Revert this invoice to quoted?"
+                description="Charges become editable again. The invoice number and revision history are preserved."
+                confirmLabel="Revert"
+                destructive
+                onConfirm={handleRevertToQuoted}
+              />
+            </>
+          ) : null}
+
+          {isPaid ? (
+            <>
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1.5"
+                onClick={() => window.open(`/api/invoices/${jobId}`, "_blank")}
+              >
+                <FileText className="h-4 w-4" /> View Invoice PDF
+              </Button>
+              <ConfirmDialog
+                trigger={
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    className="gap-1.5"
+                    disabled={isPending}
+                  >
+                    Revert payment
+                  </Button>
+                }
+                title="Revert the recorded payment?"
+                description="The invoice returns to the invoiced state. The customer's PAID badge will disappear."
+                confirmLabel="Revert payment"
+                destructive
+                onConfirm={handleRevertToInvoiced}
+              />
+            </>
+          ) : null}
         </div>
       )}
     </div>
+  );
+}
+
+// ------------------------------------------------------------------
+// Mark as Paid Dialog (migration 046)
+// ------------------------------------------------------------------
+
+function MarkAsPaidDialog({
+  totalPence,
+  onConfirm,
+  disabled,
+}: {
+  totalPence: number;
+  onConfirm: (method: PaymentMethod) => Promise<void>;
+  disabled: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [method, setMethod] = useState<PaymentMethod>("cash");
+  const [submitting, setSubmitting] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (submitting) return;
+    try {
+      setSubmitting(true);
+      await onConfirm(method);
+      setOpen(false);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger
+        render={
+          <Button size="sm" className="gap-1.5" disabled={disabled}>
+            <Banknote className="h-4 w-4" /> Mark as paid
+          </Button>
+        }
+      />
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Record payment</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="rounded-lg bg-muted p-3 text-center">
+            <div className="text-xs uppercase tracking-wider text-muted-foreground">
+              Amount
+            </div>
+            <div className="mt-1 text-2xl font-bold tabular-nums">
+              {pence(totalPence)}
+            </div>
+            <div className="mt-1 text-xs text-muted-foreground">
+              Partial payments are not yet supported — this records the full invoice.
+            </div>
+          </div>
+          <fieldset className="space-y-2">
+            <legend className="text-sm font-medium">Payment method</legend>
+            {(["cash", "card", "bank_transfer", "other"] as PaymentMethod[]).map(
+              (m) => (
+                <label
+                  key={m}
+                  className="flex cursor-pointer items-center gap-3 rounded-lg border p-3 hover:bg-muted/50"
+                >
+                  <input
+                    type="radio"
+                    name="payment-method"
+                    value={m}
+                    checked={method === m}
+                    onChange={() => setMethod(m)}
+                    className="h-4 w-4"
+                  />
+                  <span className="text-sm">{PAYMENT_LABELS[m]}</span>
+                </label>
+              ),
+            )}
+          </fieldset>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setOpen(false)}
+              disabled={submitting}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" disabled={submitting}>
+              {submitting ? "Recording…" : "Record payment"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 

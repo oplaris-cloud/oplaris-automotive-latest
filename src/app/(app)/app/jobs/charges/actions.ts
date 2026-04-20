@@ -5,7 +5,7 @@ import { z } from "zod";
 
 import { requireManager } from "@/lib/auth/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { sendSms } from "@/lib/sms/twilio";
+import { queueSms } from "@/lib/sms/queue";
 import { serverEnv } from "@/lib/env";
 
 import type { ActionResult } from "../../customers/actions";
@@ -31,6 +31,69 @@ const updateChargeSchema = z.object({
 });
 
 // ------------------------------------------------------------------
+// Invoice-state gate
+// ------------------------------------------------------------------
+
+/**
+ * Tiered invoice editing (migrations 045 + 046). Charge CRUD is:
+ *   - allowed on `draft` (no side-effects)
+ *   - allowed on `quoted` (bumps `invoices.revision` + `updated_at`)
+ *   - REJECTED on `invoiced` (manager must "Revert to quoted" first)
+ *   - REJECTED on `paid` (manager must "Revert to invoiced" first)
+ *
+ * Central helper so every CRUD action enforces the same policy
+ * without copy-pasting the check.
+ */
+async function assertInvoiceEditable(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  jobId: string,
+): Promise<
+  | { editable: true; bumpRevision: boolean }
+  | { editable: false; error: string }
+> {
+  const { data: inv } = await supabase
+    .from("invoices")
+    .select("quote_status")
+    .eq("job_id", jobId)
+    .maybeSingle();
+  if (!inv || inv.quote_status === "draft") {
+    return { editable: true, bumpRevision: false };
+  }
+  if (inv.quote_status === "quoted") {
+    return { editable: true, bumpRevision: true };
+  }
+  if (inv.quote_status === "paid") {
+    return {
+      editable: false,
+      error:
+        "Payment already recorded. Revert to invoiced first to make changes.",
+    };
+  }
+  // invoiced
+  return {
+    editable: false,
+    error: "Invoice is locked. Revert to quoted first to make changes.",
+  };
+}
+
+async function bumpInvoiceRevision(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  jobId: string,
+): Promise<void> {
+  // `updated_at` auto-bumps via the trigger from migration 045.
+  const { data: current } = await supabase
+    .from("invoices")
+    .select("revision")
+    .eq("job_id", jobId)
+    .maybeSingle();
+  if (!current) return;
+  await supabase
+    .from("invoices")
+    .update({ revision: (current.revision ?? 1) + 1 })
+    .eq("job_id", jobId);
+}
+
+// ------------------------------------------------------------------
 // Add a charge line item
 // ------------------------------------------------------------------
 
@@ -42,6 +105,10 @@ export async function addCharge(
   if (!parsed.success) return { ok: false, error: "Validation failed" };
 
   const supabase = await createSupabaseServerClient();
+
+  const gate = await assertInvoiceEditable(supabase, parsed.data.jobId);
+  if (!gate.editable) return { ok: false, error: gate.error };
+
   const { data, error } = await supabase
     .from("job_charges")
     .insert({
@@ -57,6 +124,11 @@ export async function addCharge(
     .single();
 
   if (error) return { ok: false, error: error.message };
+
+  if (gate.bumpRevision) {
+    await recalculateInvoiceTotals(parsed.data.jobId);
+    await bumpInvoiceRevision(supabase, parsed.data.jobId);
+  }
 
   revalidatePath(`/app/jobs/${parsed.data.jobId}`);
   return { ok: true, id: data.id };
@@ -81,6 +153,19 @@ export async function updateCharge(
   if (Object.keys(updates).length === 0) return { ok: true };
 
   const supabase = await createSupabaseServerClient();
+
+  // Resolve the jobId so we can gate on invoice state. The charge row
+  // carries `job_id`; fetch it once + reuse for the gate + the bump.
+  const { data: chargeRow } = await supabase
+    .from("job_charges")
+    .select("job_id")
+    .eq("id", parsed.data.chargeId)
+    .maybeSingle();
+  if (!chargeRow) return { ok: false, error: "Charge not found" };
+
+  const gate = await assertInvoiceEditable(supabase, chargeRow.job_id);
+  if (!gate.editable) return { ok: false, error: gate.error };
+
   const { error } = await supabase
     .from("job_charges")
     .update(updates)
@@ -88,7 +173,12 @@ export async function updateCharge(
 
   if (error) return { ok: false, error: error.message };
 
-  revalidatePath("/app/jobs");
+  if (gate.bumpRevision) {
+    await recalculateInvoiceTotals(chargeRow.job_id);
+    await bumpInvoiceRevision(supabase, chargeRow.job_id);
+  }
+
+  revalidatePath(`/app/jobs/${chargeRow.job_id}`);
   return { ok: true };
 }
 
@@ -103,6 +193,17 @@ export async function removeCharge(chargeId: string): Promise<ActionResult> {
   }
 
   const supabase = await createSupabaseServerClient();
+
+  const { data: chargeRow } = await supabase
+    .from("job_charges")
+    .select("job_id")
+    .eq("id", chargeId)
+    .maybeSingle();
+  if (!chargeRow) return { ok: false, error: "Charge not found" };
+
+  const gate = await assertInvoiceEditable(supabase, chargeRow.job_id);
+  if (!gate.editable) return { ok: false, error: gate.error };
+
   const { error } = await supabase
     .from("job_charges")
     .delete()
@@ -110,7 +211,12 @@ export async function removeCharge(chargeId: string): Promise<ActionResult> {
 
   if (error) return { ok: false, error: error.message };
 
-  revalidatePath("/app/jobs");
+  if (gate.bumpRevision) {
+    await recalculateInvoiceTotals(chargeRow.job_id);
+    await bumpInvoiceRevision(supabase, chargeRow.job_id);
+  }
+
+  revalidatePath(`/app/jobs/${chargeRow.job_id}`);
   return { ok: true };
 }
 
@@ -292,10 +398,20 @@ export async function recalculateInvoiceTotals(jobId: string): Promise<ActionRes
 // ------------------------------------------------------------------
 
 export async function markAsQuoted(jobId: string): Promise<ActionResult> {
-  await requireManager();
+  const session = await requireManager();
   const supabase = await createSupabaseServerClient();
 
-  // Recalculate totals first
+  // Self-heal: make sure a draft invoice row actually exists before we
+  // try to promote it. Previously this action no-op'd silently when the
+  // manager had added charges but never opened the invoice wrapper —
+  // the UI reported success, the row count stayed at zero, and the
+  // customer status page saw nothing.
+  const ensured = await getOrCreateInvoice(jobId);
+  if (!ensured.ok) {
+    return { ok: false, error: ensured.error ?? "Could not open invoice" };
+  }
+
+  // Recalculate totals now that we know a row exists.
   await recalculateInvoiceTotals(jobId);
 
   const { error } = await supabase
@@ -303,10 +419,9 @@ export async function markAsQuoted(jobId: string): Promise<ActionResult> {
     .update({
       quote_status: "quoted",
       quoted_at: new Date().toISOString(),
-      invoice_number: undefined, // keep existing
     })
     .eq("job_id", jobId)
-    .eq("quote_status", "draft");
+    .in("quote_status", ["draft", "quoted"]);
 
   if (error) return { ok: false, error: error.message };
 
@@ -314,12 +429,15 @@ export async function markAsQuoted(jobId: string): Promise<ActionResult> {
   // point them at the existing status page (phone + reg + 6-digit code)
   // rather than building a new HMAC quote-approval route — the status
   // page already shows the quote breakdown once verified.
+  // Migration 047 — fire-and-track via queueSms; failures land in the
+  // sms_outbox row + surface on /app/messages instead of console-only.
   try {
     const env = serverEnv();
     const { data: details } = await supabase
       .from("jobs")
       .select(
-        `customers!customer_id ( phone ),
+        `customer_id, vehicle_id,
+         customers!customer_id ( phone ),
          vehicles!vehicle_id ( registration ),
          invoices ( invoice_number, total_pence )`,
       )
@@ -342,10 +460,15 @@ export async function markAsQuoted(jobId: string): Promise<ActionResult> {
       const total = `£${(((invoice as { total_pence: number }).total_pence ?? 0) / 100).toFixed(2)}`;
       const ref = (invoice as { invoice_number: string }).invoice_number;
       const link = `${env.NEXT_PUBLIC_APP_URL}/status`;
-      await sendSms(
+      await queueSms({
+        garageId: session.garageId,
+        vehicleId: (details as { vehicle_id?: string } | null)?.vehicle_id ?? undefined,
+        customerId: (details as { customer_id?: string } | null)?.customer_id ?? undefined,
+        jobId,
         phone,
-        `Dudley Auto Service: Your quote ${ref} for ${reg} is ready. Total ${total}. Review: ${link}`,
-      );
+        messageType: "quote_sent",
+        messageBody: `Dudley Auto Service: Your quote ${ref} for ${reg} is ready. Total ${total}. Review: ${link}`,
+      });
     }
   } catch (smsErr) {
     // Don't fail the action — quote status already moved; manager can resend.
@@ -363,6 +486,13 @@ export async function markAsQuoted(jobId: string): Promise<ActionResult> {
 export async function markAsInvoiced(jobId: string): Promise<ActionResult> {
   await requireManager();
   const supabase = await createSupabaseServerClient();
+
+  // Self-heal: ensure the invoice row exists. Same reason as
+  // markAsQuoted — silent no-op was masking missing-row bugs.
+  const ensured = await getOrCreateInvoice(jobId);
+  if (!ensured.ok) {
+    return { ok: false, error: ensured.error ?? "Could not open invoice" };
+  }
 
   // Recalculate totals
   await recalculateInvoiceTotals(jobId);
@@ -382,6 +512,199 @@ export async function markAsInvoiced(jobId: string): Promise<ActionResult> {
       invoice_number: job ? `INV-${job.job_number}` : undefined,
     })
     .eq("job_id", jobId);
+
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath(`/app/jobs/${jobId}`);
+  return { ok: true };
+}
+
+// ------------------------------------------------------------------
+// Resend quote SMS (no state change)
+// ------------------------------------------------------------------
+
+/**
+ * Migration 045 — "Resend quote" button on the quoted-state charges
+ * panel. Fires the SMS again without touching `quote_status` so the
+ * customer gets a fresh link after the manager has revised pricing.
+ *
+ * Copy shifts to an "updated" variant when `revision > 1` so the
+ * customer sees at a glance that the number changed since last time.
+ */
+export async function resendQuote(jobId: string): Promise<ActionResult> {
+  const session = await requireManager();
+  const supabase = await createSupabaseServerClient();
+  const env = serverEnv();
+
+  const { data: details } = await supabase
+    .from("jobs")
+    .select(
+      `customer_id, vehicle_id,
+       customers!customer_id ( phone ),
+       vehicles!vehicle_id ( registration ),
+       invoices ( invoice_number, total_pence, quote_status, revision )`,
+    )
+    .eq("id", jobId)
+    .single();
+
+  if (!details) return { ok: false, error: "Job not found" };
+
+  const invoice = Array.isArray(details.invoices)
+    ? details.invoices[0]
+    : details.invoices;
+  const customer = Array.isArray(details.customers)
+    ? details.customers[0]
+    : details.customers;
+  const vehicle = Array.isArray(details.vehicles)
+    ? details.vehicles[0]
+    : details.vehicles;
+
+  if (
+    !invoice ||
+    ((invoice as { quote_status: string }).quote_status !== "quoted" &&
+      (invoice as { quote_status: string }).quote_status !== "invoiced")
+  ) {
+    return {
+      ok: false,
+      error: "Nothing to resend — send the quote first.",
+    };
+  }
+
+  const phone = (customer as { phone?: string } | null)?.phone;
+  if (!phone) return { ok: false, error: "Customer has no phone on file" };
+
+  const reg =
+    (vehicle as { registration?: string } | null)?.registration ??
+    "your vehicle";
+  const total = `£${(
+    ((invoice as { total_pence: number }).total_pence ?? 0) / 100
+  ).toFixed(2)}`;
+  const ref = (invoice as { invoice_number: string }).invoice_number;
+  const revision = (invoice as { revision: number }).revision ?? 1;
+  const link = `${env.NEXT_PUBLIC_APP_URL}/status`;
+
+  const message =
+    revision > 1
+      ? `Dudley Auto Service: Your quote ${ref} for ${reg} has been updated (rev ${revision}). New total ${total}. Review: ${link}`
+      : `Dudley Auto Service: Your quote ${ref} for ${reg} is ready. Total ${total}. Review: ${link}`;
+
+  // Migration 047 — track resends in the outbox so the manager can see
+  // the exact revision number that went out + delivery state. Status
+  // 'failed' on the row IS our error path; we still surface a top-level
+  // error so the toast tells the manager what happened.
+  const result = await queueSms({
+    garageId: session.garageId,
+    vehicleId: (details as { vehicle_id?: string }).vehicle_id ?? undefined,
+    customerId: (details as { customer_id?: string }).customer_id ?? undefined,
+    jobId,
+    phone,
+    messageBody: message,
+    messageType: revision > 1 ? "quote_updated" : "quote_sent",
+  });
+  if (result.status === "failed") {
+    return { ok: false, error: "SMS failed — check Twilio settings" };
+  }
+
+  revalidatePath(`/app/jobs/${jobId}`);
+  return { ok: true };
+}
+
+// ------------------------------------------------------------------
+// Revert to quoted (manager override on an invoiced row)
+// ------------------------------------------------------------------
+
+/**
+ * Migration 045 — escape hatch for the `invoiced` lock. Flips the
+ * invoice back to `quoted` so the manager can edit charges again.
+ * Keeps `invoice_number` + `revision` intact so the audit trail of
+ * the change survives. `updated_at` auto-bumps via the trigger.
+ */
+export async function revertToQuoted(jobId: string): Promise<ActionResult> {
+  await requireManager();
+  const supabase = await createSupabaseServerClient();
+
+  const { error } = await supabase
+    .from("invoices")
+    .update({
+      quote_status: "quoted",
+      invoiced_at: null,
+    })
+    .eq("job_id", jobId)
+    .eq("quote_status", "invoiced");
+
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath(`/app/jobs/${jobId}`);
+  return { ok: true };
+}
+
+// ------------------------------------------------------------------
+// Mark as paid (migration 046)
+// ------------------------------------------------------------------
+
+const markAsPaidSchema = z.object({
+  jobId: z.string().uuid(),
+  paymentMethod: z.enum(["cash", "card", "bank_transfer", "other"]),
+});
+
+/**
+ * Migration 046 — terminal state for the invoice lifecycle. Only
+ * legal from `invoiced`; `draft` and `quoted` can't be paid (nothing
+ * has been billed yet). Stamps `paid_at = now()` via default, records
+ * the manager-selected payment method.
+ *
+ * For the customer, this fires the PAID badge on the status page and
+ * the PAID watermark on the downloaded PDF. Receipt SMS is deferred
+ * to a follow-up.
+ */
+export async function markAsPaid(
+  input: z.infer<typeof markAsPaidSchema>,
+): Promise<ActionResult> {
+  await requireManager();
+  const parsed = markAsPaidSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Validation failed" };
+
+  const supabase = await createSupabaseServerClient();
+
+  const { error } = await supabase
+    .from("invoices")
+    .update({
+      quote_status: "paid",
+      paid_at: new Date().toISOString(),
+      payment_method: parsed.data.paymentMethod,
+    })
+    .eq("job_id", parsed.data.jobId)
+    .eq("quote_status", "invoiced");
+
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath(`/app/jobs/${parsed.data.jobId}`);
+  return { ok: true };
+}
+
+// ------------------------------------------------------------------
+// Revert to invoiced (manager override on a paid row)
+// ------------------------------------------------------------------
+
+/**
+ * Migration 046 — escape hatch for the `paid` lock. Same shape as
+ * `revertToQuoted`. Clears `paid_at` + `payment_method` so the
+ * downstream receivables/paid-period reports don't double-count this
+ * invoice after it's re-paid.
+ */
+export async function revertToInvoiced(jobId: string): Promise<ActionResult> {
+  await requireManager();
+  const supabase = await createSupabaseServerClient();
+
+  const { error } = await supabase
+    .from("invoices")
+    .update({
+      quote_status: "invoiced",
+      paid_at: null,
+      payment_method: null,
+    })
+    .eq("job_id", jobId)
+    .eq("quote_status", "paid");
 
   if (error) return { ok: false, error: error.message };
 
