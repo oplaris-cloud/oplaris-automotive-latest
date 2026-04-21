@@ -71,3 +71,26 @@ export function formatRunningTimer(seconds: number): string {
   if (h > 0) return `${h}:${mm}:${ss}`;
   return `${m}:${ss}`;
 }
+
+/**
+ * Format a UK phone number for display. Accepts either E.164
+ * (`+447X…`) or local (`07X…`) and renders as `07XXX XXX XXX` —
+ * the format Dudley + customers recognise from text messages.
+ *
+ * Falls back to the raw input for non-UK / unparseable strings so
+ * the customer-facing display never goes blank. Used on tap-to-call
+ * surfaces (My Work cards, tech job header, customer status page).
+ */
+export function formatPhone(input: string | null | undefined): string {
+  if (!input) return "";
+  const digits = input.replace(/[^\d+]/g, "");
+  // Normalise +44 → 0 for the display form; keep the rest verbatim.
+  let local = digits;
+  if (local.startsWith("+44")) local = "0" + local.slice(3);
+  else if (local.startsWith("44") && local.length === 12) local = "0" + local.slice(2);
+  // UK mobile / landline lengths land at 11 digits with the leading 0.
+  if (/^0\d{10}$/.test(local)) {
+    return `${local.slice(0, 5)} ${local.slice(5, 8)} ${local.slice(8)}`;
+  }
+  return input;
+}
