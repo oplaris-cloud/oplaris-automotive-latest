@@ -58,7 +58,7 @@ describe("AddPartSheet", () => {
     vi.mocked(addJobPart).mockResolvedValueOnce({ ok: true });
     openAndFill({ description: "Front brake pads", priceGbp: "42.50", qty: "2" });
 
-    fireEvent.submit(screen.getByRole("button", { name: /save part/i }).form!);
+    fireEvent.submit((screen.getByRole("button", { name: /save part/i }) as HTMLButtonElement).form!);
 
     await waitFor(() => {
       expect(addJobPart).toHaveBeenCalledTimes(1);
@@ -80,7 +80,7 @@ describe("AddPartSheet", () => {
     });
     openAndFill({ description: "x", priceGbp: "1.00", qty: "1" });
 
-    fireEvent.submit(screen.getByRole("button", { name: /save part/i }).form!);
+    fireEvent.submit((screen.getByRole("button", { name: /save part/i }) as HTMLButtonElement).form!);
 
     await waitFor(() => {
       expect(

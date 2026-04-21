@@ -44,7 +44,7 @@ describe("RequestApprovalSheet", () => {
     fireEvent.change(screen.getByLabelText(/amount/i), {
       target: { value: "180.00" },
     });
-    fireEvent.submit(screen.getByRole("button", { name: /send sms/i }).form!);
+    fireEvent.submit((screen.getByRole("button", { name: /send sms/i }) as HTMLButtonElement).form!);
 
     await waitFor(() => {
       expect(requestApproval).toHaveBeenCalledWith({
@@ -63,7 +63,7 @@ describe("RequestApprovalSheet", () => {
     fireEvent.change(screen.getByLabelText(/amount/i), {
       target: { value: "100" },
     });
-    fireEvent.submit(screen.getByRole("button", { name: /send sms/i }).form!);
+    fireEvent.submit((screen.getByRole("button", { name: /send sms/i }) as HTMLButtonElement).form!);
 
     await waitFor(() => {
       expect(screen.getByRole("alert").textContent).toContain(
@@ -85,7 +85,7 @@ describe("RequestApprovalSheet", () => {
     fireEvent.change(screen.getByLabelText(/amount/i), {
       target: { value: "320" },
     });
-    fireEvent.submit(screen.getByRole("button", { name: /send sms/i }).form!);
+    fireEvent.submit((screen.getByRole("button", { name: /send sms/i }) as HTMLButtonElement).form!);
 
     await waitFor(() => {
       expect(screen.getByRole("alert").textContent).toContain(
