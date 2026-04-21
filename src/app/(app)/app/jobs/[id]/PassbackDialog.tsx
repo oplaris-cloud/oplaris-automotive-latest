@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ArrowRightLeft } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -42,7 +43,15 @@ export function PassbackDialog({ jobId, variant = "outline" }: PassbackDialogPro
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<Ticked>(initial);
   const [note, setNote] = useState("");
+  // Server-side error surface only (network / RPC reject). Per-field
+  // detail-required errors are inline via `attempted` + the field's
+  // `<p role="alert">`.
   const [error, setError] = useState<string | null>(null);
+  // Audit F11 — `attempted` flips to true on the first submit click.
+  // Until then, the dialog stays "clean" — no red errors greet the
+  // user before they've tried to submit. Reset to false when the
+  // dialog closes (see `onOpenChange`).
+  const [attempted, setAttempted] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   const tickedValues = Object.entries(items)
@@ -65,21 +74,13 @@ export function PassbackDialog({ jobId, variant = "outline" }: PassbackDialogPro
     setItems(initial());
     setNote("");
     setError(null);
+    setAttempted(false);
   }
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
-
-    const payload = PASSBACK_ITEMS.filter((def) => items[def.value]!.checked).map(
-      (def) => {
-        const detail = items[def.value]!.detail.trim();
-        if (def.requiresDetail && !detail) {
-          return { item: def.value, detail: "" };
-        }
-        return detail ? { item: def.value, detail } : { item: def.value };
-      },
-    );
+    setAttempted(true);
 
     const missingDetail = PASSBACK_ITEMS.some(
       (def) =>
@@ -88,9 +89,18 @@ export function PassbackDialog({ jobId, variant = "outline" }: PassbackDialogPro
         !items[def.value]!.detail.trim(),
     );
     if (missingDetail) {
-      setError("Detail is required for Light bulb and Other.");
+      // Per-field inline errors are now driven by `attempted` — we
+      // intentionally do NOT setError() at the dialog level for this
+      // case. The user sees red exactly where the missing detail is.
       return;
     }
+
+    const payload = PASSBACK_ITEMS.filter((def) => items[def.value]!.checked).map(
+      (def) => {
+        const detail = items[def.value]!.detail.trim();
+        return detail ? { item: def.value, detail } : { item: def.value };
+      },
+    );
 
     startTransition(async () => {
       const result = await passJobToMechanic({
@@ -117,9 +127,9 @@ export function PassbackDialog({ jobId, variant = "outline" }: PassbackDialogPro
       }}
     >
       <DialogTrigger
-        render={<Button size="sm" variant={variant} className="gap-1.5" />}
+        render={<Button size="lg" variant={variant} />}
       >
-        <ArrowRightLeft className="h-4 w-4" /> Pass to mechanic
+        <ArrowRightLeft className="h-5 w-5" /> Pass to mechanic
       </DialogTrigger>
       <DialogContent className="max-w-lg">
         <DialogHeader>
@@ -132,28 +142,51 @@ export function PassbackDialog({ jobId, variant = "outline" }: PassbackDialogPro
         <FormCard variant="plain">
         <form onSubmit={handleSubmit}>
           <FormCard.Fields>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {PASSBACK_ITEMS.map((def) => {
               const state = items[def.value]!;
+              const detailId = `pb-detail-${def.value}`;
+              const errorId = `pb-error-${def.value}`;
+              const hasDetailError =
+                def.requiresDetail &&
+                state.checked &&
+                !state.detail.trim() &&
+                attempted;
               return (
-                <div key={def.value} className="space-y-1">
-                  <label className="flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
+                <div key={def.value} className="space-y-2">
+                  <label className="flex min-h-11 cursor-pointer items-center gap-3">
+                    <Checkbox
                       checked={state.checked}
-                      onChange={() => toggle(def.value)}
+                      onCheckedChange={() => toggle(def.value)}
+                      className="h-5 w-5"
                     />
-                    {def.label}
+                    <span className="text-sm">{def.label}</span>
                   </label>
                   {def.requiresDetail && state.checked ? (
-                    <Input
-                      value={state.detail}
-                      onChange={(e) => setDetail(def.value, e.target.value)}
-                      placeholder={
-                        def.value === "light_bulb" ? "Which bulb?" : "Describe"
-                      }
-                      aria-label={`${def.label} detail`}
-                    />
+                    <>
+                      <Input
+                        id={detailId}
+                        value={state.detail}
+                        onChange={(e) => setDetail(def.value, e.target.value)}
+                        placeholder={
+                          def.value === "light_bulb"
+                            ? "Which bulb?"
+                            : "Describe the issue"
+                        }
+                        aria-label={`${def.label} detail`}
+                        aria-invalid={hasDetailError}
+                        aria-describedby={hasDetailError ? errorId : undefined}
+                      />
+                      {hasDetailError ? (
+                        <p
+                          id={errorId}
+                          role="alert"
+                          className="text-xs text-destructive"
+                        >
+                          Detail is required.
+                        </p>
+                      ) : null}
+                    </>
                   ) : null}
                 </div>
               );
@@ -188,7 +221,7 @@ export function PassbackDialog({ jobId, variant = "outline" }: PassbackDialogPro
               Cancel
             </Button>
             <Button type="submit" disabled={!canSubmit}>
-              {isPending ? "Passing…" : "Pass to Mechanic"}
+              {isPending ? "Passing…" : "Pass to mechanic"}
             </Button>
           </FormActions>
         </form>
