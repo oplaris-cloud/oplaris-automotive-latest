@@ -16,6 +16,27 @@ here ships to production without being addressed.
 Migration target: `052_p51_phase4_hardening_sweep.sql` (single migration, grouped for reviewability).
 Tests: one `tests/rls/{table}.test.ts` per table, matching the `job_parts.test.ts` structure. Target +8–10 RLS tests.
 
+## RLS test conventions
+
+When asserting **cross-tenant UPDATE rejection**, assert `rowCount === 0` rather than expecting
+error code `42501`. Postgres RLS evaluates USING before WITH CHECK — if USING filters the row
+out (because `garage_id` doesn't match the session's garage), `UPDATE … WHERE …` silently
+returns no rows. It does NOT throw 42501. Shape:
+
+```ts
+const { data, error } = await clientB
+  .from("job_charges")
+  .update({ amount_pence: 999 })
+  .eq("id", aGarageChargeId)
+  .select();
+expect(error).toBeNull();
+expect(data).toHaveLength(0);  // or: expect(response.count).toBe(0);
+```
+
+For cross-tenant INSERT rejection, WITH CHECK DOES fire — expect 42501.
+For non-assignee INSERT on a same-tenant job, WITH CHECK fires — expect 42501.
+Applied in: `tests/rls/job_charges.test.ts`, `tests/rls/invoices.test.ts`, `tests/rls/job_parts.test.ts`.
+
 ## RLS — predicate-style normalisation
 
 `job_charges_insert`, `job_charges_update`, `invoices_insert`, `invoices_update` use the staff-subquery form
