@@ -372,3 +372,164 @@ Do not start Step 3 yet. Do not touch the deferred hardening items. Do not start
 — stop reason: reached the strategist-defined checkpoint. Not starting Step 3. Not starting 2b. Not touching the hardening items.
 
 ---
+
+## [STRATEGIST] 2026-04-21 09:45 — Step 3: Pass-back context card on tech view
+
+Good close on 051 + hardening doc. Two of the three observations ACCEPTED:
+- Cold-cache protocol working — continue the discipline.
+- Cross-tenant UPDATE silent-no-op pattern — add a one-liner to the hardening doc's "RLS test conventions" section in a **separate follow-up commit** (not part of Step 3): "When asserting cross-tenant UPDATE rejection, assert `rowCount === 0` — USING filters before WITH CHECK, so `UPDATE` returns no-rows, not error 42501." Keeps future RLS tests consistent.
+- Realtime publication observation — filed, no action.
+
+**Now execute Step 3 from `docs/redesign/MECHANIC_MOT_FIX_PLAN_2026-04-20.md`.**
+
+**Goal (plain English):** when a mechanic opens `/app/tech/job/[id]` and that job has an unreturned `job_passbacks` row, render a read-only card above the timer showing the ticked items as amber chips + the free-text note + who passed it back and when. Mechanic sees the MOT's flagged issues the moment they open the job.
+
+**Files:**
+- `src/app/(app)/app/tech/job/[id]/page.tsx` — fetch the latest open `job_passbacks` row (if any), conditionally render `<PassbackContextCard>` above `<TechJobClient>`.
+- **New:** `src/app/(app)/app/tech/job/[id]/PassbackContextCard.tsx` — RSC (no interactivity needed), display-only. Takes `{ items, note, createdAt, fromRole }` props.
+- `src/lib/constants/passback-items.ts` — already has the label map; reuse.
+- `src/components/ui/passback-badge.tsx` — reuse for the header accent.
+- `src/components/ui/section.tsx` — use the `<Section title=…>` primitive for the H2 (screen-reader semantics required by DoD).
+- `src/components/ui/badge.tsx` — reuse for the ticked-item chips (`variant="secondary"` with amber tint matching `PassbackBadge`).
+
+**Fetch shape (in page.tsx RSC):**
+
+```ts
+const { data: pb } = await supabase
+  .from("job_passbacks")
+  .select("items, note, created_at, from_role")
+  .eq("job_id", jobId)
+  .is("returned_at", null)
+  .order("created_at", { ascending: false })
+  .limit(1)
+  .maybeSingle();
+```
+
+Render the card only when:
+```ts
+pb && session.roles.includes("mechanic")
+```
+The MOT tester who created the pass-back doesn't need to see their own echo back. Multi-role staff (mot_tester + mechanic) still see it because `roles` is an array. Manager-only views don't get it — they use `/app/jobs/[id]` for oversight.
+
+**Card layout — use existing primitives (no new hardcoded classes):**
+
+```tsx
+<Section title="Passed back from MOT" description={`${timeSincePassback} · from ${fromRoleLabel}`}>
+  <PassbackBadge variant="…" />  {/* match existing usage */}
+  <div className="flex flex-wrap gap-2">
+    {items.map(item => (
+      <Badge key={item} variant="secondary" className="bg-warning/15 text-warning-foreground">
+        {PASSBACK_ITEMS_LABELS[item] ?? item}
+      </Badge>
+    ))}
+  </div>
+  {note ? (
+    <blockquote className="mt-3 border-l-2 border-warning/40 pl-3 text-sm text-muted-foreground">
+      {note}
+    </blockquote>
+  ) : null}
+</Section>
+```
+
+**Time formatting — pick the right helper:**
+
+The fix plan mentions `formatWorkLogTime` but that's a duration formatter (P44). `created_at` is an absolute timestamp. Use whichever of `src/lib/format.ts`'s absolute-time helpers is canonical — likely `formatRelativeTime` or `formatDateTime`. If neither fits cleanly, reuse what `JobActivity`/`job_timeline_events` surface uses for event timestamps (that's the P54 consistency anchor). Name the chosen helper in your AGENT report.
+
+**Contrast / a11y — non-negotiable:**
+
+- The amber chip tint (`bg-warning/15 text-warning-foreground`) must pass AA (4.5:1). If it doesn't under current tokens, switch to `text-foreground` on the chip — do NOT introduce a new colour. Same rule flagged in Step 6 of the fix plan for `text-warning`.
+- `<Section title>` provides the `<h2>`. Confirm the rendered DOM has an actual `<h2>` (not a `<div>` styled like one).
+- `<blockquote>` is semantic; don't swap for a styled `<div>`.
+
+**Visibility rule — code the mechanic-only gate on the server.**
+
+Do the `session.roles.includes("mechanic")` check in `page.tsx` (RSC) before rendering the card, not inside `PassbackContextCard`. If the mechanic gate is false, don't fetch the row at all — save the query. Render shape:
+
+```tsx
+const hasMechanicRole = session.roles.includes("mechanic");
+const pb = hasMechanicRole ? await fetchOpenPassback(...) : null;
+return (
+  <>
+    {pb ? <PassbackContextCard {...pb} /> : null}
+    <TechJobClient … />
+  </>
+);
+```
+
+**Realtime — rely on existing shim, don't add a new one.**
+
+If the pass-back gets returned while the mechanic is on this page, the card should disappear. `job_passbacks` is already in the `supabase_realtime` publication + `ALLOWED_TABLES` whitelist (migration 035/036). `JobDetailRealtime` or `TechJobClient`'s existing realtime call triggers `router.refresh()`, which re-runs the RSC fetch above. Verify by grepping — if the tech job page already subscribes to `job_passbacks` changes, no code change needed. If it doesn't, add `job_passbacks` to the existing `useRealtimeRouterRefresh` call's table list. Do not create a new channel.
+
+**Tests:**
+- `tests/unit/passback-context-card.test.tsx` (new) — snapshot + prop-driven render:
+  - 3-item pass-back with a note renders 3 chips + blockquote.
+  - Empty `note` → no blockquote rendered.
+  - Unknown item key falls back to the raw string (defensive).
+  - `<h2>` is present in the DOM (assertion, not snapshot-only).
+- RLS: run `tests/rls/job_passbacks.test.ts` and confirm it already has "mechanic assigned to job CAN SELECT the passback row." If missing, add it (name the test in the AGENT report). Should NOT require a new migration.
+- No E2E spec — fix plan says "skipped E2E_STAGING_READY-gated"; don't add one here.
+
+**Vibe-security — quick sanity check, not a full audit:**
+
+- The `pb && roles.includes("mechanic")` gate is a **render concern only** — the real wall is the `job_passbacks` SELECT RLS policy. Document this reasoning in the commit message body. A user with a leaked mechanic session trying to read a cross-garage pass-back will still be blocked by RLS.
+- No new server action, no new RPC, no new table, no new migration. If any of those turn up necessary during implementation, STOP and append an AGENT entry flagging the divergence before proceeding.
+
+**Checkpoint (stop here, append AGENT report):**
+- Cold-cache typecheck clean.
+- `pnpm lint:spacing` clean.
+- `pnpm test:unit` ≥ 229/229 (+1 minimum for the new snapshot file; the unit may include 3-4 cases).
+- `pnpm test:rls` 108/108 or 109/109 if a new passback SELECT case was added.
+- One commit on `feat/mechanic-mot-ux-2026-04-20`, pushed.
+- Report:
+  - Commit SHA.
+  - Name of the absolute-time helper used + where it's imported from.
+  - Realtime decision: did you rely on existing shim or add a new table to the existing hook call? Quote the file + line.
+  - Any surprises.
+  - Confirm the cross-tenant UPDATE one-liner for the hardening doc is NOT in this commit — if it is, flag the scope leak.
+
+Do not start Step 4. Do not start 2b. Do not touch the hardening items.
+
+---
+
+## [AGENT] 2026-04-21 02:00 — Step 3 shipped (commit 31b955e)
+
+**What shipped (one commit, pushed):**
+
+- **`31b955e`** `fix(tech): pass-back context card on tech job view (F5)`
+  - `src/app/(app)/app/tech/job/[id]/PassbackContextCard.tsx` (new) — display-only RSC. Takes `{items, note, createdAt, fromRole}`. Uses `<Section title>` for the h2 header + `<PassbackBadge>` chip + one shadcn `<Badge variant="secondary">` per ticked item + optional `<blockquote>` for the note. Unknown item keys fall back to the raw string.
+  - `src/app/(app)/app/tech/job/[id]/page.tsx` — fetch the latest open `job_passbacks` row inside the RSC, gated server-side on `session.roles.includes("mechanic")` (skips the query entirely otherwise). Renders `<PassbackContextCard>` between the back-link and `<TechJobClient>`.
+  - `tests/unit/passback-context-card.test.tsx` (new) — 6 cases: chips + blockquote, null-note no-blockquote, unknown-key fallback, h2 a11y assertion, from-role label, null-items defensive.
+  - `tests/rls/job_passbacks.test.ts` (new) — 3 cases: assigned mechanic CAN SELECT open pass-back; same-garage mot_tester also CAN SELECT (no role gate on the policy); cross-tenant B mechanic gets rowCount=0. Existing `passback_rpcs.test.ts` covers the write RPCs but didn't exercise direct SELECT.
+
+**Push:** `88766a3..31b955e feat/mechanic-mot-ux-2026-04-20`.
+
+**Suite state (cold cache per protocol):**
+- `rm -rf .next tsconfig.tsbuildinfo && pnpm typecheck` — clean
+- `pnpm lint` — 4 errors (pre-existing housekeeping set: customers:77, PartRow:48 ×2, TechJobClient:93)
+- `pnpm lint:spacing` — clean
+- `pnpm test:unit` — **234/234** (+6)
+- `pnpm test:rls` — **111/111** (+3)
+
+**Strategist's checkpoint asks — answered:**
+
+1. **Absolute-time helper used:** `formatWorkLogTime` from `src/lib/format.ts:14`. Despite the misleading "WorkLog" name, it IS the canonical absolute-time formatter used by `JobActivity` for unified-feed event timestamps (`JobActivity.tsx:168`, `:235`, `:259`). The duration formatter is the differently-named `formatWorkLogDuration` (`src/lib/format.ts:48`). The fix-plan note suggesting "formatWorkLogTime is a duration formatter (P44)" was incorrect — the helper formats `HH:mm:ss` for today, `DD MMM HH:mm:ss` otherwise. No naming refactor in scope here; logged as nothing-to-do.
+
+2. **Realtime decision:** relied entirely on the existing shim. `JobDetailRealtime` already subscribes to `job_passbacks` filtered by job_id at `src/lib/realtime/shims.tsx:98` (`useRealtimeRouterRefresh({ table: "job_passbacks", filter: eqUuidFilter("job_id", jobId) })`). The page already mounts `<JobDetailRealtime jobId={job.id} />` at the top. When `returned_at` gets stamped on the row, the shim fires `router.refresh()`, the RSC re-runs the `is("returned_at", null)` query, returns null, and the card disappears. Zero new realtime code.
+
+3. **Cross-tenant UPDATE one-liner for hardening doc — NOT in this commit.** Per strategist scope rule, the rowCount=0 RLS test convention note will land in a separate follow-up commit on the hardening doc. This commit is Step 3 only.
+
+**Surprises / observations:**
+
+1. **`job_passbacks_select` policy has NO role-or-assignment gate.** The RLS only checks `garage_id = current_garage() AND EXISTS jobs (matching tenant)`. ANY authenticated user in the garage — mechanic not assigned, mot_tester, manager — can read every pass-back row in the garage. That's intentional (passbacks are a P54 timeline source — broadly visible to staff) but means the mechanic-only render gate in `page.tsx` is purely a UX choice, not a security boundary. Documented in the commit message body and in the tests' "no role gate on the policy" comment.
+
+2. **`tests/rls/job_passbacks.test.ts` did not exist.** Existing `tests/rls/passback_rpcs.test.ts` covered the four SECURITY DEFINER write RPCs but no direct SELECT through user-session RLS. New file fills that gap; named `job_passbacks.test.ts` to match the table-named convention used by `job_parts.test.ts`, `job_charges.test.ts`, `invoices.test.ts`.
+
+3. **`page.tsx` ternary on the supabase `.from()` chain returns a bare `{ data: null }` when the gate is false.** Avoids `await`-ing on a Promise that doesn't exist + keeps the variable type stable. TypeScript narrows `openPassback` to `null` cleanly when `showPassback` is false, no extra type assertions needed. Pattern worth reusing for any future "skip-the-query-on-role" optimisations.
+
+4. **`Badge variant="secondary"` with `bg-warning/15 text-foreground`.** The `text-warning-foreground` token is calibrated for solid `bg-warning` (~9:1) but fails AA on the `/15` shade. Switched to `text-foreground` per strategist's "no new colour, switch to text-foreground if needed" rule. Same fix shape that Step 6 of the fix plan flags for `text-warning` sites.
+
+5. **Realtime shim already covers all 7 job-detail tables.** Reading `shims.tsx:93–104` while wiring this revealed the shim is comprehensive: jobs, work_logs, job_charges, job_parts, job_passbacks, approval_requests, invoices, job_assignments, job_status_events. Future steps that need realtime on the tech detail page should not add new hooks — extend the shim instead.
+
+— stop reason: reached the strategist-defined checkpoint. Not starting Step 4 or 2b. Hardening items untouched.
+
+---
