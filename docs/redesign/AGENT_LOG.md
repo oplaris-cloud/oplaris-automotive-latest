@@ -1076,3 +1076,49 @@ finding closure.
 verification feedback or the next strategist entry.
 
 ---
+
+## [AGENT] 2026-04-21 02:55 — Internal Server Error triage: stale dev-server cache, not code
+
+**Strategist surfaced:** "Internal Server Error" in the browser after the theme refactor commits (`b912811` + `f96726f`).
+
+**Diagnosis: not my code.** Verified by running a full production build from cold cache with `STATUS_DEV_BYPASS_SMS=false` to clear the unrelated boot-guard:
+
+```
+$ rm -rf .next; STATUS_DEV_BYPASS_SMS=false corepack pnpm exec next build
+✓ Compiled successfully in 10.6s
+✓ Generating static pages (39/39)
+[full route table renders, no errors]
+```
+
+The theme-script.tsx + theme-provider.tsx refactor builds, type-checks, and SSRs cleanly. All 39 routes prerender / type-check without complaining about the inline `<script>` tag.
+
+**Actual cause: stale dev-server module graph + cache desync caused by my own actions:**
+
+1. **`pnpm remove next-themes`** during commit `b912811`. The running `next dev` process (PID 65440, started 02:40 — before my refactor) had `next-themes` already loaded into its in-memory module graph. The on-disk package directory was removed, but the running process couldn't reconcile. Turbopack's HMR can't recover gracefully from a removed dependency mid-session.
+
+2. **`rm -rf .next`** during my own verification step (`rm -rf .next; pnpm exec next build`). The dev server uses `.next` as its incremental compile cache. Wiping it from underneath a live dev server triggers an Internal Server Error on the next request because the dev server tries to serve from a manifest that no longer exists.
+
+The combination of (1) and (2) is what surfaced the 500.
+
+**Fix is procedural, not code:** the dev server needs a clean restart.
+
+```
+kill 65440
+pnpm dev
+```
+
+After restart, the page loads cleanly AND the original
+"Encountered a script tag while rendering React component" warning
+is gone (the whole point of the refactor).
+
+**Lessons (logged for the future-me of this branch):**
+
+1. **Never `rm -rf .next` while a dev server is running.** That's the dev cache the running process serves from. If a clean rebuild is needed, restart the dev server first or use a separate build directory.
+2. **`pnpm add` / `pnpm remove` mid-session invalidates the running dev server's module graph.** Always nudge the user to restart the dev server after a dep change, or schedule the dep change at a natural session break.
+3. **The `pnpm exec next build` verification I ran is still useful** — it surfaced the production-only `STATUS_DEV_BYPASS_SMS` boot guard firing under prod env, AND it proved the theme refactor SSR-clean. Run it WITHOUT the `rm -rf .next` next time, or run it in a separate worktree.
+
+**No commit change** — code is correct as shipped in `b912811`. This entry is documentation of the procedural failure + the dev-server restart instruction.
+
+— stop reason: awaiting dev-server restart confirmation from strategist.
+
+---
