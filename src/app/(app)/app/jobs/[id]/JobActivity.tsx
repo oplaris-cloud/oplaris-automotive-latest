@@ -135,7 +135,7 @@ function RowShell({
 }): React.JSX.Element {
   const accentClass =
     accent === "amber"
-      ? "bg-warning/10 text-warning"
+      ? "bg-warning/10 text-foreground"
       : accent === "green"
         ? "bg-success/10 text-success"
         : accent === "live"

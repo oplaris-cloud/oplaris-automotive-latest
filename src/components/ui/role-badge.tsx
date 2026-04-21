@@ -19,7 +19,7 @@ const ROLE_CONFIG: Record<
   },
   mechanic: {
     label: "With mechanic",
-    className: "border-warning/40 bg-warning/10 text-warning",
+    className: "border-warning/40 bg-warning/10 text-foreground",
     icon: Wrench,
   },
   manager: {

@@ -78,8 +78,8 @@ const TYPE_LABEL: Record<SmsType, string> = {
 
 /** Tailwind classes for the type chip — paired with ux-audit colour map. */
 const TYPE_CLASS: Record<SmsType, string> = {
-  mot_reminder_30d: "bg-warning/15 text-warning",
-  mot_reminder_7d: "bg-warning/25 text-warning",
+  mot_reminder_30d: "bg-warning/15 text-foreground",
+  mot_reminder_7d: "bg-warning/25 text-foreground",
   mot_reminder_5d: "bg-warning text-warning-foreground",
   quote_sent: "bg-info/15 text-info",
   quote_updated: "bg-info/25 text-info",
@@ -97,7 +97,7 @@ const STATUS_LABEL: Record<SmsStatus, string> = {
 };
 
 const STATUS_CLASS: Record<SmsStatus, string> = {
-  queued: "bg-warning/15 text-warning",
+  queued: "bg-warning/15 text-foreground",
   sent: "bg-info/15 text-info",
   delivered: "bg-success/15 text-success",
   failed: "bg-destructive/10 text-destructive",

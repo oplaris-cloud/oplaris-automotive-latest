@@ -440,7 +440,7 @@ function CheckInRow({
 
             {/* Line 4 — checklist summary / free-form notes */}
             {summary ? (
-              <div className="mt-1 text-xs text-warning">
+              <div className="mt-1 inline-block rounded-md bg-warning/15 px-2 py-1 text-xs text-foreground">
                 {summary}
                 {checkIn.passback_note ? ` — ${checkIn.passback_note}` : ""}
               </div>

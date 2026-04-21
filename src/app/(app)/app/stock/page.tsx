@@ -35,7 +35,7 @@ function daysUntil(d: string): number {
 function claimBadge(status: string) {
   switch (status) {
     case "claimed":
-      return <Badge variant="outline" className="border-warning text-warning">Claimed</Badge>;
+      return <Badge variant="outline" className="border-warning text-foreground">Claimed</Badge>;
     case "resolved":
       return <Badge variant="outline" className="border-success text-success">Resolved</Badge>;
     case "rejected":
@@ -107,7 +107,7 @@ export default async function StockPage() {
                     {isLow ? (
                       <Badge
                         variant="outline"
-                        className="border-warning text-warning"
+                        className="border-warning text-foreground"
                       >
                         <AlertTriangle className="mr-1 h-3 w-3" />
                         Low
@@ -179,7 +179,7 @@ export default async function StockPage() {
                       </TableCell>
                       <TableCell className="text-right">
                         {isLow ? (
-                          <Badge variant="outline" className="border-warning text-warning">
+                          <Badge variant="outline" className="border-warning text-foreground">
                             <AlertTriangle className="mr-1 h-3 w-3" />
                             Low
                           </Badge>
@@ -253,7 +253,7 @@ export default async function StockPage() {
                         {dl <= 30 ? (
                           <Badge
                             variant="outline"
-                            className="border-warning text-warning"
+                            className="border-warning text-foreground"
                           >
                             <AlertTriangle className="mr-1 h-3 w-3" /> {dl}d
                           </Badge>
@@ -310,7 +310,7 @@ export default async function StockPage() {
                           </TableCell>
                           <TableCell>
                             {dl <= 30 ? (
-                              <Badge variant="outline" className="border-warning text-warning">
+                              <Badge variant="outline" className="border-warning text-foreground">
                                 <AlertTriangle className="mr-1 h-3 w-3" /> {dl}d
                               </Badge>
                             ) : (

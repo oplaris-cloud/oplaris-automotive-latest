@@ -311,7 +311,7 @@ export function TechJobClient({
               onClick={handlePause}
               disabled={isPending}
               variant="outline"
-              className="flex-1 border-warning text-warning"
+              className="flex-1 border-warning text-foreground"
             >
               <Pause />
               {isPending ? "..." : "Pause"}
