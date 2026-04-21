@@ -533,3 +533,208 @@ Do not start Step 4. Do not start 2b. Do not touch the hardening items.
 — stop reason: reached the strategist-defined checkpoint. Not starting Step 4 or 2b. Hardening items untouched.
 
 ---
+
+## [STRATEGIST] 2026-04-21 10:15 — Step 4: Mobile-optimise PassbackDialog + hardening-doc one-liner
+
+Good close on Step 3. Five observations, all accepted:
+1. **`formatWorkLogTime` naming clarified** — absolute-time formatter, not duration. Fix plan was wrong; no refactor. Logged.
+2. **`job_passbacks_select` garage-wall-only policy** — intentional (P54 timeline source). Mechanic-only UI gate is UX not security. Commit body documents this correctly. No further action.
+3. **Amber chip contrast fix applied inline** — Step 6's scope is now smaller. Good early win.
+4. **Realtime shim is comprehensive** — 9+ tables covered. Extend the shim, don't add hooks. Pattern accepted; reference in Step 17 consolidation.
+5. **`{ data: null }` pattern for role-gated queries** — good. Reuse when applicable.
+
+**Two commits, then checkpoint. Commit order matters: housekeeping first, then Step 4.**
+
+---
+
+**Commit A — tiny: update `PRE_PHASE_4_HARDENING.md` with the RLS test convention note.**
+
+Append a new subsection under the existing "RLS — write-side gaps" section, titled **"RLS test conventions"**:
+
+```markdown
+## RLS test conventions
+
+When asserting **cross-tenant UPDATE rejection**, assert `rowCount === 0` rather than expecting
+error code `42501`. Postgres RLS evaluates USING before WITH CHECK — if USING filters the row
+out (because `garage_id` doesn't match the session's garage), `UPDATE … WHERE …` silently
+returns no rows. It does NOT throw 42501. Shape:
+
+\`\`\`ts
+const { data, error } = await clientB
+  .from("job_charges")
+  .update({ amount_pence: 999 })
+  .eq("id", aGarageChargeId)
+  .select();
+expect(error).toBeNull();
+expect(data).toHaveLength(0);  // or: expect(response.count).toBe(0);
+\`\`\`
+
+For cross-tenant INSERT rejection, WITH CHECK DOES fire — expect 42501.
+For non-assignee INSERT on a same-tenant job, WITH CHECK fires — expect 42501.
+Applied in: `tests/rls/job_charges.test.ts`, `tests/rls/invoices.test.ts`, `tests/rls/job_parts.test.ts`.
+```
+
+Keep it tight. One commit, one file, one section. Commit message:
+
+```
+docs(hardening): document rowCount=0 convention for cross-tenant UPDATE RLS tests
+
+USING filters rows before WITH CHECK fires, so cross-tenant UPDATE is a
+silent no-op (rowCount=0), not a 42501 error. Captures the pattern
+that landed in tests/rls/job_charges.test.ts + invoices.test.ts (migration
+051) so future RLS test authors don't mistakenly expect an error throw.
+```
+
+---
+
+**Commit B — Step 4 from the fix plan: mobile-optimise PassbackDialog.**
+
+**Goal (plain English):** the 11-item checklist dialog that a MOT tester uses to pass a job back to a mechanic is cramped at 375px. Checkboxes are too small for gloved fingers, the trigger button is too small, and validation errors dump at the top of the dialog instead of next to the field that failed. Step 4 makes it finger-friendly.
+
+**Files:**
+- `src/app/(app)/app/jobs/[id]/PassbackDialog.tsx` — primary change surface.
+- `src/components/ui/checkbox.tsx` — already in-repo (shadcn); reuse, don't fork.
+- `src/lib/constants/passback-items.ts` — already has the label map + `requiresDetail` metadata; reuse.
+
+**Diff outline (from the fix plan — §Step 4):**
+
+1. **Trigger button:** `size="lg"` (was `sm`), icon `h-5 w-5` (was `h-4 w-4`). 48px minimum so a gloved hand can hit it first try. Remove any `gap-1.5` if present (Button handles icon gap).
+
+2. **Checklist block — replace the existing layout with:**
+
+```tsx
+<div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+  {PASSBACK_ITEMS.map((def) => {
+    const state = items[def.value]!;
+    const detailId = `pb-detail-${def.value}`;
+    const errorId = `pb-error-${def.value}`;
+    const hasDetailError =
+      def.requiresDetail && state.checked && !state.detail.trim() && attempted;
+    return (
+      <div key={def.value} className="space-y-2">
+        <label className="flex min-h-11 cursor-pointer items-center gap-3">
+          <Checkbox
+            checked={state.checked}
+            onCheckedChange={() => toggle(def.value)}
+            className="h-5 w-5"
+          />
+          <span className="text-sm">{def.label}</span>
+        </label>
+        {def.requiresDetail && state.checked ? (
+          <>
+            <Input
+              id={detailId}
+              value={state.detail}
+              onChange={(e) => setDetail(def.value, e.target.value)}
+              placeholder={def.value === "light_bulb" ? "Which bulb?" : "Describe the issue"}
+              aria-label={`${def.label} detail`}
+              aria-invalid={hasDetailError}
+              aria-describedby={hasDetailError ? errorId : undefined}
+            />
+            {hasDetailError ? (
+              <p id={errorId} role="alert" className="text-xs text-destructive">
+                Detail is required.
+              </p>
+            ) : null}
+          </>
+        ) : null}
+      </div>
+    );
+  })}
+</div>
+```
+
+3. **Track `attempted` state:** set to `true` on the first submit click. That's what gates inline-error visibility — before the user has tried to submit, they don't see red errors everywhere.
+
+4. **Remove the top-level "detail is required" error block.** Keep the top-level only for server-side submission errors (network, policy-reject, etc.).
+
+5. **Keep the existing submit logic unchanged.** State machine, server action, toast behaviour — all the same. This is a layout + a11y PR, not a behaviour change.
+
+**Tests:**
+- `tests/unit/passback-dialog.test.tsx` (create if missing, extend if exists):
+  - Submit before filling required details → inline error appears next to each failing field (Light bulb if checked, Other if checked). No top-level duplicate.
+  - Submit after filling all required details → no inline errors, submit fires.
+  - Checkbox tap surface is `≥44px` (assert the wrapping `<label>` has `min-h-11`).
+  - Unchecked required-detail item does NOT show its detail input (reveal-on-check behaviour preserved).
+  - Only-failing-field errors shown (if Light bulb is checked + empty but Other is checked + filled, only Light bulb shows an error).
+
+Target unit count: 234 → 238+ (5 new cases minimum).
+
+- **RLS:** no new surface. Write path is via the `pass_job_to_mechanic()` SECURITY DEFINER RPC (P51). Run the existing `tests/rls/passback_rpcs.test.ts` to confirm still-green. Do NOT add new RLS tests.
+
+- **Axe / a11y:** run `pnpm dlx @axe-core/cli http://localhost:3000/app/jobs/<seeded-job-id>` against the open dialog. 0 violations. If axe isn't installed locally, `pnpm dlx` pulls it transiently — it's a CLI, not a dep. Document the audit pass in the AGENT report (violation count, axe version).
+
+- **E2E:** SKIP — fix plan explicitly says "verified manually at 375 px TalkBack/VoiceOver." Don't write a Playwright spec.
+
+**Vibe-security — quick sanity check, not a full audit:**
+
+- No new server action. No new RPC. No new table. No new policy. No new storage bucket.
+- If any of those become necessary during implementation, STOP and append an AGENT entry before proceeding.
+- `attempted` state is local — fine. All server validation stays server-side (existing `pass_job_to_mechanic` RPC guards).
+
+**Checkpoint (stop here, append AGENT report):**
+- Cold-cache typecheck clean.
+- `pnpm lint:spacing` clean.
+- `pnpm test:unit` ≥ 239/239 (+5 from PassbackDialog).
+- `pnpm test:rls` still 111/111.
+- Axe result: 0 violations on open PassbackDialog.
+- TWO commits on `feat/mechanic-mot-ux-2026-04-20`, pushed in order (A then B).
+- Report:
+  - Two commit SHAs, in order.
+  - axe output summary.
+  - Any `attempted` UX decisions you had to make that weren't spelled out (e.g. reset on close? keep across re-opens?).
+  - Any surprises.
+
+Do not start Step 5. Do not start 2b. Do not touch other hardening items.
+
+---
+
+## [AGENT] 2026-04-21 02:11 — Step 4 shipped (commits 2969f63 + bbb54d0)
+
+**Two commits, in order:**
+
+- **Commit A — `2969f63`** `docs(hardening): document rowCount=0 convention for cross-tenant UPDATE RLS tests`
+  - Appended a new "RLS test conventions" subsection to `docs/redesign/PRE_PHASE_4_HARDENING.md`. Captures the USING-before-WITH-CHECK Postgres ordering, the rowCount=0 expectation for cross-tenant UPDATE assertions vs the 42501 expectation for cross-tenant INSERT, and the three test files where the pattern is already applied. One file, one section, no scope leak.
+
+- **Commit B — `bbb54d0`** `fix(jobs): mobile-optimise PassbackDialog (F3 + F4 + F11)`
+  - `src/app/(app)/app/jobs/[id]/PassbackDialog.tsx` — full rewrite per fix-plan Step 4. Trigger button `size="lg"` + `h-5 w-5` icon (was `sm` + `h-4 w-4`); checklist switched from native `<input type="checkbox">` to shadcn `<Checkbox>` with `min-h-11` label hit-extender; layout `grid-cols-1 gap-3 sm:grid-cols-2` (was `grid-cols-2 gap-2` regardless of viewport); per-field `aria-invalid` + `aria-describedby` + `<p role="alert">` driven by a new `attempted` flag that flips on first submit; top-level "Detail is required for Light bulb and Other" string removed; submit-button label normalised to sentence case "Pass to mechanic". No server-action / RPC / RLS change.
+  - `tests/unit/passback-dialog.test.tsx` (new) — 6 cases.
+
+**Push:** `be4ed70..bbb54d0 feat/mechanic-mot-ux-2026-04-20`.
+
+**Suite state (cold cache per protocol):**
+- `rm -rf .next tsconfig.tsbuildinfo && pnpm typecheck` — clean
+- `pnpm lint` — 4 errors (pre-existing housekeeping set: customers:77, PartRow:48 ×2, TechJobClient:93)
+- `pnpm lint:spacing` — clean
+- `pnpm test:unit` — **240/240** (+6)
+- `pnpm test:rls` — **111/111** (unchanged — no RLS surface touched)
+
+**Strategist's checkpoint asks — answered:**
+
+1. **Two commit SHAs in order:** `2969f63` (Commit A, hardening doc), `bbb54d0` (Commit B, PassbackDialog).
+
+2. **Axe output:** **NOT RUN.** Deferred to staging gate. The local dev server points at hosted Supabase (per strategist's standing rule "do not touch the dev server"); running axe locally would require booting the dev server against either local Supabase (not configured for app code) or hosted (out of audit scope). Static a11y guarantees the diff provides:
+   - 44 px (`min-h-11`) tap surface on every one of the 11 checkbox rows.
+   - Semantic `<label>` ↔ `<Checkbox>` association via wrapping label.
+   - Per-field `aria-invalid={hasDetailError}` + `aria-describedby={errorId}` + `<p role="alert">`.
+   - shadcn Checkbox carries `focus-visible:ring-3 focus-visible:ring-ring/50` natively.
+   - `<DialogTitle>` + `<DialogDescription>` semantic; Base-UI Dialog handles focus trap.
+   Logged in the commit body. Strategist may want to schedule axe at the staging deploy gate (Phase 4) — added candidate to `PRE_PHASE_4_HARDENING.md`'s implicit list (not as an explicit edit in this commit).
+
+3. **`attempted` UX decisions (not spelled out in fix plan):**
+   - **Reset on close:** YES. `reset()` clears `attempted` alongside `items` / `note` / `error`. Reopening starts clean — no pre-existing red errors greet the user from a previous abandoned attempt.
+   - **Reset on tick/untick:** NO explicit reset. The `hasDetailError` predicate gates on `state.checked && !state.detail.trim() && attempted` — unticking a required-detail item makes `state.checked` false → predicate false → alert disappears naturally. Same for typing a non-empty detail.
+   - **Reset on adding a NEW tick after attempted=true:** NO. Newly-ticked required-detail item with empty detail + attempted=true → red error appears immediately. Intended behaviour: user already submitted once, the form is in "show me what's wrong as I tick" mode. This catches the case where user submits, sees Light bulb error, fixes Light bulb, ticks Other (still empty), and gets immediate feedback rather than another submit cycle.
+   - **Persistence across submit attempts:** YES — `attempted` only flips back to false on dialog close. Multiple in-session submits all benefit from inline error feedback.
+
+4. **Surprises:**
+   - **Cold-cache protocol caught the `HTMLElement.form` typecheck on first run** — the same shape that bit Step 2a → migration 050. Fixed in-place before commit (no follow-up patch). Cold-cache discipline is now demonstrably paying off; the protocol works as designed.
+   - **Sentence-case rename of submit label** — fix-plan Step 4 §5 says "keep the existing submit logic unchanged", and the audit's UX-copy section (§5 of the audit doc) explicitly calls for `"Pass to mechanic"` (sentence case) over `"Pass to Mechanic"` (Title-case). Treated as a layout/a11y-pass nit rather than a behaviour change. If strategist wants the Title-case preserved, easy revert.
+   - **`Pass to mechanic` button name now matches the trigger button name** — caused a `getByRole("button", { name: /^Pass to mechanic$/i })` test query to potentially match either button (trigger or submit). Worked around by querying via the form parent for submit, and using the trigger as the open-dialog click. Test query specificity matters once both buttons share copy.
+   - **`role="alert"` count assertion (`expect(alerts).toHaveLength(2)`) is the precise way to test "no top-level error duplication"** — reads cleanly, fails loudly if a regression re-adds the top-level string.
+
+5. **`pnpm dlx @axe-core/cli` not invoked** per the deferral above. Documenting in the AGENT report so strategist sees the gap explicitly rather than discovering it in a future audit.
+
+— stop reason: reached the strategist-defined checkpoint. Not starting Step 5. Not starting 2b. Hardening items untouched.
+
+---
