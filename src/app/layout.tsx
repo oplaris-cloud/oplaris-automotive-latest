@@ -3,6 +3,7 @@ import { JetBrains_Mono, Geist } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 import { ThemeProvider } from "@/components/app/theme-provider";
+import { ThemeScript } from "@/components/app/theme-script";
 import { Toaster } from "@/components/ui/sonner";
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-sans" });
@@ -34,6 +35,13 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body className="min-h-full font-sans">
+        {/* P56.1.d — FOUC-prevention script. Server-rendered ONCE,
+            never re-renders on the client, which silences React 19's
+            "no scripts in components" warning that next-themes 0.4.6
+            tripped. Mutates <html> class before paint;
+            `suppressHydrationWarning` on <html> covers the resulting
+            mismatch with the SSR-rendered class. */}
+        <ThemeScript />
         {/* Skip-to-content for keyboard navigation (WCAG 2.4.1) */}
         <a
           href="#main-content"
@@ -41,11 +49,6 @@ export default function RootLayout({
         >
           Skip to main content
         </a>
-        {/* P56.1.d — next-themes provider. `suppressHydrationWarning`
-            on <html> is required because the provider writes the
-            persisted theme class onto <html> in a pre-hydration
-            blocking script, which would otherwise trip React's
-            mismatch guard. */}
         <ThemeProvider>
           {children}
           <Toaster position="top-right" richColors closeButton />
