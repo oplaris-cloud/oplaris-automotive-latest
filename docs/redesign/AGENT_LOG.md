@@ -988,3 +988,91 @@ Do not start Step 8. Do not start 2b. Do not touch other hardening items.
 — stop reason: reached the strategist-defined checkpoint. Not starting Step 8. Not starting 2b. Hardening items untouched.
 
 ---
+
+## [AGENT] 2026-04-21 02:48 — Out-of-band: silenced React 19 / Turbopack ThemeProvider script warning (commit b912811)
+
+**Context:** strategist surfaced a runtime console warning out of band (not a checkpoint task):
+
+```
+Encountered a script tag while rendering React component. Scripts inside
+React components are never executed when rendering on the client.
+Consider using template tag instead.
+
+  at script (<anonymous>:null:null)
+  at ThemeProvider (src/components/app/theme-provider.tsx:13:5)
+  at RootLayout (src/app/layout.tsx:49:9)
+```
+
+**Root cause:** `next-themes` 0.4.6 (the installed version; latest stable
+on npm) renders an inline `<script>` tag inside its client-mounted
+`<ThemeProvider>` to write the FOUC-prevention class onto `<html>`
+before paint. React 19 + Next 16.2.3 + Turbopack ship a stricter
+"no scripts in client components" check that warns on every client
+render of that path. The script DOES execute server-side on first
+paint (the FOUC fix works), but the warning fires on every subsequent
+re-render. Upstream `next-themes` 0.4.6 has no toggle to suppress the
+script; `1.0.0-beta.0` exists but isn't stable.
+
+**Fix shipped (commit `b912811`, `fix(theme): replace next-themes with in-repo provider + server-only ThemeScript`):**
+
+- New `src/components/app/theme-script.tsx` (RSC, server-only) — renders
+  the FOUC-prevention `<script dangerouslySetInnerHTML>` ONCE in the
+  server-rendered layout. No client component renders the script, so
+  React's warning has nothing to trigger on. Mounted at the top of
+  `<body>` in `src/app/layout.tsx`.
+- `src/components/app/theme-provider.tsx` rewritten end-to-end (~120
+  lines) — tiny client provider with the same `useTheme()` API surface
+  that `next-themes` exposes (`{ theme, resolvedTheme, setTheme }`).
+  Includes: matchMedia listener for "system" mode, cross-tab
+  `storage`-event propagation, permissive no-throw fallback when
+  `useTheme()` is called outside the provider (sonner.tsx renders
+  early — this matters).
+- `src/components/ui/sonner.tsx` and
+  `src/components/app/theme-toggle.tsx` — import path swapped from
+  `next-themes` → `@/components/app/theme-provider`. API shape
+  unchanged; no other code touched.
+- `next-themes` removed from `package.json` via `pnpm remove`. Lockfile
+  regenerated. One fewer transitive dep.
+
+**Behaviour parity preserved:**
+- "system" mode tracks `prefers-color-scheme`.
+- Cross-tab theme changes propagate (storage event).
+- localStorage key kept as `"theme"` — existing user preferences
+  carry over across this swap; no migration needed.
+- `style.colorScheme` mirrored onto `<html>`.
+- FOUC blocking via the same shape of inline `<script>` in `<body>`.
+
+**Behaviour intentionally NOT carried over:**
+- `disableTransitionOnChange`: next-themes injected a temporary
+  global `*` transition-killer during a theme swap. Skipping for now —
+  Phase 3's reduced-motion global rule covers the user-preference
+  case, and the 200ms perceptual flash on theme toggle is acceptable.
+  Easy to re-add at Phase 4 design QA if the design lead calls it out.
+
+**Suite state (cold cache):**
+- `rm -rf .next tsconfig.tsbuildinfo && pnpm typecheck` — clean
+- `pnpm lint` — 4 errors (pre-existing housekeeping set)
+- `pnpm lint:spacing` — clean
+- `pnpm lint:tech-button-sizes` — clean
+- `pnpm test:unit` — 249/249 (unchanged; no test files changed)
+- `pnpm test:rls` — 111/111 (unchanged; no RLS surface)
+
+**Push:** `ec347a1..b912811 feat/mechanic-mot-ux-2026-04-20`.
+
+**Verification still TODO (out-of-band, browser-side):** dev-server
+restart needed to confirm the warning is gone in the browser console.
+The strategist's standing rule says "do not touch the dev server" —
+flagging this as the manual check that closes the loop. If the warning
+persists after a full rebuild + browser refresh, it's coming from
+elsewhere (third-party lib not yet identified) and a follow-up entry
+will land here.
+
+**Scope:** out-of-band fix outside the Steps 5+6+7 batch + the audit's
+17-step plan. No fix-plan step is advanced. Counts toward the running
+"things shipped on the audit branch" tally but not toward audit
+finding closure.
+
+— stop reason: requested fix landed; awaiting either browser-side
+verification feedback or the next strategist entry.
+
+---
