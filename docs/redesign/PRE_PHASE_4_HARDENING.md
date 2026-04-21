@@ -73,3 +73,15 @@ Any regression caught post-checkpoint rolls into the next commit + gets flagged 
 
 - `job_approvals` was named in a strategist prompt but doesn't exist; real table is `approval_requests`.
   No fix — just archaeological note.
+
+## Phase 4 staging gate — a11y verification
+
+Before production cutover, run `pnpm dlx @axe-core/cli` against:
+- Every tech-surface page (`/app/tech`, `/app/tech/job/[id]`)
+- Every dialog/sheet in the staff app (PassbackDialog, ChangeHandlerDialog, AddPartSheet, RequestApprovalSheet, etc.)
+- The kiosk flow (`/kiosk`, `/kiosk/booking/*`)
+- The customer status page (`/status` at all three states: request-code, enter-code, live-status)
+
+Target: 0 violations. If anything trips, log here for follow-up rather than blocking deploy.
+
+Static a11y guarantees already land per-commit — this is belt-and-braces before real users.
