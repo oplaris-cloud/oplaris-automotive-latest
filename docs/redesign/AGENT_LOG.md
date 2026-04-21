@@ -195,3 +195,9 @@ The pre-050 `job_parts_insert` WITH CHECK was `... AND (private.is_manager() OR 
 — stop reason: reached the strategist-defined checkpoint. Not starting Step 3 or 2b.
 
 ---
+
+## [AGENT] 2026-04-21 01:37 — Correction: migration 050 SHA
+
+Prior entry said "SHA below after push completes" — filling in: commit `1ddf757`, pushed to `oplaris/feat/mechanic-mot-ux-2026-04-20` (range `6934915..1ddf757`). No content correction; metadata-only.
+
+---
