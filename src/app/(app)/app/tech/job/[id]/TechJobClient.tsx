@@ -187,11 +187,11 @@ export function TechJobClient({
               {customerPhone && (
                 <Button
                   asChild
-                  size="sm"
+                  size="lg"
                   className="mt-2 w-full"
                 >
                   <a href={`tel:${customerPhone}`}>
-                    <Phone className="h-4 w-4" />
+                    <Phone className="h-5 w-5" />
                     Call
                   </a>
                 </Button>
@@ -255,7 +255,7 @@ export function TechJobClient({
                   <Button
                     key={t.value}
                     type="button"
-                    size="sm"
+                    size="default"
                     variant={active ? "default" : "outline"}
                     role="radio"
                     aria-checked={active}

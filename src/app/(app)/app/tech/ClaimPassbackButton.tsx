@@ -36,12 +36,12 @@ export function ClaimPassbackButton({
 
   return (
     <Button
-      size="sm"
+      size="lg"
       onClick={handleClick}
       disabled={isPending}
       className={className}
     >
-      <ArrowRightLeft className="h-4 w-4" />
+      <ArrowRightLeft className="h-5 w-5" />
       {isPending ? "Claiming…" : "Claim"}
     </Button>
   );
