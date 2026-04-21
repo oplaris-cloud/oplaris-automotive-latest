@@ -79,7 +79,7 @@
 **Files:**
 - `src/app/(app)/app/tech/job/[id]/page.tsx` — pass existing customer/job refs + charge + approval contexts down.
 - `src/app/(app)/app/tech/job/[id]/TechJobClient.tsx` — new `<TechSecondaryActions>` child.
-- **New:** `src/app/(app)/app/tech/job/[id]/AddPartSheet.tsx` — wraps existing `addCharge` server action from `src/app/(app)/app/jobs/charges/actions.ts`, mobile-first fields (part name, qty, unit price, supplier combobox, warranty months).
+- **New:** `src/app/(app)/app/tech/job/[id]/AddPartSheet.tsx` — wraps existing `addJobPart` server action from `src/app/(app)/app/jobs/parts/actions.ts` (NOT `addCharge` — `addJobPart` is the stock/supplier/receipt-upload audit path per DESIGN_SYSTEM §4.5; migration 032's P39 trigger auto-syncs `job_parts` → `job_charges` so the invoice lifecycle still works). Mobile-first fields per §4.5: supplier select (ecp/gsf/atoz/ebay/other + conditional supplierOther), description, qty, unit price, payment method, optional receipt upload (magic-byte checked server-side).
 - **New:** `src/app/(app)/app/tech/job/[id]/RequestApprovalSheet.tsx` — wraps existing `createApprovalRequest` from `src/app/(app)/app/jobs/approvals/actions.ts` (if exists; otherwise locate the manager ApprovalDialog and hoist the action).
 - **New:** `src/app/(app)/app/tech/job/[id]/AddNoteSheet.tsx` — writes to `job_notes` (or reuses the unified status/note trail). If `addJobNote` doesn't yet exist as a server action, add it behind a SECURITY DEFINER RPC with the standard garage+assignee gate.
 - `src/components/ui/sheet.tsx` — already wired (shadcn); use `side="bottom"` for mobile and `side="right"` for md+ via `useMediaQuery`.

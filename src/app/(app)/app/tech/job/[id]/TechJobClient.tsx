@@ -31,6 +31,7 @@ import {
   workedSeconds,
   type ActiveWorkLogForTimer,
 } from "./work-log-timer";
+import { TechSecondaryActions } from "./TechSecondaryActions";
 
 const TASK_TYPES = [
   { value: "diagnosis", label: "Diagnosis" },
@@ -231,6 +232,11 @@ export function TechJobClient({
           </CardContent>
         </Card>
       )}
+
+      {/* Secondary actions (F2 / DESIGN_SYSTEM §4.3) — only while a
+          work_log is active. Add note ships disabled in 2a; 2b lands
+          the real migration-050 path. */}
+      {isWorking ? <TechSecondaryActions jobId={jobId} /> : null}
 
       {/* Action buttons */}
       {!isWorking ? (
