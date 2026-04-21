@@ -201,3 +201,174 @@ The pre-050 `job_parts_insert` WITH CHECK was `... AND (private.is_manager() OR 
 Prior entry said "SHA below after push completes" — filling in: commit `1ddf757`, pushed to `oplaris/feat/mechanic-mot-ux-2026-04-20` (range `6934915..1ddf757`). No content correction; metadata-only.
 
 ---
+
+## [STRATEGIST] 2026-04-21 09:15 — Migration 051 (NULL WITH CHECK fix) + hardening doc, then Step 3
+
+Good close on 050. Three rulings on the surfaces you raised:
+
+**1. `is_staff_or_manager()` bypass widening on `job_parts` — ACCEPTED.**
+Consistency with migration 049's shape outweighs the tighter manager-only bypass. No migration-051-style revert. The helper rename (`is_staff_or_manager` excludes mechanic despite name) stays in the housekeeping backlog — will be addressed in the pre-Phase-4 hardening sweep. Document this decision in the new hardening doc below.
+
+**2. Stale `tsconfig.tsbuildinfo` masking 2a typecheck errors — ACCEPTED as protocol update.**
+Good catch + good self-correction rolling the fix into the 050 commit. Protocol tightening for all future checkpoints in this log:
+- Every checkpoint typecheck must be run from a cold cache: `rm -rf .next tsconfig.tsbuildinfo && pnpm typecheck`
+- Same discipline for `pnpm test:unit --no-cache` where the runner supports it.
+- If a stale-cache regression is discovered after a checkpoint, it rolls into the next commit + gets flagged in the AGENT entry — do not silently re-report "clean" after the fact.
+
+**3. Domain-table audit findings — DECISION: split into "now" (migration 051) and "later" (pre-Phase-4 hardening doc).**
+
+Your audit surfaced two severity tiers:
+- **Sharper (Rule #3 literal violation):** `job_charges_update` and `invoices_update` have NULL WITH CHECK. CLAUDE.md Rule #3 explicitly requires WITH CHECK on every UPDATE policy. Missing = silent permissive. A mechanic/manager with SELECT access can UPDATE any column to any value. Cannot defer.
+- **Weaker (same class as 049/050):** `job_charges_insert`, `invoices_insert`, `approval_requests_insert`, `job_assignments_insert` missing `job_id`→garage consistency check. Exploit requires cross-tenant UUID leak + staff creds in target garage. Batch-able pre-Phase-4.
+
+**Your next task has two commits, then Step 3:**
+
+---
+
+**Commit A — migration 051 (`supabase/migrations/051_p51_job_charges_invoices_update_withcheck.sql`):**
+
+Add WITH CHECK to the `job_charges_update` and `invoices_update` policies. Minimum-viable predicate — **match the shape used on the table's existing INSERT policy WITH CHECK** (so the diff stays minimal) plus the `job_id`→garage consistency check pattern from 049/050:
+
+```sql
+alter policy "job_charges_update" on public.job_charges
+  with check (
+    garage_id = (select staff.garage_id from public.staff where staff.id = auth.uid())
+    and exists (
+      select 1 from public.jobs j
+      where j.id = job_charges.job_id
+        and j.garage_id = job_charges.garage_id
+    )
+  );
+
+alter policy "invoices_update" on public.invoices
+  with check (
+    garage_id = (select staff.garage_id from public.staff where staff.id = auth.uid())
+    and exists (
+      select 1 from public.jobs j
+      where j.id = invoices.job_id
+        and j.garage_id = invoices.garage_id
+    )
+  );
+```
+
+**Note:** preserving the staff-subquery form on these two tables because migration 051 is a **rule-compliance fix, not a normalisation migration**. Rewriting the predicate style into `private.current_garage()` is part of the pre-Phase-4 hardening sweep — out of scope here. Header comment in 051 must call this out explicitly so a future reader doesn't "clean it up" by accident.
+
+**Tests — append to (or create) `tests/rls/job_charges.test.ts` + `tests/rls/invoices.test.ts`:**
+- `job_charges_update`: cross-tenant UPDATE reject (A-garage mechanic tries to mutate B-garage charge via direct UPDATE SQL) → rowCount = 0 / 42501.
+- `job_charges_update`: same-tenant happy-path regression guard (manager UPDATEs own-garage charge succeeds).
+- `invoices_update`: cross-tenant UPDATE reject.
+- `invoices_update`: same-tenant happy-path regression guard.
+
+Target RLS count: 104 → 108.
+
+**Commit B — create `docs/redesign/PRE_PHASE_4_HARDENING.md`:**
+
+New living doc tracking everything we've deferred to the pre-Phase-4 hardening sweep. Initial content:
+
+```markdown
+# PRE_PHASE_4_HARDENING.md
+
+Living queue of hygiene items to close before Phase 4 (deploy) cutover.
+Nothing in here is a showstopper for ongoing feature work — but nothing in
+here ships to production without being addressed.
+
+## RLS — write-side gaps (same class as migration 049 on work_logs / 050 on job_parts)
+
+| Table | Policy | Gap | Fix shape |
+|---|---|---|---|
+| `job_charges` | insert | Missing `EXISTS jobs j WHERE j.id = job_charges.job_id AND j.garage_id = job_charges.garage_id` | Mirror 050 INSERT shape |
+| `invoices` | insert | Same | Mirror 050 INSERT shape |
+| `approval_requests` | insert | Same | Mirror 050 INSERT shape |
+| `job_assignments` | insert | Manager-only today but still no job_id→garage check | Mirror 050 INSERT shape, keep manager-only gate |
+
+Migration target: `052_p51_phase4_hardening_sweep.sql` (single migration, grouped for reviewability).
+Tests: one `tests/rls/{table}.test.ts` per table, matching the `job_parts.test.ts` structure. Target +8–10 RLS tests.
+
+## RLS — predicate-style normalisation
+
+`job_charges_insert`, `job_charges_update`, `invoices_insert`, `invoices_update` use the staff-subquery form
+`garage_id = (SELECT staff.garage_id FROM staff WHERE staff.id = auth.uid())` rather than
+`private.current_garage()`. Functionally equivalent but inconsistent with every other policy in the repo.
+Normalise in the hardening sweep (migration 052 or 053) — diff-only, no behaviour change, but makes auditing
+easier.
+
+## Naming — `private.is_staff_or_manager()`
+
+Helper is misnamed: it returns TRUE for manager + mot_tester, FALSE for mechanic. Rename to something
+accurate (`private.is_manager_or_mot_tester()`? `private.has_non_mechanic_staff_role()`?) during the
+hardening sweep. Currently referenced by `work_logs` (migration 049) and `job_parts` (migration 050) INSERT
+policies. Rename → find/replace all callers → re-run full RLS suite.
+
+## Migration hygiene
+
+- Consolidate letter-suffix migration files (pre-existing `033b_p51_gdpr_export.sql` + any 026-era fallout)
+  into pure-numeric prefixes. Supabase CLI's migration regex silently skips letter suffixes — this has
+  already cost one debugging session.
+- Add a CI guard: reject any migration file whose prefix doesn't match `^[0-9]{3,}_[a-z0-9_]+\.sql$`.
+
+## Typecheck cache discipline (process)
+
+Every checkpoint typecheck is run from cold cache: `rm -rf .next tsconfig.tsbuildinfo && pnpm typecheck`.
+Any regression caught post-checkpoint rolls into the next commit + gets flagged in the AGENT_LOG entry.
+
+## Known minors from main (not hardening but worth logging)
+
+- 4 pre-existing lint errors: `customers:77`, `PartRow:48 ×2`, `TechJobClient:93` (react-hooks/set-state-in-effect).
+- `TechAssignmentModal.tsx:69` — same bug class as Step 1's self-start redirect fix, not yet applied there.
+
+## Deferred from Phase 3
+
+- `job_approvals` was named in a strategist prompt but doesn't exist; real table is `approval_requests`.
+  No fix — just archaeological note.
+```
+
+Keep the doc concise. It's a queue, not a design doc.
+
+**Checkpoint after both commits (stop here, append AGENT report):**
+- Migration 051 applied locally.
+- Full suite: cold-cache typecheck clean, `pnpm lint:spacing` clean, `pnpm test:unit` ≥ 228/228, `pnpm test:rls` ≥ 108/108.
+- `PRE_PHASE_4_HARDENING.md` committed.
+- Both commits pushed on `feat/mechanic-mot-ux-2026-04-20`.
+- Report commit SHAs, test counts, any surprises.
+
+Do not start Step 3 yet. Do not touch the deferred hardening items. Do not start 2b.
+
+---
+
+## [AGENT] 2026-04-21 01:50 — Migration 051 + hardening doc shipped
+
+**What shipped (two commits, this AGENT entry will be a third log-only commit after push):**
+
+- **Commit A — `1832f22`** `fix(rls): migration 051 — job_charges + invoices UPDATE WITH CHECK`
+  - `supabase/migrations/051_p51_job_charges_invoices_update_withcheck.sql` — ALTER POLICY on both `job_charges_update` and `invoices_update`, mirroring each table's INSERT predicate (the staff-subquery garage-wall) + appending the `job_id`→garage consistency check from 049/050. USING clauses unchanged. DELETE policies untouched. Verbatim SQL from strategist prompt; header comment documents the deliberate-scope-preservation decision so a future reader doesn't "normalise" the staff-subquery predicate style by accident.
+  - `tests/rls/job_charges.test.ts` (new) — 2 cases: same-tenant manager UPDATE succeeds (regression guard); cross-tenant B-manager UPDATE → rowCount=0 (USING silently rejects before WITH CHECK fires; either outcome proves RLS intact).
+  - `tests/rls/invoices.test.ts` (new) — mirror pair for invoices.
+
+- **Commit B — `c4e706c`** `docs: pre-Phase-4 hardening queue`
+  - `docs/redesign/PRE_PHASE_4_HARDENING.md` (new) — content verbatim from the strategist's spec. Tracks: 4 remaining write-side RLS gaps (migration 052 target), predicate-style normalisation, `is_staff_or_manager` helper rename, letter-suffix migration consolidation + CI guard, cold-cache typecheck discipline, 4 pre-existing lint errors, `TechAssignmentModal.tsx:69` redirect bug, archaeological note on `job_approvals`.
+
+**Push:** `b11d8fa..c4e706c feat/mechanic-mot-ux-2026-04-20`.
+
+**Suite state (cold-cache discipline applied per new protocol):**
+- `rm -rf .next tsconfig.tsbuildinfo && pnpm typecheck` — clean
+- `pnpm lint` — 4 errors (all pre-existing housekeeping set — customers:77, PartRow:48 ×2, TechJobClient:93)
+- `pnpm lint:spacing` — clean
+- `pnpm test:unit` — 228/228
+- `pnpm test:rls` — **108/108** (was 104, +4 new cases: job_charges ×2, invoices ×2)
+
+**Surprises / observations:**
+1. **Cold-cache typecheck passed first attempt.** The stale-cache protocol discipline is now baked into the commit flow; no phantom errors surfaced when I blew away `.next` + `tsconfig.tsbuildinfo` this time. Good sanity check that Step 2a's 5 `HTMLElement.form` sites were genuinely fixed in the 050 commit, not just cache-masked back to clean.
+2. **Cross-tenant UPDATE semantics — silent no-op, not 42501.** When B-manager tries to UPDATE an A-garage row, USING (garage_id = B) filters the row out before WITH CHECK can fire. `UPDATE ... WHERE job_id = A_JOB` returns `rowCount = 0`, not an error. Test asserts rowCount=0 rather than `.rejects.toMatchObject({ code: "42501" })` — matches the Postgres RLS behaviour accurately. Documented in the test comment.
+3. **`asSuperuser` has no implicit transaction.** Seeds from `asSuperuser` persist across tests by default — mirrors how fixtures.ts seeds the baseline. Each test here uses `afterEach` to DELETE its own seed rows to prevent carryover. Pattern matches the `job_parts.test.ts` approach from migration 050.
+4. **No new `ALLOWED_TABLES` whitelist update needed.** `job_charges` and `invoices` are already on `supabase_realtime` publication (confirmed by the unchanged `realtime_publication.test.ts` pass). Migration 051 only touches policies, not replication.
+
+**Deferred (tracked in PRE_PHASE_4_HARDENING.md):**
+- Migration 052 sweep: 4 write-side INSERT gaps + predicate-style normalisation.
+- `is_staff_or_manager()` helper rename.
+- Letter-suffix migration consolidation + CI guard.
+- 4 pre-existing lint errors.
+- `TechAssignmentModal.tsx:69` redirect.
+
+— stop reason: reached the strategist-defined checkpoint. Not starting Step 3. Not starting 2b. Not touching the hardening items.
+
+---
