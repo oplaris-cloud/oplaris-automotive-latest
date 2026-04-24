@@ -1,5 +1,6 @@
 /**
- * invoices RLS — UPDATE WITH CHECK (migration 051).
+ * invoices RLS — UPDATE WITH CHECK (migration 051) +
+ *                INSERT WITH CHECK job-tenant guard (migration 052).
  *
  * Pre-051 state: `invoices_update` had NULL WITH CHECK — same Rule #3
  * violation as `job_charges_update`. The invoice-lifecycle state
@@ -8,6 +9,13 @@
  * policy; without WITH CHECK there was no post-UPDATE tenancy check.
  * Migration 051 closes it by mirroring the INSERT predicate +
  * enforcing `jobs.garage_id = invoices.garage_id`.
+ *
+ * Migration 052 adds the matching INSERT-side guard: pre-052 the
+ * INSERT WITH CHECK enforced the staff-subquery garage-wall but not
+ * the `job_id` → `jobs.garage_id` consistency. A B-manager could
+ * INSERT `(garage_id=B, job_id=<garage-A job>)` and silently pollute
+ * their own tenant's invoice table with rows pointing at another
+ * tenant's jobs. 052 closes it.
  */
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { pool, withTx, asSuperuser } from "./db";
@@ -44,6 +52,36 @@ const SEED_INVOICE_SQL = `
   values ($1, $2, $3)
   returning id
 `;
+
+describe("invoices INSERT WITH CHECK (migration 052)", () => {
+  it("same-tenant manager CAN insert an invoice against an own-garage job (regression guard)", async () => {
+    await withTx(aManager, async (c) => {
+      const r = await c.query(SEED_INVOICE_SQL, [GARAGE_A, A_JOB, "TEST-INV-A-0100"]);
+      expect(r.rowCount).toBe(1);
+    });
+  });
+
+  it("cross-tenant INSERT rejected — B manager cannot mint an invoice whose job_id is in A", async () => {
+    // Pre-052: WITH CHECK only verified `garage_id = staff.garage_id`. A
+    // B-manager passing `(garage_id=B, job_id=A_JOB)` satisfied that and
+    // INSERT succeeded — polluting B's invoices with a row whose `job_id`
+    // dangles into A's tenancy. Post-052 the EXISTS check catches it.
+    await withTx(bManager, async (c) => {
+      await expect(
+        c.query(SEED_INVOICE_SQL, [GARAGE_B, A_JOB, "TEST-INV-B-XTNT"]),
+      ).rejects.toMatchObject({ code: "42501" });
+    });
+  });
+
+  it("dangling job_id INSERT rejected — non-existent job UUID fails the EXISTS clause", async () => {
+    const fakeJobId = "00000000-0000-0000-0000-000000000fff";
+    await withTx(aManager, async (c) => {
+      await expect(
+        c.query(SEED_INVOICE_SQL, [GARAGE_A, fakeJobId, "TEST-INV-A-DANG"]),
+      ).rejects.toMatchObject({ code: expect.stringMatching(/42501|23503/) });
+    });
+  });
+});
 
 describe("invoices UPDATE WITH CHECK (migration 051)", () => {
   it("same-tenant manager CAN update own-garage invoice (regression guard)", async () => {
