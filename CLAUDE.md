@@ -191,6 +191,19 @@ M2 features — already delivered:
 - [ ] **M2.6** Mobile UX polish + accessibility pass (U17) — deferred post-launch, spec'd in `MASTER_PLAN.md > Part F`
 - [ ] **M2.7** Admin guide + walkthrough video (U18) — deferred post-launch
 
+Phase 4 — deploy infrastructure (branch `feat/phase4-deploy-infra`, not yet merged):
+
+- [x] **P4.1** `next.config.ts` — `output: "standalone"` (Step 1)
+- [x] **P4.2** `Dockerfile` + `.dockerignore` + `src/app/api/health/route.ts` — multi-stage node:22-alpine, non-root uid 1001, 302 MB image, 9 non-zero layers, health endpoint 200 (Step 2)
+- [x] **P4.3** `compose.yml` — Dokploy-consumable, every runtime env injected from `${VAR}`, `read_only` + tmpfs + no-new-privileges defence-in-depth (Step 3)
+- [x] **P4.4** `scripts/backup.sh` — `pg_dump` → `age` → `rclone` (belt-and-braces over Supabase managed's PITR) (Step 4)
+- [x] **P4.5** `scripts/restore.sh` — Rule #12 restore driver; refuses `prod`/`production` URLs with exit 2 (Step 5)
+- [x] **P4.6** `.github/workflows/deploy.yml` — `workflow_run` on CI success → GHCR push → Dokploy webhook; extends `ci.yml` (Step 6)
+- [x] **P4.7** `.env.example` audit + bringing under version control (Step 7)
+- [x] **P4.8** `docs/DEPLOYMENT.md` — operator runbook (Step 8)
+- [x] **P4.9** `scripts/pre-deploy-smoke.ts` + `pnpm pre-deploy` — orchestrates typecheck / lint / test:unit / test:rls / audit:secrets / format:check (Step 9)
+- [ ] **Merge gate** Hossein reads `docs/DEPLOYMENT.md`; migration 052 (PRE_PHASE_4_HARDENING.md RLS sweep + 4 pre-existing lint errors) lands; migration 034 (P51.10 column drop) lands; mechanic/MOT branch lands on main
+
 Pre-deploy tests — Run 2 on 2026-04-12:
 
 - [~] T0 PASS, T1 PASS (33/33), T2–T8 STATIC-PASS (dynamic SKIPPED pending staging), T9 STATIC-PASS (reports toggle + CSV + GDPR export fixed), T10 STATIC-PASS (gitleaks SKIPPED), T11 SKIPPED, T12 PASS (4 passed / 10 skipped / 0 failed), T13 SKIPPED.
@@ -205,7 +218,6 @@ Pre-deploy tests — Run 2 on 2026-04-12:
 - `docs/redesign/BACKEND_SPEC.md` — schema, RLS, API surface, security
 - `docs/redesign/DESIGN_SYSTEM.md` — 4-UI design system, tokens, components
 - `docs/redesign/TEST_AUDIT_PROMPT.md` — pre-deploy test checklist (T0–T13)
-- `docs/DEPLOYMENT.md` — Phase 4 operator runbook (prereqs, cutover, Rule #12 backup gate, rollback, incident playbook)
 - `docs/redesign/E2E_TEST_PLAN.md` — browser-executable test plan (Chrome MCP tools)
 - `docs/redesign/USER_FLOW_DIAGRAM.html` — visual walk-through of MOT tester ↔ mechanic pass-back flow; source of the P51 "one-job, pass-back-as-event" decision (2026-04-14). Open this first for any pass-back work.
 - `docs/redesign/PHASE1_DEFECTS.md` — live defect register (D1–D5 CLOSED)
