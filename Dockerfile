@@ -15,10 +15,12 @@ RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
 # Copy just the lockfile + manifest so this layer caches on source-only
-# edits. `.npmrc*` glob picks up both `.npmrc` and `.npmrc.local` if they
-# exist without failing the build when they don't.
+# edits. The legacy (non-BuildKit) Docker builder errors out when a
+# `COPY .npmrc* ./` glob matches zero files, so we omit it — the repo
+# has never shipped an `.npmrc`. If we ever need one (private registry,
+# CI auth), add it as a tracked file and re-introduce the COPY without
+# a glob.
 COPY package.json pnpm-lock.yaml ./
-COPY .npmrc* ./
 RUN corepack enable \
  && corepack prepare pnpm@10.33.0 --activate \
  && pnpm install --frozen-lockfile --prod=false
