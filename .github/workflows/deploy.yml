@@ -1,0 +1,154 @@
+# ─────────────────────────────────────────────────────────────────────────
+# Deploy workflow (Phase 4)
+#
+# Extends — does not replace — `ci.yml`. Trigger sequence:
+#
+#   push to main
+#     → ci.yml runs (lint-typecheck-test, e2e, prod-env-guard, secret-scan)
+#       → if green, this workflow fires via `workflow_run`
+#         → audit:secrets + STATUS_DEV_BYPASS_SMS guard
+#         → docker buildx build-push to ghcr.io
+#         → POST Dokploy webhook → Dokploy pulls the new image + restarts
+#
+# Required GitHub repo secrets (Hossein adds in Settings → Secrets):
+#   DOKPLOY_WEBHOOK_URL  — https URL from Dokploy's "deploy on push" panel
+#   DOKPLOY_TOKEN        — bearer token issued by Dokploy
+#
+# Required GitHub repo VARIABLES (Settings → Variables — non-secret):
+#   NEXT_PUBLIC_APP_URL         — e.g. https://app.dudleyautoservice.co.uk
+#   NEXT_PUBLIC_STATUS_URL      — e.g. https://status.dudleyautoservice.co.uk
+#   NEXT_PUBLIC_SUPABASE_URL    — https://supabase.oplaris.internal
+#   NEXT_PUBLIC_HCAPTCHA_SITE_KEY — public site key (safe to commit)
+#
+# Required GitHub repo SECRETS for build-args:
+#   NEXT_PUBLIC_SUPABASE_ANON_KEY — anon key is public at runtime but we
+#                                   keep it a secret until deploy so it
+#                                   doesn't leak in PR diffs.
+#
+# Registry auth uses the default GITHUB_TOKEN — no PAT needed.
+# ─────────────────────────────────────────────────────────────────────────
+
+name: deploy
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+
+# Never run two deploys at once — Dokploy's rolling restart assumes one
+# in-flight tag.
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  deploy:
+    # Gate: only proceed if CI on the same commit finished green.
+    if: >-
+      ${{ github.event.workflow_run.conclusion == 'success'
+          && github.event.workflow_run.head_branch == 'main' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Explicitly check out the commit CI ran against, not the
+          # branch head — otherwise a race could deploy an untested
+          # commit if `main` moved between CI finish and this step.
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      # Defence-in-depth against Rule #5: no NEXT_PUBLIC_* may hold a
+      # server-only secret. ci.yml does not run this yet; the deploy
+      # path is the last line before prod, so it runs here.
+      - name: Audit public env leak
+        run: pnpm audit:secrets
+
+      # Defence-in-depth against STAGING_SMS_BYPASS.md §7 — `ci.yml`
+      # already blocks `.env.production*` files containing the flag, but
+      # mirror that here so a direct push to main cannot deploy a
+      # bypass-enabled build even if someone disables prod-env-guard in
+      # ci.yml by accident.
+      - name: Refuse STATUS_DEV_BYPASS_SMS=true for prod
+        run: |
+          for f in .env .env.production .env.production.local; do
+            if [ -f "$f" ] && grep -qE '^STATUS_DEV_BYPASS_SMS=true' "$f"; then
+              echo "::error file=$f::STATUS_DEV_BYPASS_SMS=true is forbidden in production"
+              exit 1
+            fi
+          done
+
+      - name: Setup Docker buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Lowercase the repo name for GHCR (refuses uppercase in the path).
+      - name: Resolve image name
+        id: image
+        run: |
+          repo_lc="$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')"
+          echo "image=ghcr.io/$repo_lc" >> "$GITHUB_OUTPUT"
+
+      # Build + push. NEXT_PUBLIC_* passed as build-args because Next
+      # inlines them at build time — runtime injection can't reach the
+      # client bundle. See Dockerfile stage 2 for the ARG defaults.
+      - name: Build + push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ steps.image.outputs.image }}:${{ github.event.workflow_run.head_sha }}
+            ${{ steps.image.outputs.image }}:latest
+          build-args: |
+            NEXT_PUBLIC_APP_URL=${{ vars.NEXT_PUBLIC_APP_URL }}
+            NEXT_PUBLIC_STATUS_URL=${{ vars.NEXT_PUBLIC_STATUS_URL }}
+            NEXT_PUBLIC_SUPABASE_URL=${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+            NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+            NEXT_PUBLIC_HCAPTCHA_SITE_KEY=${{ vars.NEXT_PUBLIC_HCAPTCHA_SITE_KEY }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Dokploy webhook. No-op if DOKPLOY_WEBHOOK_URL is unset — useful
+      # early in Phase 4 when Hossein has the image tag in GHCR but
+      # hasn't wired the Dokploy project up yet. GHA forbids `secrets.*`
+      # in step-level `if:` expressions, so the presence check runs
+      # inline in the step body.
+      - name: Trigger Dokploy redeploy
+        env:
+          DOKPLOY_WEBHOOK_URL: ${{ secrets.DOKPLOY_WEBHOOK_URL }}
+          DOKPLOY_TOKEN: ${{ secrets.DOKPLOY_TOKEN }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          if [ -z "${DOKPLOY_WEBHOOK_URL:-}" ]; then
+            echo "::notice::DOKPLOY_WEBHOOK_URL unset — skipping webhook (image $HEAD_SHA is in GHCR; Dokploy can pull manually)"
+            exit 0
+          fi
+          curl -fsSL -X POST "$DOKPLOY_WEBHOOK_URL" \
+            -H "Authorization: Bearer $DOKPLOY_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{\"sha\":\"$HEAD_SHA\"}"

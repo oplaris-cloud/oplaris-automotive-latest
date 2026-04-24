@@ -1,0 +1,112 @@
+# ────────────────────────────────────────────────────────────────────────
+# Oplaris Automotive — Dokploy stack definition
+#
+# Dokploy-injection model: this file is the single source of truth for
+# the runtime topology. EVERY environment value comes from Dokploy's own
+# "Environment Variables" UI at deploy time, which materialises them into
+# the compose process environment. The `${VAR}` references below read
+# from that environment — nothing is hard-coded, nothing is committed.
+#
+# Build-time secrets do not exist: NEXT_PUBLIC_* are baked in at
+# `docker build` (see Dockerfile ARGs) and must be passed as `--build-arg`
+# in the GitHub Actions deploy workflow. Server-only secrets are read
+# from the container env at runtime.
+#
+# Adding a new variable requires three edits, always in this order:
+#   1. src/lib/env.ts — add to the zod schema
+#   2. .env.example — document with a comment
+#   3. here — reference it under `environment:`
+# CI's `pnpm audit:secrets` gates #1 + #2; operators notice #3 when the
+# app fails to boot for want of a value.
+# ────────────────────────────────────────────────────────────────────────
+
+services:
+  app:
+    image: ${DOKPLOY_IMAGE:-oplaris-automotive:latest}
+    restart: unless-stopped
+    environment:
+      # ── Node runtime ────────────────────────────────────────────────
+      NODE_ENV: production
+      PORT: "3000"
+      HOSTNAME: "0.0.0.0"
+      NEXT_TELEMETRY_DISABLED: "1"
+
+      # ── App URLs (NEXT_PUBLIC_* inlined at build; listed here so the
+      #    server-side zod schema sees them when it re-reads env at
+      #    first request) ──────────────────────────────────────────────
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
+      NEXT_PUBLIC_STATUS_URL: ${NEXT_PUBLIC_STATUS_URL}
+
+      # ── Supabase ────────────────────────────────────────────────────
+      NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+      SUPABASE_JWT_SECRET: ${SUPABASE_JWT_SECRET}
+
+      # ── Twilio (Dudley's existing account) ──────────────────────────
+      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
+      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
+      TWILIO_FROM_NUMBER: ${TWILIO_FROM_NUMBER:-}
+      TWILIO_WEBHOOK_BASE_URL: ${TWILIO_WEBHOOK_BASE_URL:-}
+
+      # ── DVSA Trade API (OAuth2 + x-api-key) ─────────────────────────
+      DVSA_CLIENT_ID: ${DVSA_CLIENT_ID:-}
+      DVSA_CLIENT_SECRET: ${DVSA_CLIENT_SECRET:-}
+      DVSA_TENANT_ID: ${DVSA_TENANT_ID:-}
+      DVSA_SCOPE: ${DVSA_SCOPE:-}
+      DVSA_API_KEY: ${DVSA_API_KEY:-}
+      DVSA_BASE_URL: ${DVSA_BASE_URL:-}
+      DVSA_HISTORY_BASE_URL: ${DVSA_HISTORY_BASE_URL:-}
+
+      # ── Cryptographic secrets (server-only) ─────────────────────────
+      APPROVAL_HMAC_SECRET: ${APPROVAL_HMAC_SECRET}
+      STATUS_PHONE_PEPPER: ${STATUS_PHONE_PEPPER}
+      KIOSK_PAIRING_SECRET: ${KIOSK_PAIRING_SECRET}
+      NEXT_SERVER_ACTIONS_ENCRYPTION_KEY: ${NEXT_SERVER_ACTIONS_ENCRYPTION_KEY:-}
+
+      # ── hCaptcha ────────────────────────────────────────────────────
+      NEXT_PUBLIC_HCAPTCHA_SITE_KEY: ${NEXT_PUBLIC_HCAPTCHA_SITE_KEY:-}
+      HCAPTCHA_SECRET: ${HCAPTCHA_SECRET:-}
+
+      # ── Dev SMS bypass ──────────────────────────────────────────────
+      # Default false. serverEnv() throws at boot if this is true when
+      # NODE_ENV=production — the container will fail to start rather
+      # than silently run a bypassed production. See
+      # docs/redesign/STAGING_SMS_BYPASS.md.
+      STATUS_DEV_BYPASS_SMS: ${STATUS_DEV_BYPASS_SMS:-false}
+
+      # ── Backups (consumed by scripts/backup.sh in the backup
+      #    sidecar or Dokploy scheduled task; referenced here so a
+      #    single-container Dokploy project still carries them) ────────
+      BACKUP_RCLONE_REMOTE: ${BACKUP_RCLONE_REMOTE:-}
+      BACKUP_AGE_PUBLIC_KEY: ${BACKUP_AGE_PUBLIC_KEY:-}
+
+    ports:
+      - "3000:3000"
+
+    healthcheck:
+      # Node 22 has global fetch. Same probe the Dockerfile runs — belt
+      # and braces so Dokploy's health UI sees the app as up.
+      test:
+        - CMD-SHELL
+        - node -e "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 512M
+
+    # Security: app runs as non-root already (Dockerfile USER nextjs).
+    # Keep the container read-only for extra defence-in-depth — Next.js
+    # writes only to /tmp during rendering, so we mount a tmpfs there.
+    read_only: true
+    tmpfs:
+      - /tmp:size=128m,uid=1001,gid=1001
+    security_opt:
+      - no-new-privileges:true

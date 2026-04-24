@@ -13,7 +13,7 @@
 
 - **Framework:** Next.js 15 (App Router, React Server Components, Server Actions)
 - **Language:** TypeScript strict
-- **DB / Auth / Storage / Realtime:** **self-hosted Supabase** (Postgres 15+) on Oplaris in-house hardware via **Dokploy**
+- **DB / Auth / Storage / Realtime:** **Supabase managed** (Postgres 15+) at supabase.com. App container is Dokploy-hosted; DB + Auth + Storage + Realtime all run on Supabase's infra, not Oplaris hardware. Supabase's daily backups + PITR are the primary line of defence; `scripts/backup.sh` (off-site encrypted `pg_dump` via `rclone`) is belt-and-braces for ransomware / provider-loss scenarios.
 - **Styling:** Tailwind + shadcn/ui
 - **Forms / Validation:** react-hook-form + zod (zod schemas shared client+server)
 - **PDF generation:** `@react-pdf/renderer` (server-side)
@@ -149,7 +149,7 @@ Part of the resale positioning — Dudley is the first showcase, future prospect
 
 **Still pending:** P51.10 migration 034 column drop (~2026-04-28, soak-gated — unchanged).
 
-**Phase 4 — Deploy infrastructure.** Only after Phases 1–3 are green. Hossein provides Dokploy access, staging + prod Supabase URLs + service-role keys, Twilio + DVSA keys, domain + TLS. Claude Code drafts `Dockerfile`, `compose.yml`, `.github/workflows/deploy.yml`, `scripts/backup.sh`. Backups (Rule #12) must have ≥1 tested restore before any production use. Run the T13 checklist in `TEST_AUDIT_PROMPT.md` against the deployed app before proceeding to Phase 5.
+**Phase 4 — Deploy infrastructure.** Only after Phases 1–3 are green. Hossein provides Dokploy access, staging + prod Supabase URLs + service-role keys, Twilio + DVSA keys, domain + TLS. Infrastructure deliverables shipped on branch `feat/phase4-deploy-infra`: `Dockerfile` + `.dockerignore` (multi-stage node:22-alpine, non-root uid 1001, 302 MB image), `src/app/api/health/route.ts`, `compose.yml` (Dokploy-consumable, every runtime env injected), `scripts/backup.sh` + `scripts/restore.sh` (pg_dump → age → rclone, with a prod-URL refusal on restore), `.github/workflows/deploy.yml` (workflow_run-triggered, pushes to GHCR, fires Dokploy webhook), `scripts/pre-deploy-smoke.ts` (`pnpm pre-deploy`). Operator runbook: **`docs/DEPLOYMENT.md`** — Hossein reads it end-to-end before merge. Backups (Rule #12) must have ≥1 tested restore before any production use. Run the T13 checklist in `TEST_AUDIT_PROMPT.md` against the deployed app before proceeding to Phase 5.
 
 **Phase 5 — Production data import (FINAL step).** Real Fluent Forms CSV imports to the production Supabase **AFTER** the app is deployed and smoke-tested. Sequence: wipe/fresh prod domain tables → apply all migrations → dry-run `scripts/import-fluent-forms.ts` → Hossein + Claude Code eyeball diff → `--commit` → T13 smoke test → Dudley staff start using the app. The production DB never sees test data. Script hardening (dry-run, E.164, dedup, diff report) can happen any time during Phases 1–3 so the script is ready when needed.
 
@@ -190,6 +190,19 @@ M2 features — already delivered:
 - [x] **M2.5** GDPR export (full JSON dump inc. job_parts + work_logs via migration 013) + audit log UI
 - [ ] **M2.6** Mobile UX polish + accessibility pass (U17) — deferred post-launch, spec'd in `MASTER_PLAN.md > Part F`
 - [ ] **M2.7** Admin guide + walkthrough video (U18) — deferred post-launch
+
+Phase 4 — deploy infrastructure (branch `feat/phase4-deploy-infra`, not yet merged):
+
+- [x] **P4.1** `next.config.ts` — `output: "standalone"` (Step 1)
+- [x] **P4.2** `Dockerfile` + `.dockerignore` + `src/app/api/health/route.ts` — multi-stage node:22-alpine, non-root uid 1001, 302 MB image, 9 non-zero layers, health endpoint 200 (Step 2)
+- [x] **P4.3** `compose.yml` — Dokploy-consumable, every runtime env injected from `${VAR}`, `read_only` + tmpfs + no-new-privileges defence-in-depth (Step 3)
+- [x] **P4.4** `scripts/backup.sh` — `pg_dump` → `age` → `rclone` (belt-and-braces over Supabase managed's PITR) (Step 4)
+- [x] **P4.5** `scripts/restore.sh` — Rule #12 restore driver; refuses `prod`/`production` URLs with exit 2 (Step 5)
+- [x] **P4.6** `.github/workflows/deploy.yml` — `workflow_run` on CI success → GHCR push → Dokploy webhook; extends `ci.yml` (Step 6)
+- [x] **P4.7** `.env.example` audit + bringing under version control (Step 7)
+- [x] **P4.8** `docs/DEPLOYMENT.md` — operator runbook (Step 8)
+- [x] **P4.9** `scripts/pre-deploy-smoke.ts` + `pnpm pre-deploy` — orchestrates typecheck / lint / test:unit / test:rls / audit:secrets / format:check (Step 9)
+- [ ] **Merge gate** Hossein reads `docs/DEPLOYMENT.md`; migration 052 (PRE_PHASE_4_HARDENING.md RLS sweep + 4 pre-existing lint errors) lands; migration 034 (P51.10 column drop) lands; mechanic/MOT branch lands on main
 
 Pre-deploy tests — Run 2 on 2026-04-12:
 
