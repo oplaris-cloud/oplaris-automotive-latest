@@ -79,6 +79,12 @@ const baseSecurityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // Emit a self-contained server bundle at `.next/standalone/` so the
+  // Docker runtime image can copy just `.next/standalone/` + `.next/static`
+  // + `public/` and drop `node_modules/` entirely. Keeps the image under
+  // 300 MB for Dokploy.
+  output: "standalone",
+
   // Hides the "X-Powered-By: Next.js" fingerprint header
   poweredByHeader: false,
 
