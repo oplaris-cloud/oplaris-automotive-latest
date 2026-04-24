@@ -8,10 +8,19 @@
 # is separate so an rclone outage doesn't leave half-encrypted dumps on
 # disk, and an encryption failure doesn't push plaintext off-site.
 #
+# Belt-and-braces: Supabase managed already runs daily backups + PITR
+# on Pro+. This script writes an INDEPENDENT, encrypted, off-site copy
+# so provider-wide incidents (outage, account lockout, ransomware via
+# legit creds) are recoverable. Not a replacement for Supabase's own
+# dashboard-based restore, which stays the primary rollback.
+#
 # Required env (Dokploy "Scheduled Task" UI):
-#   DATABASE_URL             — direct libpq connection string; prefers the
-#                              read-replica if one exists (e.g.
-#                              postgres://backup@replica.internal:5432/db)
+#   DATABASE_URL             — direct Postgres connection string from
+#                              Supabase dashboard → Project Settings →
+#                              Database → Connection string (use the
+#                              "Session" pooler URL with the service-role
+#                              password, NOT the pgbouncer transaction
+#                              pooler — pg_dump needs prepared statements)
 #   BACKUP_AGE_PUBLIC_KEY    — recipient public key; the matching identity
 #                              lives OFFLINE (USB / 1Password), never in
 #                              the app/backup container

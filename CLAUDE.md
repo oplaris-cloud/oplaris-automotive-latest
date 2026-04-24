@@ -13,7 +13,7 @@
 
 - **Framework:** Next.js 15 (App Router, React Server Components, Server Actions)
 - **Language:** TypeScript strict
-- **DB / Auth / Storage / Realtime:** **self-hosted Supabase** (Postgres 15+) on Oplaris in-house hardware via **Dokploy**
+- **DB / Auth / Storage / Realtime:** **Supabase managed** (Postgres 15+) at supabase.com. App container is Dokploy-hosted; DB + Auth + Storage + Realtime all run on Supabase's infra, not Oplaris hardware. Supabase's daily backups + PITR are the primary line of defence; `scripts/backup.sh` (off-site encrypted `pg_dump` via `rclone`) is belt-and-braces for ransomware / provider-loss scenarios.
 - **Styling:** Tailwind + shadcn/ui
 - **Forms / Validation:** react-hook-form + zod (zod schemas shared client+server)
 - **PDF generation:** `@react-pdf/renderer` (server-side)
@@ -149,7 +149,7 @@ Part of the resale positioning — Dudley is the first showcase, future prospect
 
 **Still pending:** P51.10 migration 034 column drop (~2026-04-28, soak-gated — unchanged).
 
-**Phase 4 — Deploy infrastructure.** Only after Phases 1–3 are green. Hossein provides Dokploy access, staging + prod Supabase URLs + service-role keys, Twilio + DVSA keys, domain + TLS. Claude Code drafts `Dockerfile`, `compose.yml`, `.github/workflows/deploy.yml`, `scripts/backup.sh`. Backups (Rule #12) must have ≥1 tested restore before any production use. Run the T13 checklist in `TEST_AUDIT_PROMPT.md` against the deployed app before proceeding to Phase 5.
+**Phase 4 — Deploy infrastructure.** Only after Phases 1–3 are green. Hossein provides Dokploy access, staging + prod Supabase URLs + service-role keys, Twilio + DVSA keys, domain + TLS. Infrastructure deliverables shipped on branch `feat/phase4-deploy-infra`: `Dockerfile` + `.dockerignore` (multi-stage node:22-alpine, non-root uid 1001, 302 MB image), `src/app/api/health/route.ts`, `compose.yml` (Dokploy-consumable, every runtime env injected), `scripts/backup.sh` + `scripts/restore.sh` (pg_dump → age → rclone, with a prod-URL refusal on restore), `.github/workflows/deploy.yml` (workflow_run-triggered, pushes to GHCR, fires Dokploy webhook), `scripts/pre-deploy-smoke.ts` (`pnpm pre-deploy`). Operator runbook: **`docs/DEPLOYMENT.md`** — Hossein reads it end-to-end before merge. Backups (Rule #12) must have ≥1 tested restore before any production use. Run the T13 checklist in `TEST_AUDIT_PROMPT.md` against the deployed app before proceeding to Phase 5.
 
 **Phase 5 — Production data import (FINAL step).** Real Fluent Forms CSV imports to the production Supabase **AFTER** the app is deployed and smoke-tested. Sequence: wipe/fresh prod domain tables → apply all migrations → dry-run `scripts/import-fluent-forms.ts` → Hossein + Claude Code eyeball diff → `--commit` → T13 smoke test → Dudley staff start using the app. The production DB never sees test data. Script hardening (dry-run, E.164, dedup, diff report) can happen any time during Phases 1–3 so the script is ready when needed.
 
@@ -205,6 +205,7 @@ Pre-deploy tests — Run 2 on 2026-04-12:
 - `docs/redesign/BACKEND_SPEC.md` — schema, RLS, API surface, security
 - `docs/redesign/DESIGN_SYSTEM.md` — 4-UI design system, tokens, components
 - `docs/redesign/TEST_AUDIT_PROMPT.md` — pre-deploy test checklist (T0–T13)
+- `docs/DEPLOYMENT.md` — Phase 4 operator runbook (prereqs, cutover, Rule #12 backup gate, rollback, incident playbook)
 - `docs/redesign/E2E_TEST_PLAN.md` — browser-executable test plan (Chrome MCP tools)
 - `docs/redesign/USER_FLOW_DIAGRAM.html` — visual walk-through of MOT tester ↔ mechanic pass-back flow; source of the P51 "one-job, pass-back-as-event" decision (2026-04-14). Open this first for any pass-back work.
 - `docs/redesign/PHASE1_DEFECTS.md` — live defect register (D1–D5 CLOSED)
