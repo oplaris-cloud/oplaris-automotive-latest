@@ -31,6 +31,7 @@ import {
   workedSeconds,
   type ActiveWorkLogForTimer,
 } from "./work-log-timer";
+import { TechSecondaryActions } from "./TechSecondaryActions";
 
 const TASK_TYPES = [
   { value: "diagnosis", label: "Diagnosis" },
@@ -186,11 +187,11 @@ export function TechJobClient({
               {customerPhone && (
                 <Button
                   asChild
-                  size="sm"
+                  size="lg"
                   className="mt-2 w-full"
                 >
                   <a href={`tel:${customerPhone}`}>
-                    <Phone className="h-4 w-4" />
+                    <Phone className="h-5 w-5" />
                     Call
                   </a>
                 </Button>
@@ -232,6 +233,11 @@ export function TechJobClient({
         </Card>
       )}
 
+      {/* Secondary actions (F2 / DESIGN_SYSTEM §4.3) — only while a
+          work_log is active. Add note ships disabled in 2a; 2b lands
+          the real migration-050 path. */}
+      {isWorking ? <TechSecondaryActions jobId={jobId} /> : null}
+
       {/* Action buttons */}
       {!isWorking ? (
         <div className="space-y-3">
@@ -249,7 +255,7 @@ export function TechJobClient({
                   <Button
                     key={t.value}
                     type="button"
-                    size="sm"
+                    size="default"
                     variant={active ? "default" : "outline"}
                     role="radio"
                     aria-checked={active}
@@ -305,7 +311,7 @@ export function TechJobClient({
               onClick={handlePause}
               disabled={isPending}
               variant="outline"
-              className="flex-1 border-warning text-warning"
+              className="flex-1 border-warning text-foreground"
             >
               <Pause />
               {isPending ? "..." : "Pause"}

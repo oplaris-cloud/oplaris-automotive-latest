@@ -64,7 +64,7 @@ export function ExpiredMotList({ rows }: { rows: ExpiredMotRow[] }) {
                 <span
                   className={
                     r.daysOverdue > 30
-                      ? "text-xs font-semibold text-warning"
+                      ? "text-xs font-semibold text-foreground"
                       : "text-xs text-muted-foreground"
                   }
                 >
@@ -131,7 +131,7 @@ export function ExpiredMotList({ rows }: { rows: ExpiredMotRow[] }) {
                   <TableCell
                     className={
                       r.daysOverdue > 30
-                        ? "text-right font-semibold text-warning"
+                        ? "text-right font-semibold text-foreground"
                         : "text-right"
                     }
                   >

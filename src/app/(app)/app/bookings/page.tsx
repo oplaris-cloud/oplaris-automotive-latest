@@ -103,7 +103,7 @@ export default async function BookingsPage() {
                     ) : null}
                   </div>
                   {summary ? (
-                    <div className="mt-2 text-xs text-warning">
+                    <div className="mt-2 inline-block rounded-md bg-warning/15 px-2 py-1 text-xs text-foreground">
                       {summary}
                       {b.passback_note ? ` — ${b.passback_note}` : ""}
                     </div>
@@ -165,7 +165,7 @@ export default async function BookingsPage() {
                         {b.customer_phone}
                       </div>
                       {summary ? (
-                        <div className="mt-1 text-xs text-warning">
+                        <div className="mt-1 inline-block rounded-md bg-warning/15 px-2 py-1 text-xs text-foreground">
                           {summary}
                           {b.passback_note ? ` — ${b.passback_note}` : ""}
                         </div>

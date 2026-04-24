@@ -131,7 +131,7 @@ export function MotHistorySection({
                       EXPIRED
                     </div>
                   ) : expiringSoon ? (
-                    <div className="mt-1 text-xs font-semibold text-warning">
+                    <div className="mt-1 text-xs font-semibold text-foreground">
                       Due within 30 days
                     </div>
                   ) : null}

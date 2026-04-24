@@ -6,8 +6,10 @@ import { requireStaffSession } from "@/lib/auth/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { PageContainer } from "@/components/app/page-container";
 import { TechJobClient } from "./TechJobClient";
+import { PassbackContextCard } from "./PassbackContextCard";
 import { JobActivity } from "@/app/(app)/app/jobs/[id]/JobActivity";
 import { JobDetailRealtime } from "@/lib/realtime/shims";
+import type { PassbackItem } from "@/lib/constants/passback-items";
 
 interface TechJobDetailProps {
   params: Promise<{ id: string }>;
@@ -48,6 +50,23 @@ export default async function TechJobDetailPage({ params }: TechJobDetailProps) 
     .is("ended_at", null)
     .maybeSingle();
 
+  // Audit F5 — Pass-back context for the mechanic. Skip the query
+  // entirely if the viewer has no mechanic role; mot_testers don't
+  // need to see their own pass-back echoed back, and managers use
+  // /app/jobs/[id] for oversight. Cross-garage isolation is enforced
+  // by the job_passbacks_select RLS policy, not by this gate.
+  const showPassback = session.roles.includes("mechanic");
+  const { data: openPassback } = showPassback
+    ? await supabase
+        .from("job_passbacks")
+        .select("items, note, created_at, from_role")
+        .eq("job_id", id)
+        .is("returned_at", null)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle()
+    : { data: null };
+
   return (
     <PageContainer width="narrow" className="pb-8">
       <JobDetailRealtime jobId={job.id} />
@@ -57,6 +76,15 @@ export default async function TechJobDetailPage({ params }: TechJobDetailProps) 
       >
         <ArrowLeft className="h-4 w-4" /> Back to My Work
       </Link>
+
+      {openPassback ? (
+        <PassbackContextCard
+          items={openPassback.items as PassbackItem[] | null}
+          note={openPassback.note}
+          createdAt={openPassback.created_at}
+          fromRole={openPassback.from_role}
+        />
+      ) : null}
 
       <TechJobClient
         jobId={job.id}

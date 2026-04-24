@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { ArrowRightLeft, UserCheck, Wrench } from "lucide-react";
+import { ArrowRightLeft, Phone, UserCheck, Wrench } from "lucide-react";
 
-import { requireStaffSession } from "@/lib/auth/session";
+import { requireStaffSession, type StaffRole } from "@/lib/auth/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -22,7 +22,7 @@ import {
   getCategoryStyles,
   type ServiceKind,
 } from "@/lib/constants/service-categories";
-import { formatWorkLogTime } from "@/lib/format";
+import { formatPhone, formatWorkLogTime } from "@/lib/format";
 
 import { listOpenCheckIns, type OpenCheckIn } from "../bookings/actions";
 import { StartMotButton } from "../bookings/StartMotButton";
@@ -38,7 +38,7 @@ interface AssignedJob {
   service: string | null;
   awaiting_passback: boolean;
   vehicle: { registration: string; make: string | null; model: string | null } | null;
-  customer: { full_name: string } | null;
+  customer: { full_name: string; phone: string | null } | null;
   activeSince: string | null;
 }
 
@@ -64,7 +64,7 @@ export default async function MyWorkPage() {
        jobs!job_id (
          id, job_number, status, description, service, awaiting_passback,
          vehicles!vehicle_id ( registration, make, model ),
-         customers!customer_id ( full_name )
+         customers!customer_id ( full_name, phone )
        )`,
     )
     .eq("staff_id", session.userId);
@@ -134,7 +134,7 @@ export default async function MyWorkPage() {
         `id, job_number, status, description, service, awaiting_passback,
          updated_at,
          vehicles!vehicle_id ( registration, make, model ),
-         customers!customer_id ( full_name ),
+         customers!customer_id ( full_name, phone ),
          job_assignments ( staff_id, staff:staff!staff_id ( roles ) )`,
       )
       .eq("current_role", "mechanic")
@@ -230,6 +230,7 @@ export default async function MyWorkPage() {
               <CheckInRow
                 key={`b-${c.id}`}
                 checkIn={c}
+                roles={session.roles}
                 canStartMot={
                   c.service === "mot" &&
                   (isManager || session.roles.includes("mot_tester"))
@@ -332,6 +333,19 @@ function JobRow({ job, href }: { job: AssignedJob; href: string }) {
             </div>
           ) : null}
 
+          {/* Line 4b — tap-to-call (audit F7). stopPropagation prevents
+              the tap from activating the outer Link to the job detail. */}
+          {job.customer?.phone ? (
+            <a
+              href={`tel:${job.customer.phone}`}
+              onClick={(e) => e.stopPropagation()}
+              className="mt-2 inline-flex min-h-11 items-center gap-2 text-sm text-primary underline-offset-4 hover:underline"
+              aria-label={`Call ${job.customer.full_name}`}
+            >
+              <Phone className="h-4 w-4" /> {formatPhone(job.customer.phone)}
+            </a>
+          ) : null}
+
           {/* Line 5 — description */}
           {job.description ? (
             <div className="mt-2 text-sm">{job.description.slice(0, 120)}</div>
@@ -391,10 +405,12 @@ function PassbackRow({ job }: { job: AssignedJob }) {
 
 function CheckInRow({
   checkIn,
+  roles,
   canStartMot,
   canStartWork,
 }: {
   checkIn: OpenCheckIn;
+  roles: readonly StaffRole[];
   canStartMot: boolean;
   canStartWork: boolean;
 }) {
@@ -413,6 +429,20 @@ function CheckInRow({
           <div className="min-w-0 flex-1">
             {/* Line 1 — customer name is the identifier */}
             <div className="font-medium">{checkIn.customer_name}</div>
+
+            {/* Line 1b — tap-to-call (audit F7). Check-in cards aren't
+                wrapped in an outer Link, so stopPropagation is belt-only;
+                kept for symmetry with JobRow's anchor. */}
+            {checkIn.customer_phone ? (
+              <a
+                href={`tel:${checkIn.customer_phone}`}
+                onClick={(e) => e.stopPropagation()}
+                className="mt-1 inline-flex min-h-11 items-center gap-2 text-sm text-primary underline-offset-4 hover:underline"
+                aria-label={`Call ${checkIn.customer_name}`}
+              >
+                <Phone className="h-4 w-4" /> {formatPhone(checkIn.customer_phone)}
+              </a>
+            ) : null}
 
             {/* Line 2 — category chips */}
             <div className="mt-1 flex flex-wrap items-center gap-1.5">
@@ -437,7 +467,7 @@ function CheckInRow({
 
             {/* Line 4 — checklist summary / free-form notes */}
             {summary ? (
-              <div className="mt-1 text-xs text-warning">
+              <div className="mt-1 inline-block rounded-md bg-warning/15 px-2 py-1 text-xs text-foreground">
                 {summary}
                 {checkIn.passback_note ? ` — ${checkIn.passback_note}` : ""}
               </div>
@@ -452,10 +482,18 @@ function CheckInRow({
           {/* Category-coloured primary action on the right */}
           <div className="flex shrink-0 flex-wrap items-center gap-2">
             {canStartMot ? (
-              <StartMotButton bookingId={checkIn.id} className={styles.button} />
+              <StartMotButton
+                bookingId={checkIn.id}
+                roles={roles}
+                className={styles.button}
+              />
             ) : null}
             {canStartWork ? (
-              <StartWorkButton bookingId={checkIn.id} className={styles.button} />
+              <StartWorkButton
+                bookingId={checkIn.id}
+                roles={roles}
+                className={styles.button}
+              />
             ) : null}
           </div>
         </div>
