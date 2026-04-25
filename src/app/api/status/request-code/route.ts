@@ -4,6 +4,7 @@ import { createHash, randomInt } from "node:crypto";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { checkRateLimit } from "@/lib/security/rate-limit";
 import { normaliseRegistration } from "@/lib/validation/registration";
+import { normalisePhoneSafe } from "@/lib/validation/phone";
 import { serverEnv } from "@/lib/env";
 import { queueSms } from "@/lib/sms/queue";
 
@@ -78,7 +79,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 min
 
   // Only store + send if phone matches
-  const phoneMatches = customerPhone && normalisePhoneSimple(rawPhone) === customerPhone;
+  const normalisedInput = normalisePhoneSafe(rawPhone);
+  const phoneMatches = !!(customerPhone && normalisedInput && normalisedInput === customerPhone);
   // STAGING_SMS_BYPASS — dev/staging only. Gated both by the env var
   // AND a belt-and-braces `NODE_ENV !== production` check so a
   // misconfiguration can't leak codes in prod. The env-parse guard in
@@ -154,18 +156,11 @@ function hash(input: string): string {
   return createHash("sha256").update(input).digest("hex");
 }
 
-/**
- * Extremely simple phone normalisation for matching — just strip
- * non-digits and prepend +44 if starts with 0. Good enough for the
- * same-response-shape comparison; the real normalisation is done at
- * customer create time.
- */
-function normalisePhoneSimple(raw: string): string {
-  const digits = raw.replace(/\D/g, "");
-  if (digits.startsWith("0")) return "+44" + digits.slice(1);
-  if (digits.startsWith("44")) return "+" + digits;
-  return "+" + digits;
-}
+// Phone normalisation now goes through `normalisePhoneSafe` from
+// `@/lib/validation/phone` so the same parser/validator gates the entry
+// point as the customer create/update path — a number that parses there
+// must parse here. Anti-enumeration shape preserved by the safe variant
+// (returns null instead of throwing).
 
 /**
  * Pad response time to ~250ms ± jitter to prevent timing side-channels

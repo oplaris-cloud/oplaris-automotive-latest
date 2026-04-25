@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { requireManager } from "@/lib/auth/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { normalisePhone } from "@/lib/validation/phone";
+import { normalisePhone, PhoneParseError } from "@/lib/validation/phone";
 import {
   createCustomerSchema,
   updateCustomerSchema,
@@ -40,8 +40,11 @@ export async function createCustomer(
   let phone: string;
   try {
     phone = normalisePhone(parsed.data.phone);
-  } catch {
-    return { ok: false, fieldErrors: { phone: "Invalid UK phone number" } };
+  } catch (e) {
+    if (e instanceof PhoneParseError) {
+      return { ok: false, fieldErrors: { phone: "Invalid UK phone number" } };
+    }
+    throw e;
   }
 
   const supabase = await createSupabaseServerClient();
@@ -95,8 +98,11 @@ export async function updateCustomer(
   if (parsed.data.phone !== undefined) {
     try {
       updates.phone = normalisePhone(parsed.data.phone);
-    } catch {
-      return { ok: false, fieldErrors: { phone: "Invalid UK phone number" } };
+    } catch (e) {
+      if (e instanceof PhoneParseError) {
+        return { ok: false, fieldErrors: { phone: "Invalid UK phone number" } };
+      }
+      throw e;
     }
   }
   if (parsed.data.email !== undefined) updates.email = parsed.data.email || null;

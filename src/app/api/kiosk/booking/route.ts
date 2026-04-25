@@ -4,6 +4,7 @@ import { z } from "zod";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { verifyKioskCookie } from "@/lib/security/kiosk-cookie";
 import { checkRateLimit } from "@/lib/security/rate-limit";
+import { normalisePhone, PhoneParseError } from "@/lib/validation/phone";
 
 const bookingSchema = z.object({
   service: z.enum(["mot", "electrical", "maintenance"]),
@@ -47,6 +48,28 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     );
   }
 
+  // P2.1 — normalise the phone to E.164 at the door so every downstream
+  // consumer (booking row, future customer record, queueSms when the
+  // booking is promoted to a job) sees a single canonical shape. Bad
+  // input gets a typed 400 the kiosk client can map to a phone-field
+  // toast — we don't want to plant a malformed `customer_phone` on the
+  // bookings row and have Twilio reject the OTP three steps later.
+  let normalisedPhone: string;
+  try {
+    normalisedPhone = normalisePhone(parsed.data.customerPhone);
+  } catch (e) {
+    if (e instanceof PhoneParseError) {
+      return NextResponse.json(
+        {
+          error: "Invalid phone number",
+          fieldErrors: { customerPhone: "Please enter a valid UK phone number" },
+        },
+        { status: 400 },
+      );
+    }
+    throw e;
+  }
+
   const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
   const userAgent = request.headers.get("user-agent") ?? null;
 
@@ -87,7 +110,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       source: "kiosk",
       service: parsed.data.service,
       customer_name: parsed.data.customerName,
-      customer_phone: parsed.data.customerPhone,
+      customer_phone: normalisedPhone,
       customer_email: parsed.data.customerEmail || null,
       registration: normalisedReg,
       make: parsed.data.make || null,
