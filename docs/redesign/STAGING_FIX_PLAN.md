@@ -327,6 +327,11 @@ Not in scope for this plan; logged here so it doesn't get lost.
 
 ### P2.1 — Twilio hardening `6gRmF2xrXvGJPQ4p`
 
+**Status:** ✓ shipped 2026-04-25 in three commits.
+    ✓ dad957f 2026-04-25 — server-side: PhoneParseError + normalisePhoneSafe + isValidPhoneNumberInput; status-page duplicate normaliser removed; kiosk endpoint normalises before insert with typed 400.
+    ✓ 01d9bd6 2026-04-25 — `<PhoneInput>` primitive (+44 prefix, AsYouType, isValid gate) + kiosk integration.
+    ✓ 9e9b7a2 2026-04-25 — status-page integration; Send button now gated on phoneValid + reg.
+
 Depends on P0.2 (outbox path working).
 
 - Server: wrap every Twilio-bound phone in `libphonenumber-js`'s
