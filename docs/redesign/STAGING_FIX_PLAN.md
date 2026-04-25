@@ -386,6 +386,18 @@ already had the Retry button. Migration 054 closes the remaining gaps:
 
 ### P2.3 — SMS templates settings page `6gRmH78FwCV5262G`
 
+**Status:** ✓ shipped 2026-04-25 (`f2afae1`). Migration number bumped
+to 055 (054 already taken by the SMS retry queue). Three templates
+seeded with the byte-identical hardcoded strings; renderer wired into
+`/api/status/request-code` (status_code) and `/app/jobs/approvals`
+action (approval_request); mot_reminder wired into the helper but
+inert until the dispatcher cron lands. Manager-only `/app/settings/sms`
+page renders three editor cards with a side-by-side live preview that
+tints filled vars (primary) vs unfilled (warning) so the manager can
+see what's substituted at glance. 9 new unit tests + 269/269 green.
+
+    ✓ f2afae1 2026-04-25
+
 - **Migration 054** `sms_templates`: `(garage_id uuid, template_key text,
   body text, updated_at timestamptz, primary key (garage_id, template_key))`.
   RLS: manager-read, manager-write, per-garage. Seed three keys on
