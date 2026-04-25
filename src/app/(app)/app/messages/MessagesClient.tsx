@@ -93,6 +93,9 @@ const STATUS_LABEL: Record<SmsStatus, string> = {
   sent: "Sent",
   delivered: "Delivered",
   failed: "Failed",
+  // P2.2 — auto-retry exhausted; manager intervention recommended.
+  // Manual Retry from the row actions still works.
+  failed_final: "Failed (no retry)",
   cancelled: "Cancelled",
 };
 
@@ -101,6 +104,10 @@ const STATUS_CLASS: Record<SmsStatus, string> = {
   sent: "bg-info/15 text-info",
   delivered: "bg-success/15 text-success",
   failed: "bg-destructive/10 text-destructive",
+  // Same destructive tint as `failed` so both flag the manager's eye,
+  // with a heavier border to distinguish "auto-retry over" from
+  // "still being retried".
+  failed_final: "bg-destructive/15 text-destructive ring-1 ring-destructive/30",
   cancelled: "bg-muted text-muted-foreground",
 };
 
@@ -406,7 +413,7 @@ function StatusBadge({ status }: { status: SmsStatus }) {
       ? Hourglass
       : status === "delivered"
         ? CheckCircle2
-        : status === "failed"
+        : status === "failed" || status === "failed_final"
           ? XCircle
           : status === "cancelled"
             ? XCircle
@@ -460,7 +467,10 @@ interface RowActionsProps {
 }
 
 function RowActions({ row, onRetry, onCancel }: RowActionsProps) {
-  const canRetry = row.status === "failed";
+  // failed_final means "cron has given up auto-retrying" — manual
+  // intervention is the whole point of the state, so the Retry action
+  // stays available. Manager can still re-fire (creates a fresh row).
+  const canRetry = row.status === "failed" || row.status === "failed_final";
   const canCancel = row.status === "queued";
   const hasVehicle = row.vehicleId !== null;
   const hasJob = row.jobId !== null;

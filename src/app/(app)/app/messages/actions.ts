@@ -28,7 +28,13 @@ import type { ActionResult } from "../customers/actions";
 // Types
 // ---------------------------------------------------------------------------
 
-export type SmsStatus = "queued" | "sent" | "delivered" | "failed" | "cancelled";
+export type SmsStatus =
+  | "queued"
+  | "sent"
+  | "delivered"
+  | "failed"
+  | "failed_final"
+  | "cancelled";
 
 export interface MessageRow {
   id: string;
@@ -96,7 +102,10 @@ export async function getMessageKpis(): Promise<MessageKpis> {
     supabase
       .from("sms_outbox")
       .select("id", { count: "exact", head: true })
-      .eq("status", "failed"),
+      // P2.2 — Failed KPI counts both auto-retry-exhausted and still-
+      // retrying rows. Both want the manager's attention; the
+      // distinction is "is the cron still working on it?".
+      .in("status", ["failed", "failed_final"]),
     supabase
       .from("sms_outbox")
       .select("id", { count: "exact", head: true })
