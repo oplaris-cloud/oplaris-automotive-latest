@@ -10,6 +10,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { RegPlateInput } from "@/components/ui/reg-plate";
 import { GarageLogo } from "@/components/ui/garage-logo";
 import { PatternBackground } from "@/components/ui/pattern-background";
+import { PhoneInput } from "@/components/ui/phone-input";
 
 type Service = "mot" | "electrical" | "maintenance";
 type Step = "service" | "details" | "confirm" | "done";
@@ -32,6 +33,7 @@ export function KioskClient({ brand }: KioskClientProps) {
   const [service, setService] = useState<Service | null>(null);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [phoneValid, setPhoneValid] = useState(false);
   const [email, setEmail] = useState("");
   const [reg, setReg] = useState("");
   const [make, setMake] = useState("");
@@ -51,6 +53,7 @@ export function KioskClient({ brand }: KioskClientProps) {
     setService(null);
     setName("");
     setPhone("");
+    setPhoneValid(false);
     setEmail("");
     setReg("");
     setMake("");
@@ -201,7 +204,16 @@ export function KioskClient({ brand }: KioskClientProps) {
             </div>
             <div>
               <Label htmlFor="kiosk-phone" className="text-base">Phone</Label>
-              <Input id="kiosk-phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className="mt-1 text-lg" placeholder="07911 123456" autoComplete="tel" />
+              <div className="mt-1">
+                <PhoneInput
+                  id="kiosk-phone"
+                  value={phone}
+                  onChange={setPhone}
+                  onValidChange={setPhoneValid}
+                  required
+                  inputClassName="text-lg"
+                />
+              </div>
             </div>
             <div>
               <Label htmlFor="kiosk-email" className="text-base">Email (optional)</Label>
@@ -233,7 +245,7 @@ export function KioskClient({ brand }: KioskClientProps) {
             {error && <p className="text-sm text-destructive">{error}</p>}
             <div className="flex gap-3 pt-2">
               <Button variant="outline" className="flex-1 text-lg py-6" onClick={() => setStep("service")}>Back</Button>
-              <Button className="flex-1 text-lg py-6" disabled={!name || !phone || !reg} onClick={() => setStep("confirm")}>Continue</Button>
+              <Button className="flex-1 text-lg py-6" disabled={!name || !phoneValid || !reg} onClick={() => setStep("confirm")}>Continue</Button>
             </div>
           </CardContent>
         </Card>
