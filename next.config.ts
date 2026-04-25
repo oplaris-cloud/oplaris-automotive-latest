@@ -25,25 +25,27 @@ import type { NextConfig } from "next";
  */
 const isDev = process.env.NODE_ENV === "development";
 
-const supabaseOrigin = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
-const supabaseHost = (() => {
-  if (!supabaseOrigin) return "";
-  try {
-    const url = new URL(supabaseOrigin);
-    return `${url.protocol}//${url.host}`;
-  } catch {
-    return "";
-  }
-})();
-const supabaseWs = supabaseHost.replace(/^http/, "ws");
+// Supabase Cloud allow-list. Hardcoded as `*.supabase.co` rather than
+// derived from NEXT_PUBLIC_SUPABASE_URL so the CSP is correct regardless
+// of whether build args reach the Dockerfile. (Reading from env at build
+// time froze `http://localhost:54321` into the CSP because the Dokploy
+// pipeline doesn't pass --build-arg by default.) Self-hosted Supabase
+// installs would need an explicit override here.
+const SUPABASE_HTTPS = "https://*.supabase.co";
+const SUPABASE_WSS = "wss://*.supabase.co";
 
 const cspDirectives = [
   "default-src 'self'",
-  `script-src 'self'${isDev ? " 'unsafe-eval' 'unsafe-inline'" : ""}`,
+  // 'unsafe-inline' is required for Next.js App Router's hydration bootstrap
+  // scripts (RSC flight payloads, chunk preload manifest). Without it the
+  // app ships dead — server HTML renders fine but no JS runs, so every
+  // onClick/useState/useEffect is silently inert. Switch to a middleware-
+  // generated nonce in a follow-up to tighten this back down.
+  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
   "style-src 'self' 'unsafe-inline'",
-  `img-src 'self' blob: data:${supabaseHost ? ` ${supabaseHost}` : ""}`,
+  `img-src 'self' blob: data: ${SUPABASE_HTTPS}`,
   "font-src 'self' data:",
-  `connect-src 'self'${supabaseHost ? ` ${supabaseHost}` : ""}${supabaseWs ? ` ${supabaseWs}` : ""}`,
+  `connect-src 'self' ${SUPABASE_HTTPS} ${SUPABASE_WSS}`,
   "frame-ancestors 'none'",
   "frame-src 'none'",
   "object-src 'none'",
@@ -123,22 +125,18 @@ const nextConfig: NextConfig = {
   // next/image allow-list. Garage logos live in Supabase Storage under the
   // `garage-logos` bucket; <BrandLogo /> renders them via next/image, which
   // refuses any remote host not declared here (responds 400 to /_next/image).
-  // The host is read from NEXT_PUBLIC_SUPABASE_URL at build time, falling
-  // back to the staging project so dev builds with `pnpm build` still work.
-  images: (() => {
-    const host = supabaseHost ? new URL(supabaseHost).hostname : null;
-    return {
-      remotePatterns: host
-        ? [
-            {
-              protocol: "https",
-              hostname: host,
-              pathname: "/storage/v1/object/public/garage-logos/**",
-            },
-          ]
-        : [],
-    };
-  })(),
+  // Hardcoded `*.supabase.co` for the same reason as the CSP block above —
+  // build-time env reads aren't reliable when build args aren't threaded
+  // through Dokploy.
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "*.supabase.co",
+        pathname: "/storage/v1/object/public/garage-logos/**",
+      },
+    ],
+  },
 
   async headers() {
     return [
