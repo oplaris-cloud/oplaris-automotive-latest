@@ -7,13 +7,20 @@ import { X, Plus } from "lucide-react";
 import { assignBay, assignTech, unassignTech } from "../actions";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { StaffRoleIcons } from "@/components/ui/staff-role-icons";
+
+interface StaffRow {
+  id: string;
+  full_name: string;
+  roles: string[] | null;
+}
 
 interface TeamManagerProps {
   jobId: string;
   currentBayId: string | null;
   bays: { id: string; name: string }[];
-  assignedStaff: { id: string; full_name: string }[];
-  allStaff: { id: string; full_name: string }[];
+  assignedStaff: StaffRow[];
+  allStaff: StaffRow[];
 }
 
 export function TeamManager({
@@ -86,6 +93,7 @@ export function TeamManager({
           {assignedStaff.map((s) => (
             <Badge key={s.id} variant="secondary" className="gap-1 pr-1 text-xs">
               {s.full_name}
+              <StaffRoleIcons roles={s.roles} />
               <button
                 onClick={() => handleUnassign(s.id)}
                 disabled={isPending}

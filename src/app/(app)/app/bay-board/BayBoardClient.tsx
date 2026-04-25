@@ -12,6 +12,7 @@ import { GripVertical } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Stack } from "@/components/ui/stack";
+import { StaffRoleIcons } from "@/components/ui/staff-role-icons";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { cn } from "@/lib/utils";
 import type { BayWithJobs, BayJob } from "../jobs/actions";
@@ -184,9 +185,12 @@ export function BayBoardClient({ initialBays }: BayBoardClientProps) {
                                             {job.assignments.map((a, i) => (
                                               <span
                                                 key={i}
-                                                className="rounded-full bg-muted px-2 py-1 text-xs"
+                                                className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-1 text-xs"
                                               >
                                                 {a.staff.full_name}
+                                                <StaffRoleIcons
+                                                  roles={a.staff.roles}
+                                                />
                                               </span>
                                             ))}
                                           </div>

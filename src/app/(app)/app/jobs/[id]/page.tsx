@@ -108,8 +108,10 @@ export default async function JobDetailPage({ params }: JobDetailProps) {
       ? supabase.from("bays").select("id, name").order("position")
       : Promise.resolve({ data: [] as { id: string; name: string }[] }),
     isManager
-      ? supabase.from("staff").select("id, full_name").order("full_name")
-      : Promise.resolve({ data: [] as { id: string; full_name: string }[] }),
+      ? supabase.from("staff").select("id, full_name, roles").order("full_name")
+      : Promise.resolve({
+          data: [] as { id: string; full_name: string; roles: string[] | null }[],
+        }),
     isManager
       ? supabase
           .from("job_charges")
@@ -290,7 +292,11 @@ export default async function JobDetailPage({ params }: JobDetailProps) {
                 currentBayId={job.bay_id ?? null}
                 bays={(allBays.data ?? []) as { id: string; name: string }[]}
                 assignedStaff={assignedStaff}
-                allStaff={(allStaff.data ?? []) as { id: string; full_name: string }[]}
+                allStaff={(allStaff.data ?? []) as {
+                  id: string;
+                  full_name: string;
+                  roles: string[] | null;
+                }[]}
               />
             ) : (
               <>
@@ -322,7 +328,11 @@ export default async function JobDetailPage({ params }: JobDetailProps) {
           isManager
             ? {
                 garageId: session.garageId,
-                staff: (allStaff.data ?? []) as { id: string; full_name: string }[],
+                staff: (allStaff.data ?? []) as {
+                  id: string;
+                  full_name: string;
+                  roles: string[] | null;
+                }[],
               }
             : null
         }

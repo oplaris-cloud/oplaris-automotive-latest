@@ -249,7 +249,7 @@ export async function getBayBoard(): Promise<{
         id, job_number, status, description, estimated_ready_at,
         customer:customers!customer_id ( id, full_name, phone ),
         vehicle:vehicles!vehicle_id ( id, registration, make, model ),
-        assignments:job_assignments ( staff:staff!staff_id ( id, full_name ) ),
+        assignments:job_assignments ( staff:staff!staff_id ( id, full_name, roles ) ),
         work_logs:work_logs ( id, staff_id, task_type, started_at, ended_at )
       )
     `,
@@ -282,7 +282,9 @@ export interface BayJob {
     make: string | null;
     model: string | null;
   } | null;
-  assignments: { staff: { id: string; full_name: string } }[];
+  assignments: {
+    staff: { id: string; full_name: string; roles: string[] | null };
+  }[];
   work_logs: {
     id: string;
     staff_id: string;

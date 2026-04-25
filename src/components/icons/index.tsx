@@ -20,6 +20,7 @@ import {
   CarSimple,
   Lightbulb,
   Lifebuoy,
+  SealCheck,
 } from "@phosphor-icons/react/dist/ssr";
 
 import { cn } from "@/lib/utils";
@@ -53,6 +54,13 @@ export function ElectricalIcon({ className }: { className?: string }) {
 
 export function TyrePressureIcon({ className }: { className?: string }) {
   return <Lifebuoy className={cn(phosphorClass, className)} />;
+}
+
+// P1.2 — used on every staff chip whose roles include 'mot_tester' so a
+// manager can spot at a glance which assignees can sign off MOTs. The
+// seal-check shape mirrors the UK MOT certificate seal.
+export function MotTesterIcon({ className }: { className?: string }) {
+  return <SealCheck className={cn(phosphorClass, className)} weight="fill" />;
 }
 
 // ---------------------------------------------------------------------------
