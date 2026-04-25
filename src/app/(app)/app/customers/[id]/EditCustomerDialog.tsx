@@ -6,11 +6,18 @@ import { Pencil } from "lucide-react";
 
 import { updateCustomer } from "../actions";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { FormCard } from "@/components/ui/form-card";
-import { FormActions } from "@/components/ui/form-actions";
 
 interface EditCustomerDialogProps {
   customer: {
@@ -25,20 +32,18 @@ interface EditCustomerDialogProps {
   };
 }
 
+// P1.3 — replaces the previous in-page expand/collapse form. Wraps a true
+// modal Dialog so the action is destructive-feeling (overlay + escape-to-
+// close) and the layout mirrors NewCustomerForm 1:1 — same field grid,
+// same Label `required`/`optional` hints, same error shape — so the user
+// learns one form, not two. The only deltas are the id passed to
+// updateCustomer + the action button copy ("Save Changes" vs "Add").
 export function EditCustomerDialog({ customer }: EditCustomerDialogProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-
-  if (!open) {
-    return (
-      <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setOpen(true)}>
-        <Pencil className="h-4 w-4" /> Edit
-      </Button>
-    );
-  }
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -71,58 +76,164 @@ export function EditCustomerDialog({ customer }: EditCustomerDialogProps) {
   }
 
   return (
-    <div className="mt-4 rounded-lg border p-4">
-    <FormCard variant="plain">
-    <form onSubmit={handleSubmit}>
-      <h3 className="mb-4 text-sm font-semibold">Edit Customer</h3>
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger
+        render={
+          <Button size="sm" variant="outline" className="gap-1.5">
+            <Pencil className="h-4 w-4" /> Edit
+          </Button>
+        }
+      />
+      <DialogContent className="sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Edit Customer</DialogTitle>
+          <DialogDescription>
+            Update {customer.full_name}&apos;s details. Phone changes flow
+            through to SMS dispatch on the next outbound message.
+          </DialogDescription>
+        </DialogHeader>
 
-      <FormCard.Fields>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div>
-          <Label htmlFor="edit-fullName" required>Full Name</Label>
-          <Input id="edit-fullName" name="fullName" required defaultValue={customer.full_name} className="mt-1" />
-          {fieldErrors.fullName && <p className="mt-1 text-sm text-destructive">{fieldErrors.fullName}</p>}
-        </div>
-        <div>
-          <Label htmlFor="edit-phone" required>Phone</Label>
-          <Input id="edit-phone" name="phone" type="tel" required defaultValue={customer.phone} className="mt-1" />
-          {fieldErrors.phone && <p className="mt-1 text-sm text-destructive">{fieldErrors.phone}</p>}
-        </div>
-        <div>
-          <Label htmlFor="edit-email" optional>Email</Label>
-          <Input id="edit-email" name="email" type="email" defaultValue={customer.email ?? ""} className="mt-1" />
-        </div>
-        <div>
-          <Label htmlFor="edit-postcode" optional>Postcode</Label>
-          <Input id="edit-postcode" name="postcode" defaultValue={customer.postcode ?? ""} className="mt-1" />
-        </div>
-      </div>
-      <div>
-        <Label htmlFor="edit-addressLine1" optional>Address Line 1</Label>
-        <Input id="edit-addressLine1" name="addressLine1" defaultValue={customer.address_line1 ?? ""} className="mt-1" />
-      </div>
-      <div>
-        <Label htmlFor="edit-addressLine2" optional>Address Line 2</Label>
-        <Input id="edit-addressLine2" name="addressLine2" defaultValue={customer.address_line2 ?? ""} className="mt-1" />
-      </div>
-      <div>
-        <Label htmlFor="edit-notes" optional>Notes</Label>
-        <Textarea id="edit-notes" name="notes" rows={2} defaultValue={customer.notes ?? ""} className="mt-1" />
-      </div>
+        <form
+          id="edit-customer-form"
+          onSubmit={handleSubmit}
+          className="space-y-5"
+        >
+          {/* Mirrors NewCustomerForm.tsx — pair Name + Phone, then Email
+              full-width, then Address1 + Address2, Postcode, Notes. */}
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+            <div>
+              <Label htmlFor="edit-fullName" required>
+                Full Name
+              </Label>
+              <Input
+                id="edit-fullName"
+                name="fullName"
+                required
+                defaultValue={customer.full_name}
+                className="mt-1 w-full"
+              />
+              {fieldErrors.fullName && (
+                <p className="mt-1 text-sm text-destructive">
+                  {fieldErrors.fullName}
+                </p>
+              )}
+            </div>
+            <div>
+              <Label htmlFor="edit-phone" required>
+                Phone
+              </Label>
+              <Input
+                id="edit-phone"
+                name="phone"
+                type="tel"
+                required
+                placeholder="+44 7700 900123"
+                defaultValue={customer.phone}
+                className="mt-1 w-full"
+              />
+              {fieldErrors.phone && (
+                <p className="mt-1 text-sm text-destructive">
+                  {fieldErrors.phone}
+                </p>
+              )}
+            </div>
+          </div>
 
-      {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+          <div>
+            <Label htmlFor="edit-email" optional>
+              Email
+            </Label>
+            <Input
+              id="edit-email"
+              name="email"
+              type="email"
+              defaultValue={customer.email ?? ""}
+              className="mt-1 w-full"
+            />
+            {fieldErrors.email && (
+              <p className="mt-1 text-sm text-destructive">
+                {fieldErrors.email}
+              </p>
+            )}
+          </div>
 
-      </FormCard.Fields>
-      <FormActions>
-        <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-          Cancel
-        </Button>
-        <Button type="submit" disabled={isPending}>
-          {isPending ? "Saving..." : "Save Changes"}
-        </Button>
-      </FormActions>
-    </form>
-    </FormCard>
-    </div>
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+            <div>
+              <Label htmlFor="edit-addressLine1" optional>
+                Address Line 1
+              </Label>
+              <Input
+                id="edit-addressLine1"
+                name="addressLine1"
+                defaultValue={customer.address_line1 ?? ""}
+                className="mt-1 w-full"
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-addressLine2" optional>
+                Address Line 2
+              </Label>
+              <Input
+                id="edit-addressLine2"
+                name="addressLine2"
+                defaultValue={customer.address_line2 ?? ""}
+                className="mt-1 w-full"
+              />
+            </div>
+          </div>
+
+          <div>
+            <Label htmlFor="edit-postcode" optional>
+              Postcode
+            </Label>
+            <Input
+              id="edit-postcode"
+              name="postcode"
+              placeholder="B1 1AA"
+              defaultValue={customer.postcode ?? ""}
+              className="mt-1 w-full sm:max-w-xs"
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="edit-notes" optional>
+              Notes
+            </Label>
+            <Textarea
+              id="edit-notes"
+              name="notes"
+              rows={3}
+              placeholder="Any notes about this customer…"
+              defaultValue={customer.notes ?? ""}
+              className="mt-1 w-full"
+            />
+          </div>
+
+          {error && (
+            <p role="alert" className="text-sm text-destructive">
+              {error}
+            </p>
+          )}
+        </form>
+
+        <DialogFooter>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setOpen(false)}
+            disabled={isPending}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            form="edit-customer-form"
+            disabled={isPending}
+          >
+            {isPending ? "Saving…" : "Save Changes"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
