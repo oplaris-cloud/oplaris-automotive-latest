@@ -349,6 +349,25 @@ Depends on P0.2 (outbox path working).
 
 ### P2.2 — SMS outbox contingency `6gRmHR5Qv9XV7xhp`
 
+**Status:** ✓ shipped 2026-04-25 (`8ff0094`). Most of the surface was
+already in place — migration 047 gave the table + `mark_sms_failed`,
+`queueSms` already non-throws on Twilio failure, and `/app/messages`
+already had the Retry button. Migration 054 closes the remaining gaps:
+
+- `retry_count` column + `failed_final` terminal state.
+- `process_sms_retry_queue()` cron worker with `(n+1)×5 min`
+  backoff; flips eligible failed rows back to `queued` for the
+  Edge-Function dispatcher to pick up. After 3 retries + 24h soak
+  the row ages into `failed_final` so the cron stops touching it.
+- Cron schedule kept commented in 054 — enabling it without a
+  Twilio-dispatch Edge Function would just spin rows in place.
+  The Edge Function lands in a follow-up alongside `cron.schedule`.
+- Messages UI: status type widened, badge tint, retry-on-
+  failed_final preserved (whole point of that state), Failed KPI
+  now counts both `failed` + `failed_final`.
+
+    ✓ 8ff0094 2026-04-25
+
 `sms_outbox` table exists (migration 047). What's missing:
 
 - **Non-throwing Twilio wrapper.** `src/lib/sms/queue.ts` currently
