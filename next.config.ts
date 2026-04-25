@@ -120,6 +120,26 @@ const nextConfig: NextConfig = {
     cpus: 4,
   },
 
+  // next/image allow-list. Garage logos live in Supabase Storage under the
+  // `garage-logos` bucket; <BrandLogo /> renders them via next/image, which
+  // refuses any remote host not declared here (responds 400 to /_next/image).
+  // The host is read from NEXT_PUBLIC_SUPABASE_URL at build time, falling
+  // back to the staging project so dev builds with `pnpm build` still work.
+  images: (() => {
+    const host = supabaseHost ? new URL(supabaseHost).hostname : null;
+    return {
+      remotePatterns: host
+        ? [
+            {
+              protocol: "https",
+              hostname: host,
+              pathname: "/storage/v1/object/public/garage-logos/**",
+            },
+          ]
+        : [],
+    };
+  })(),
+
   async headers() {
     return [
       {
