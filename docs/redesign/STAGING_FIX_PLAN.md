@@ -212,6 +212,7 @@ above. If the dashboard shows a longer base64 blob, replace.
 
 **Status:** ✓ diagnosed 2026-04-25 by Claude Code. Bug is client-side,
 not server-side. Fix deferred to P2.5 per the original plan.
+    ✓ fe2f319 2026-04-25
 
 **Diagnostic query (run via Supabase MCP against `fzczwkreixorrspwojcl`):**
 
