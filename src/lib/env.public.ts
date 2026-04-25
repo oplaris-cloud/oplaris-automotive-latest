@@ -15,13 +15,20 @@ const nonEmpty = z
   .string()
   .min(1)
   .transform((s) => s.trim());
+// Same empty-string-tolerant shape as src/lib/env.ts — Dokploy injects every
+// declared NEXT_PUBLIC_* even when blank, so optional public fields would
+// otherwise fail validation with "too small" at first request.
+const optionalNonEmpty = z.preprocess(
+  (v) => (typeof v === "string" && v.trim() === "" ? undefined : v),
+  nonEmpty.optional(),
+);
 
 const publicEnvSchema = z.object({
   NEXT_PUBLIC_APP_URL: z.string().url(),
   NEXT_PUBLIC_STATUS_URL: z.string().url(),
   NEXT_PUBLIC_SUPABASE_URL: z.string().url(),
   NEXT_PUBLIC_SUPABASE_ANON_KEY: nonEmpty,
-  NEXT_PUBLIC_HCAPTCHA_SITE_KEY: nonEmpty.optional(),
+  NEXT_PUBLIC_HCAPTCHA_SITE_KEY: optionalNonEmpty,
 });
 
 // `process.env` is statically replaced by Next.js for `NEXT_PUBLIC_*` keys at

@@ -18,7 +18,14 @@ const nonEmpty = z
   .string()
   .min(1)
   .transform((s) => s.trim());
-const optionalNonEmpty = nonEmpty.optional();
+// Optional + empty-string-tolerant. Dokploy injects every declared env var,
+// even when the operator left it blank in the UI — so an "optional" field
+// will arrive as "" rather than undefined. Without this preprocess,
+// `nonEmpty.optional()` would reject "" with "too small", failing the boot.
+const optionalNonEmpty = z.preprocess(
+  (v) => (typeof v === "string" && v.trim() === "" ? undefined : v),
+  nonEmpty.optional(),
+);
 
 const serverEnvSchema = z.object({
   NODE_ENV: z
