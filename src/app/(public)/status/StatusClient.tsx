@@ -25,6 +25,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { FormCard } from "@/components/ui/form-card";
 import { FormActions } from "@/components/ui/form-actions";
 import { PatternBackground } from "@/components/ui/pattern-background";
+import { PhoneInput } from "@/components/ui/phone-input";
 import { MilestoneAchievementIllustration } from "@/components/illustrations";
 import type { JobStatus } from "@/lib/validation/job-schemas";
 
@@ -126,6 +127,7 @@ export function StatusClient({ brand }: StatusClientProps) {
   const [step, setStep] = useState<Step>("lookup");
   const [reg, setReg] = useState("");
   const [phone, setPhone] = useState("");
+  const [phoneValid, setPhoneValid] = useState(false);
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -224,6 +226,7 @@ export function StatusClient({ brand }: StatusClientProps) {
     setCode("");
     setReg("");
     setPhone("");
+    setPhoneValid(false);
     setDevCode(null);
     setError("");
   }
@@ -272,17 +275,15 @@ export function StatusClient({ brand }: StatusClientProps) {
                 </div>
                 <div>
                   <Label htmlFor="phone" required>Phone number on file</Label>
-                  <Input
-                    id="phone"
-                    type="tel"
-                    placeholder="07911 123456"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    required
-                    className="mt-1"
-                    autoComplete="tel"
-                    inputMode="tel"
-                  />
+                  <div className="mt-1">
+                    <PhoneInput
+                      id="phone"
+                      value={phone}
+                      onChange={setPhone}
+                      onValidChange={setPhoneValid}
+                      required
+                    />
+                  </div>
                 </div>
                 {/* Honeypot */}
                 <div className="hidden" aria-hidden="true">
@@ -295,7 +296,10 @@ export function StatusClient({ brand }: StatusClientProps) {
                 ) : null}
               </FormCard.Fields>
               <FormActions fullWidth>
-                <Button type="submit" disabled={loading}>
+                <Button
+                  type="submit"
+                  disabled={loading || !phoneValid || !reg.trim()}
+                >
                   {loading ? "Sending code…" : "Send verification code"}
                 </Button>
               </FormActions>
