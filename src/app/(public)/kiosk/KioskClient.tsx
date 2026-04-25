@@ -40,6 +40,11 @@ export function KioskClient({ brand }: KioskClientProps) {
   const [loading, setLoading] = useState(false);
   const [lookingUp, setLookingUp] = useState(false);
   const [error, setError] = useState("");
+  // P1.1 — visible countdown on the done screen. Counts 3 → 2 → 1 then
+  // hard-reloads to /kiosk so the next customer gets a clean session
+  // (state, brand, idle timers all reset). Independent of whether the
+  // SMS dispatch succeeded — the row is already in `bookings`.
+  const [countdown, setCountdown] = useState(3);
 
   const reset = useCallback(() => {
     setStep("service");
@@ -82,11 +87,24 @@ export function KioskClient({ brand }: KioskClientProps) {
     }
   }, []);
 
-  // Idle timer
+  // Idle timer + done-step countdown (P1.1)
   useEffect(() => {
     if (step === "done") {
-      const t = setTimeout(reset, 5000);
-      return () => clearTimeout(t);
+      // Reset the visible counter every time we land on done — handles
+      // back-to-back bookings without remounting the component.
+      setCountdown(3);
+      const tick = setInterval(() => {
+        setCountdown((c) => (c > 0 ? c - 1 : 0));
+      }, 1000);
+      const redirect = setTimeout(() => {
+        // Hard reload — wipes all React state, re-fetches brand, and
+        // restarts the idle timer cleanly for the next customer.
+        window.location.href = "/kiosk";
+      }, 3000);
+      return () => {
+        clearInterval(tick);
+        clearTimeout(redirect);
+      };
     }
     let timer: ReturnType<typeof setTimeout>;
     const resetTimer = () => {
@@ -255,6 +273,21 @@ export function KioskClient({ brand }: KioskClientProps) {
             <p className="mt-2 text-lg text-muted-foreground">
               A member of staff will be with you shortly.
             </p>
+            {/* P1.1 — visible countdown to reset. Large number so it's
+             *  legible across the reception even if the customer has
+             *  walked away. aria-live keeps screen readers in sync. */}
+            <div
+              className="mt-8 flex flex-col items-center gap-2"
+              aria-live="polite"
+              aria-atomic="true"
+            >
+              <span className="text-7xl font-bold tabular-nums text-primary">
+                {countdown}
+              </span>
+              <span className="text-sm text-muted-foreground">
+                Resetting for the next customer…
+              </span>
+            </div>
           </div>
         </PatternBackground>
       )}
