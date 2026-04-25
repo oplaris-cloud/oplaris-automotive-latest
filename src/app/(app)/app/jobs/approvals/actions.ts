@@ -9,6 +9,7 @@ import {
   generateApprovalToken,
 } from "@/lib/security/approval-tokens";
 import { queueSms } from "@/lib/sms/queue";
+import { renderTemplate } from "@/lib/sms/templates";
 import { serverEnv } from "@/lib/env";
 import { isValidTransition, type JobStatus } from "@/lib/validation/job-schemas";
 
@@ -102,6 +103,20 @@ export async function requestApproval(
   // sms_outbox row instead of getting swallowed by console.error.
   // The approval_request row already records the request itself —
   // this just tracks the customer-notification side.
+  // Migration 055 — body now comes from the manager-editable template
+  // (per-garage), so brand_name is no longer hardcoded as "Dudley
+  // Auto Service".
+  const { data: garage } = await supabase
+    .from("garages")
+    .select("brand_name, name")
+    .eq("id", session.garageId)
+    .maybeSingle();
+  const garageName =
+    (garage as { brand_name?: string | null; name?: string | null } | null)
+      ?.brand_name ??
+    (garage as { name?: string } | null)?.name ??
+    "Your garage";
+
   try {
     await queueSms({
       garageId: session.garageId,
@@ -110,7 +125,16 @@ export async function requestApproval(
       customerId: job.customer_id,
       phone,
       messageType: "approval_request",
-      messageBody: `Dudley Auto Service needs your approval: ${parsed.data.description} — £${(parsed.data.amountPence / 100).toFixed(2)}.\n\nApprove or decline: ${approvalUrl}`,
+      messageBody: await renderTemplate(
+        "approval_request",
+        {
+          garage_name: garageName,
+          description: parsed.data.description,
+          amount: (parsed.data.amountPence / 100).toFixed(2),
+          approval_url: approvalUrl,
+        },
+        session.garageId,
+      ),
     });
   } catch (smsErr) {
     // Outbox insert itself failed (RPC unreachable). The approval

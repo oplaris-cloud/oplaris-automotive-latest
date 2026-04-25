@@ -58,6 +58,24 @@ vi.mock("@/lib/supabase/admin", () => ({
           }),
         };
       }
+      if (table === "sms_templates") {
+        // P2.3 — request-code now resolves the body via the
+        // sms_templates table. Stub returns the seed default so
+        // queueSms still receives the right messageBody.
+        return {
+          select: () => ({
+            eq: () => Promise.resolve({
+              data: [
+                {
+                  template_key: "status_code",
+                  body: "Your vehicle status code: {{code}}\nExpires in 10 minutes.",
+                },
+              ],
+              error: null,
+            }),
+          }),
+        };
+      }
       throw new Error(`Unexpected table ${table}`);
     }),
     rpc: rpcMock,

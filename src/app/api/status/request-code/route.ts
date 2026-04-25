@@ -7,6 +7,7 @@ import { normaliseRegistration } from "@/lib/validation/registration";
 import { normalisePhoneSafe } from "@/lib/validation/phone";
 import { serverEnv } from "@/lib/env";
 import { queueSms } from "@/lib/sms/queue";
+import { renderTemplate } from "@/lib/sms/templates";
 
 /**
  * POST /api/status/request-code
@@ -137,7 +138,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         vehicleId: vehicle.id,
         phone: customerPhone,
         messageType: "status_code",
-        messageBody: `Your vehicle status code: ${code}\nExpires in 10 minutes.`,
+        messageBody: await renderTemplate(
+          "status_code",
+          { code },
+          vehicle.garage_id,
+        ),
       });
     } catch (err) {
       console.error("[status] queueSms failed:", err);
