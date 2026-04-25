@@ -319,7 +319,7 @@ Not in scope for this plan; logged here so it doesn't get lost.
 |----|---------|-------|------------|
 | P1.1 ✓ | `6gRm3wjwfjGX8WmG` | Kiosk submit → 3s countdown → redirect to kiosk home | Kiosk success screen shows a visible 3-second countdown (large timer) then replaces `window.location` with the kiosk root URL. Works regardless of whether the SMS send succeeded.<br/>✓ 71a88ab 2026-04-25 |
 | P1.2 ✓ | `6gRm53ffqqG7jW2G` | MOT icon on every staff chip | Any place a staff member's name is rendered that has `roles.includes('mot_tester')` shows a Phosphor MOT icon (use the same icon already in the V2 icon barrel) next to the name. Covers: assignee badges on job detail, staff list page (when P3.1 ships), bay-board cards, My Work. Single component change wins: update `<RoleBadge>` / a shared chip helper rather than patching each call site.<br/>✓ 3308916 2026-04-25 |
-| P1.3 | `6gRmCPPmjwxrHGCG` | Edit-customer card → modal mirroring NewCustomerForm | Clicking Edit on the customer detail page opens a shadcn `<Dialog>` containing the same zod schema + form layout as `NewCustomerForm`. Submitting saves via the existing `updateCustomer` server action; dialog closes + route revalidates. Inline edit form is removed. |
+| P1.3 ✓ | `6gRmCPPmjwxrHGCG` | Edit-customer card → modal mirroring NewCustomerForm | Clicking Edit on the customer detail page opens a shadcn `<Dialog>` containing the same zod schema + form layout as `NewCustomerForm`. Submitting saves via the existing `updateCustomer` server action; dialog closes + route revalidates. Inline edit form is removed.<br/>✓ 2f8ed30 2026-04-25 |
 
 ---
 
