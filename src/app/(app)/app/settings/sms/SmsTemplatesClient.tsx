@@ -17,7 +17,7 @@ import {
   TEMPLATE_VAR_HINTS,
   previewSegments,
   type TemplateKey,
-} from "@/lib/sms/templates";
+} from "@/lib/sms/template-schema";
 
 import { updateSmsTemplate } from "./actions";
 

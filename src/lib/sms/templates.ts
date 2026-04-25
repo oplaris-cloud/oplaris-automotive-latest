@@ -4,153 +4,37 @@ import { cache } from "react";
 
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
+import {
+  FALLBACK_BODIES,
+  substitute,
+  type TemplateKey,
+} from "./template-schema";
+
 // ────────────────────────────────────────────────────────────────────
-// Per-garage SMS templates (P2.3, migration 055).
+// Server-side renderer for SMS templates (P2.3).
 //
-// Replaces hardcoded strings in queueSms call sites with manager-
-// editable bodies. Each template_key has a fixed VARIABLE schema —
-// the renderer accepts only the listed keys, throws on unknown ones,
-// and substitutes `{{var}}` tokens with the supplied values.
-//
-// At the editor surface (`/app/settings/sms`) the same VARIABLE schema
-// drives:
-//   - the "click to insert" chip list under each editor
-//   - the sample-vars used to render the live preview
-// so manager and renderer always agree on what the variables mean.
+// Pure schema (TEMPLATE_KEYS / TEMPLATE_VARS / SAMPLE_VARS /
+// previewSegments / substitute) lives in `template-schema.ts` so the
+// editor's `"use client"` component can import it without dragging
+// `server-only` + the admin client into the browser bundle. Anything
+// that touches the DB stays here.
 // ────────────────────────────────────────────────────────────────────
 
-export const TEMPLATE_KEYS = [
-  "status_code",
-  "approval_request",
-  "mot_reminder",
-] as const;
-
-export type TemplateKey = (typeof TEMPLATE_KEYS)[number];
-
-/** Variables each template accepts. Keep in sync with migration 055
- *  default bodies + every call site. Adding a new variable is a
- *  three-edit chore: this list, the call site, and (usually) the
- *  default body. */
-export const TEMPLATE_VARS: Record<TemplateKey, readonly string[]> = {
-  status_code: ["code"],
-  approval_request: ["garage_name", "description", "amount", "approval_url"],
-  mot_reminder: ["garage_name", "vehicle_reg", "expiry_date"],
-} as const;
-
-/** Human-friendly labels surfaced on the settings page next to each
- *  template's variable chips. The renderer never reads these — only
- *  the chip UI does. */
-export const TEMPLATE_VAR_HINTS: Record<string, string> = {
-  code: "Six-digit OTP",
-  garage_name: "Brand name (Settings → Branding)",
-  description: "What the customer is approving",
-  amount: "Amount in £ (already formatted)",
-  approval_url: "Signed approval link",
-  vehicle_reg: "Vehicle registration",
-  expiry_date: "MOT expiry date",
-};
-
-/** What each template fires for. Surfaced as the editor card
- *  description so the manager knows when their changes go out. */
-export const TEMPLATE_LABEL: Record<TemplateKey, { name: string; firesWhen: string }> = {
-  status_code: {
-    name: "Status code",
-    firesWhen:
-      "Sent to a customer when they request a verification code on the public status page.",
-  },
-  approval_request: {
-    name: "Approval request",
-    firesWhen:
-      "Sent to a customer when staff click “Request approval” on a charge or quote.",
-  },
-  mot_reminder: {
-    name: "MOT reminder",
-    firesWhen:
-      "Sent automatically to customers whose MOT is approaching expiry.",
-  },
-};
-
-/** Sample values used to render the preview pane. Realistic enough
- *  that the manager can eyeball line breaks and segment boundaries.
- *  Unfilled variables show as a tinted placeholder in the preview
- *  rather than disappearing. */
-export const SAMPLE_VARS: Record<TemplateKey, Record<string, string>> = {
-  status_code: { code: "482917" },
-  approval_request: {
-    garage_name: "Dudley Auto Service",
-    description: "Replace front brake pads",
-    amount: "245.00",
-    approval_url: "https://example.com/approve/abc123",
-  },
-  mot_reminder: {
-    garage_name: "Dudley Auto Service",
-    vehicle_reg: "AB12 CDE",
-    expiry_date: "12 May 2026",
-  },
-};
-
-// ────────────────────────────────────────────────────────────────────
-// Renderer
-// ────────────────────────────────────────────────────────────────────
-
-/** `{{var}}` substitution. Variables not in `vars` are left as a
- *  literal placeholder so we never silently send a half-filled SMS;
- *  the call site is expected to provide every variable in the
- *  template's schema. */
-export function substitute(
-  body: string,
-  vars: Record<string, string | undefined>,
-): string {
-  return body.replace(/\{\{\s*([a-z_][a-z0-9_]*)\s*\}\}/gi, (raw, key) => {
-    const v = vars[key];
-    return v ?? raw;
-  });
-}
-
-/** Pure function for the editor preview. Returns an array of segments
- *  so the UI can render filled `{{var}}` substitutions inline and
- *  unfilled ones as tinted placeholders. */
-export interface PreviewSegment {
-  type: "text" | "filled" | "unfilled";
-  value: string;
-  /** For filled/unfilled segments, the variable name. */
-  varName?: string;
-}
-
-export function previewSegments(
-  body: string,
-  vars: Record<string, string>,
-): PreviewSegment[] {
-  const out: PreviewSegment[] = [];
-  const re = /\{\{\s*([a-z_][a-z0-9_]*)\s*\}\}/gi;
-  let lastIndex = 0;
-  let match: RegExpExecArray | null;
-  while ((match = re.exec(body)) !== null) {
-    if (match.index > lastIndex) {
-      out.push({ type: "text", value: body.slice(lastIndex, match.index) });
-    }
-    const varName = match[1];
-    if (!varName) {
-      lastIndex = match.index + match[0].length;
-      continue;
-    }
-    const filled = vars[varName];
-    out.push(
-      filled !== undefined
-        ? { type: "filled", value: filled, varName }
-        : { type: "unfilled", value: `[${varName}]`, varName },
-    );
-    lastIndex = match.index + match[0].length;
-  }
-  if (lastIndex < body.length) {
-    out.push({ type: "text", value: body.slice(lastIndex) });
-  }
-  return out;
-}
-
-// ────────────────────────────────────────────────────────────────────
-// Server-side fetch + render
-// ────────────────────────────────────────────────────────────────────
+// Re-export the schema for the existing call sites that import from
+// this module. Adding a new server-only consumer? Import from here.
+// Adding a client consumer? Import from `template-schema` directly.
+export {
+  FALLBACK_BODIES,
+  SAMPLE_VARS,
+  TEMPLATE_KEYS,
+  TEMPLATE_LABEL,
+  TEMPLATE_VARS,
+  TEMPLATE_VAR_HINTS,
+  previewSegments,
+  substitute,
+  type PreviewSegment,
+  type TemplateKey,
+} from "./template-schema";
 
 /** Per-request cache so multiple `renderTemplate(...)` calls within
  *  the same Server Action / API route hit the DB once. The admin
@@ -159,9 +43,7 @@ export function previewSegments(
  *  authenticated). The RLS policy doesn't apply to service-role —
  *  we still scope by the explicit garage_id passed in. */
 const fetchTemplatesForGarage = cache(
-  async (
-    garageId: string,
-  ): Promise<Map<TemplateKey, string>> => {
+  async (garageId: string): Promise<Map<TemplateKey, string>> => {
     const supabase = createSupabaseAdminClient();
     const { data } = await supabase
       .from("sms_templates")
@@ -189,13 +71,3 @@ export async function renderTemplate(
   const body = map.get(key) ?? FALLBACK_BODIES[key];
   return substitute(body, vars);
 }
-
-/** Mirrors the migration 055 seed values exactly — used as a last
- *  resort when the DB row is missing. */
-const FALLBACK_BODIES: Record<TemplateKey, string> = {
-  status_code: "Your vehicle status code: {{code}}\nExpires in 10 minutes.",
-  approval_request:
-    "{{garage_name}} needs your approval: {{description}} — £{{amount}}.\n\nApprove or decline: {{approval_url}}",
-  mot_reminder:
-    "Hi from {{garage_name}}. Your vehicle {{vehicle_reg}} MOT expires on {{expiry_date}}. Reply to this message or call us to book a test.",
-};
