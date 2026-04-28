@@ -524,6 +524,8 @@ with the pathological `https:host.tld` input.
 clickable `https://…/approve/…` link that opens the signed approval
 page on first tap.
 
+    ✓ a2caeb9 2026-04-28
+
 **P2.7b — Approval-request SMS is not sending.**
 
 Symptom: Hossein clicks "Request approval" on a charge; no SMS lands.
