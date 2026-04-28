@@ -7,11 +7,21 @@ import { X } from "lucide-react";
 
 import {
   createJobFromCheckIn,
+  getBaysForGarage,
   getStaffAvailability,
+  type BayOption,
   type StaffAvailability,
 } from "./actions";
 import { groupTechsByAvailability } from "./group-techs";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { StaffAvatar } from "@/components/ui/staff-avatar";
 
 /** Shorten name to "First L." format */
@@ -26,6 +36,11 @@ interface TechAssignmentModalProps {
   onClose: () => void;
 }
 
+// "No bay yet" sentinel used by the Select primitive (Base UI Select
+// rejects empty-string values). The state-side bayId stays a string|null
+// so the server action only receives a uuid when the manager picked one.
+const BAY_NONE = "__none__";
+
 export function TechAssignmentModal({
   bookingId,
   onClose,
@@ -33,15 +48,24 @@ export function TechAssignmentModal({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [staff, setStaff] = useState<StaffAvailability[]>([]);
+  const [bays, setBays] = useState<BayOption[]>([]);
+  const [bayId, setBayId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [confirmBusy, setConfirmBusy] = useState<StaffAvailability | null>(null);
 
   useEffect(() => {
-    getStaffAvailability().then((data) => {
-      setStaff(data);
-      setLoading(false);
-    });
+    let cancelled = false;
+    Promise.all([getStaffAvailability(), getBaysForGarage()])
+      .then(([staffData, bayData]) => {
+        if (cancelled) return;
+        setStaff(staffData);
+        setBays(bayData);
+        setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const { available, busy } = groupTechsByAvailability(staff);
@@ -61,6 +85,7 @@ export function TechAssignmentModal({
       const result = await createJobFromCheckIn({
         bookingId,
         technicianId,
+        ...(bayId ? { bayId } : {}),
       });
       if (!result.ok) {
         setError(result.error ?? "Failed to create job");
@@ -110,6 +135,39 @@ export function TechAssignmentModal({
           </div>
         ) : (
           <div className="mt-8 space-y-6">
+            {/* Bay picker (P2.4) — optional. Default "No bay yet" matches
+                the prior behaviour. Trigger sized to the 44px touch
+                target so a manager on a phone hits it cleanly. */}
+            {bays.length > 0 && (
+              <section className="space-y-1">
+                <Label htmlFor="tech-modal-bay">
+                  Bay <span className="text-muted-foreground">(optional)</span>
+                </Label>
+                <Select
+                  value={bayId ?? BAY_NONE}
+                  onValueChange={(v) =>
+                    setBayId(v === BAY_NONE ? null : v)
+                  }
+                >
+                  <SelectTrigger
+                    id="tech-modal-bay"
+                    className="w-full min-h-11"
+                  >
+                    <SelectValue placeholder="No bay yet" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={BAY_NONE}>No bay yet</SelectItem>
+                    {bays.map((b) => (
+                      <SelectItem key={b.id} value={b.id}>
+                        {b.name}
+                        {b.isOccupied ? " · in use" : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </section>
+            )}
+
             {/* Available section — listed first per spec */}
             <section>
               <h3 className="text-xs font-semibold uppercase tracking-wide text-success">

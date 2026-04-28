@@ -97,6 +97,48 @@ export async function getStaffAvailability(): Promise<StaffAvailability[]> {
   });
 }
 
+// ------------------------------------------------------------------
+// Bays for the assignment modal (P2.4)
+// ------------------------------------------------------------------
+
+export interface BayOption {
+  id: string;
+  name: string;
+  position: number;
+  /** Whether the bay currently has a job parked in it. The modal shows
+   *  this as an inline hint so the manager doesn't accidentally double-
+   *  book a bay (cap is one job per bay in this v1). */
+  isOccupied: boolean;
+}
+
+export async function getBaysForGarage(): Promise<BayOption[]> {
+  await requireManager();
+  const supabase = await createSupabaseServerClient();
+
+  const { data: bays } = await supabase
+    .from("bays")
+    .select("id, name, position, jobs:jobs!bay_id ( id, status )")
+    .order("position", { ascending: true });
+
+  if (!bays) return [];
+
+  return (bays as {
+    id: string;
+    name: string;
+    position: number;
+    jobs: { id: string; status: string }[] | null;
+  }[]).map((b) => {
+    const activeJobs = (b.jobs ?? []).filter(
+      (j) => j.status !== "completed" && j.status !== "cancelled",
+    );
+    return {
+      id: b.id,
+      name: b.name,
+      position: b.position,
+      isOccupied: activeJobs.length > 0,
+    };
+  });
+}
 
 // ------------------------------------------------------------------
 // Dismiss (delete) a check-in
@@ -275,9 +317,15 @@ export async function listOpenCheckIns(): Promise<OpenCheckIn[]> {
 // spec contract: `createJobFromCheckIn(checkInId, technicianId)`,
 // manager-gated, refuses already-converted check-ins, returns the new
 // job id so the dialog can navigate.
+//
+// P2.4 (2026-04-28) — added `bayId?: string` optional. When supplied,
+// the new job is created with that bay assigned + an `audit_log` row
+// (action='bay_assigned') is written so the bay-change history shows
+// up on the unified job timeline. "No bay yet" stays the default.
 const createFromCheckInSchema = z.object({
   bookingId: z.string().uuid(),
   technicianId: z.string().uuid(),
+  bayId: z.string().uuid().optional(),
 });
 
 export async function createJobFromCheckIn(
@@ -377,13 +425,30 @@ export async function createJobFromCheckIn(
     vehicleId = newVehicle.id;
   }
 
+  // P2.4 — verify the bay (if any) belongs to this garage. RLS already
+  // filters cross-tenant reads, so a bay we can't see comes back null
+  // and we refuse the create rather than silently dropping it.
+  let bayName: string | null = null;
+  if (parsed.data.bayId) {
+    const { data: bay } = await supabase
+      .from("bays")
+      .select("id, name")
+      .eq("id", parsed.data.bayId)
+      .eq("garage_id", session.garageId)
+      .maybeSingle();
+    if (!bay) {
+      return { ok: false, error: "Selected bay not found in this garage" };
+    }
+    bayName = (bay as { name: string }).name;
+  }
+
   // 4. Create job via RPC
   const { data: jobId, error: jErr } = await supabase.rpc("create_job", {
     p_customer_id: customerId,
     p_vehicle_id: vehicleId,
     p_description: `${booking.service.toUpperCase()} booking${booking.notes ? `: ${booking.notes}` : ""}`,
     p_source: booking.source,
-    p_bay_id: null,
+    p_bay_id: parsed.data.bayId ?? null,
     p_estimated_ready_at: booking.preferred_date ? new Date(booking.preferred_date).toISOString() : null,
   });
 
@@ -394,6 +459,29 @@ export async function createJobFromCheckIn(
     .from("jobs")
     .update({ status: "checked_in", service: booking.service })
     .eq("id", jobId);
+
+  // 5b. P2.4 — audit-log the initial bay assignment so the timeline view
+  // surfaces it. Goes through `public.write_audit_log` because direct
+  // INSERT on audit_log is locked from `authenticated` (only service_role
+  // can write the table; the SECURITY DEFINER RPC is the sanctioned
+  // path). garage_id + actor_staff_id are pulled from the JWT inside
+  // the helper, which mirrors what the policy expects. Best-effort: a
+  // failed audit shouldn't block the promotion (the bay_id is already
+  // on the job).
+  if (parsed.data.bayId) {
+    await supabase.rpc("write_audit_log", {
+      p_action: "bay_assigned",
+      p_target_table: "jobs",
+      p_target_id: jobId,
+      p_meta: {
+        from_bay_id: null,
+        from_bay_name: null,
+        to_bay_id: parsed.data.bayId,
+        to_bay_name: bayName,
+        source: "create_job_from_check_in",
+      },
+    });
+  }
 
   // 6. Link booking to job
   await supabase

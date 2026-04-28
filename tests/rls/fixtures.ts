@@ -191,6 +191,16 @@ export async function tearDownFixtures(): Promise<void> {
          (select id from staff where email like $1 or email like $2)`,
       [testEmailPattern, bromleyEmailPattern],
     );
+    // P2.4 — audit_log has a FK on staff(id) via actor_staff_id, so any
+    // test that seeded audit rows (bay_assigned, pii_read, etc.) blocks
+    // the staff delete below. Clean any audit row authored by a test
+    // staff member first. Catch-all on the test email patterns keeps
+    // this future-proof for new tests that touch audit_log.
+    await c.query(
+      `delete from audit_log where actor_staff_id in
+         (select id from staff where email like $1 or email like $2)`,
+      [testEmailPattern, bromleyEmailPattern],
+    );
     await c.query("delete from staff where email like $1 or email like $2", [
       testEmailPattern,
       bromleyEmailPattern,
