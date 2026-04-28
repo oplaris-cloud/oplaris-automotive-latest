@@ -120,8 +120,17 @@ export async function requestApproval(
     (garage as { name?: string } | null)?.name ??
     "Your garage";
 
+  // P2.7b — capture queueSms outcome so the manager actually finds
+  // out when the SMS didn't go out. Previous shape silently swallowed
+  // a `failed` outbox row (e.g. Twilio 21610 carrier-block, 21211
+  // invalid phone), the job status flipped, the customer never got
+  // the SMS, and nobody knew until a chase call landed the next day.
+  // The approval_request row is already in the DB so the manager
+  // can resend from /app/messages — but we want the toast to fire
+  // immediately so they don't move on assuming the SMS landed.
+  let smsFailedReason: string | null = null;
   try {
-    await queueSms({
+    const result = await queueSms({
       garageId: session.garageId,
       jobId: parsed.data.jobId,
       vehicleId: (job as { vehicle_id?: string }).vehicle_id ?? undefined,
@@ -139,19 +148,33 @@ export async function requestApproval(
         session.garageId,
       ),
     });
+    if (result.status === "failed") {
+      smsFailedReason = result.errorMessage ?? "SMS provider rejected the message";
+    }
   } catch (smsErr) {
     // Outbox insert itself failed (RPC unreachable). The approval
     // request is still in the DB; manager can resend via /app/messages.
     console.error("approval queueSms failed:", smsErr);
+    smsFailedReason =
+      smsErr instanceof Error ? smsErr.message : "SMS outbox unreachable";
   }
 
-  // Update job status
+  // Update job status. We do this even if the SMS failed — the
+  // approval row + status give the manager a UI surface to manage
+  // the request from. The retry path in /app/messages re-fires the
+  // SMS without needing to recreate the approval_requests row.
   await supabase
     .from("jobs")
     .update({ status: "awaiting_customer_approval" })
     .eq("id", parsed.data.jobId);
 
   revalidatePath("/app/jobs");
+  if (smsFailedReason) {
+    return {
+      ok: false,
+      error: `Approval recorded but SMS failed: ${smsFailedReason}. Resend from Messages.`,
+    };
+  }
   return { ok: true, id: requestId };
 }
 

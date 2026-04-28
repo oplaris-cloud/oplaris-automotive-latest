@@ -363,8 +363,14 @@ export default async function JobDetailPage({ params }: JobDetailProps) {
         <AddPartForm jobId={job.id} />
       </div>
 
-      {/* Approval request */}
-      {(job.status === "in_diagnosis" || job.status === "in_repair") && (
+      {/* Approval request — render for every status that allows the
+       *  awaiting_customer_approval transition. P2.7b (2026-04-28):
+       *  awaiting_parts was missing, so a job mid-parts-wait had no
+       *  surface to fire the SMS. Mirrors STATUS_TRANSITIONS in
+       *  src/lib/validation/job-schemas.ts; keep the two in sync. */}
+      {(job.status === "in_diagnosis" ||
+        job.status === "in_repair" ||
+        job.status === "awaiting_parts") && (
         <>
           <Separator className="my-6" />
           <ApprovalDialog jobId={job.id} />

@@ -68,10 +68,20 @@ function labelFor(status: JobStatus): string {
 // Targets that should never appear as forward action buttons. `cancelled`
 // is destructive (overflow only). `awaiting_mechanic` is gone in P52 — the
 // state machine no longer emits it as a forward target, but we belt the
-// braces here too.
+// braces here too. `awaiting_customer_approval` is excluded in P2.7b
+// (2026-04-28): the SMS-bearing approval flow lives in the dedicated
+// `<ApprovalDialog>` card on the job detail page (which collects the
+// description + amount the SMS body needs and calls the
+// `requestApproval` server action). The bare status flip surfaced by
+// `updateJobStatus` did neither, so a manager clicking this button got
+// a silent status change with no SMS to the customer.
 function nonDestructiveForwardTargets(status: JobStatus): JobStatus[] {
-  return (STATUS_TRANSITIONS[status] ?? [])
-    .filter((t) => t !== "cancelled" && t !== "awaiting_mechanic");
+  return (STATUS_TRANSITIONS[status] ?? []).filter(
+    (t) =>
+      t !== "cancelled" &&
+      t !== "awaiting_mechanic" &&
+      t !== "awaiting_customer_approval",
+  );
 }
 
 // ---------------------------------------------------------------------------

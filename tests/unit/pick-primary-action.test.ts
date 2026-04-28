@@ -134,4 +134,30 @@ describe("pickPrimaryAction", () => {
       }
     }
   });
+
+  it("primary never returns awaiting_customer_approval (P2.7b invariant)", () => {
+    // Reason: the SMS-bearing approval flow lives in the dedicated
+    // <ApprovalDialog> card on the job detail page (which collects the
+    // description + amount the SMS body needs). Surfacing the bare
+    // status flip in the action row produced a silent "approval"
+    // with no SMS to the customer.
+    for (const status of [
+      "checked_in",
+      "in_diagnosis",
+      "in_repair",
+      "awaiting_parts",
+      "ready_for_collection",
+    ] as const) {
+      const job: JobForActions = {
+        id: "00000000-0000-0000-0000-0000000000ca",
+        status,
+        service: "electrical",
+        current_role: null,
+      };
+      const result = pickPrimaryAction(job, manager);
+      if (result.kind === "transition") {
+        expect(result.target).not.toBe("awaiting_customer_approval");
+      }
+    }
+  });
 });
