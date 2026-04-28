@@ -554,6 +554,8 @@ approval" causes (i) a row in `sms_outbox` with `status='sent'` +
 signed approval link, (iii) the customer status page shows the
 awaiting-approval chip immediately.
 
+    ✓ 87875ce 2026-04-28
+
 **P2.7c — super_admin role → moved to P3.5.**
 
 Hossein confirmed 2026-04-25: this is an **Oplaris-staff support role**.
