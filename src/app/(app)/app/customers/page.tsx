@@ -20,6 +20,7 @@ import {
 import { RestoreButton } from "./RestoreButton";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { CustomersListRealtime } from "@/lib/realtime/shims";
+import { TelLink } from "@/components/ui/tel-link";
 
 interface CustomersPageProps {
   searchParams: Promise<{ q?: string; page?: string; openJob?: string; deleted?: string }>;
@@ -151,7 +152,15 @@ export default async function CustomersPage({ searchParams }: CustomersPageProps
                 {deletedCustomers.map((c) => (
                   <TableRow key={c.id}>
                     <TableCell className="font-medium">{c.full_name}</TableCell>
-                    <TableCell className="font-mono text-sm">{c.phone}</TableCell>
+                    <TableCell className="font-mono text-sm">
+                      <TelLink
+                        phone={c.phone}
+                        label={`Call ${c.full_name}`}
+                        className="hover:underline underline-offset-4"
+                      >
+                        {c.phone}
+                      </TelLink>
+                    </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {new Date(c.deleted_at!).toLocaleDateString("en-GB")}
                     </TableCell>
@@ -175,7 +184,10 @@ export default async function CustomersPage({ searchParams }: CustomersPageProps
         />
       ) : (
         <>
-          {/* Mobile card list — P38.2 */}
+          {/* Mobile card list — P38.2. The phone wraps in TelLink with
+              stopPropagation so a tap on the number dials, while a tap
+              elsewhere in the card still navigates to the customer
+              detail. Same nested-anchor pattern as `tech/page.tsx`. */}
           <ul className="mt-4 space-y-2 md:hidden">
             {customers.map((c) => (
               <li key={c.id}>
@@ -184,9 +196,13 @@ export default async function CustomersPage({ searchParams }: CustomersPageProps
                   className="block rounded-lg border bg-card p-4 transition-colors hover:bg-accent/50"
                 >
                   <div className="font-medium">{c.full_name}</div>
-                  <div className="mt-1 font-mono text-sm text-muted-foreground">
+                  <TelLink
+                    phone={c.phone}
+                    label={`Call ${c.full_name}`}
+                    className="mt-1 inline-flex font-mono text-sm text-muted-foreground hover:text-foreground hover:underline underline-offset-4"
+                  >
                     {c.phone}
-                  </div>
+                  </TelLink>
                   {c.email && (
                     <div className="mt-1 truncate text-sm text-muted-foreground">
                       {c.email}
@@ -218,7 +234,15 @@ export default async function CustomersPage({ searchParams }: CustomersPageProps
                         {c.full_name}
                       </Link>
                     </TableCell>
-                    <TableCell className="font-mono text-sm">{c.phone}</TableCell>
+                    <TableCell className="font-mono text-sm">
+                      <TelLink
+                        phone={c.phone}
+                        label={`Call ${c.full_name}`}
+                        className="hover:underline underline-offset-4"
+                      >
+                        {c.phone}
+                      </TelLink>
+                    </TableCell>
                     <TableCell className="hidden text-sm text-muted-foreground sm:table-cell">
                       {c.email ?? "—"}
                     </TableCell>

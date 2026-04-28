@@ -3,6 +3,7 @@ import { AlertTriangle, Phone } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { RegPlate } from "@/components/ui/reg-plate";
+import { TelLink } from "@/components/ui/tel-link";
 import {
   Table,
   TableBody,
@@ -75,13 +76,14 @@ export function ExpiredMotList({ rows }: { rows: ExpiredMotRow[] }) {
                 {r.customerName ?? "—"}
               </div>
               {r.customerPhone ? (
-                <a
-                  href={`tel:${r.customerPhone}`}
+                <TelLink
+                  phone={r.customerPhone}
+                  label={`Call ${r.customerName ?? "customer"}`}
                   className="mt-2 inline-flex items-center gap-1 text-sm text-primary hover:underline"
                 >
                   <Phone className="h-4 w-4" />
                   {r.customerPhone}
-                </a>
+                </TelLink>
               ) : null}
             </li>
           ))}
@@ -110,13 +112,14 @@ export function ExpiredMotList({ rows }: { rows: ExpiredMotRow[] }) {
                   <TableCell>{r.customerName ?? "—"}</TableCell>
                   <TableCell>
                     {r.customerPhone ? (
-                      <a
-                        href={`tel:${r.customerPhone}`}
+                      <TelLink
+                        phone={r.customerPhone}
+                        label={`Call ${r.customerName ?? "customer"}`}
                         className="inline-flex items-center gap-1 text-primary hover:underline"
                       >
                         <Phone className="h-3.5 w-3.5" />
                         {r.customerPhone}
-                      </a>
+                      </TelLink>
                     ) : (
                       "—"
                     )}

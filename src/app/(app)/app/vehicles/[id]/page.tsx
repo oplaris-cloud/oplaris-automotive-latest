@@ -20,6 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { CarImage } from "@/components/ui/car-image";
 import { RegPlate } from "@/components/ui/reg-plate";
+import { TelLink } from "@/components/ui/tel-link";
 import { PageContainer } from "@/components/app/page-container";
 import { getVehicleDetail } from "../actions";
 import { MotHistorySection } from "./MotHistorySection";
@@ -129,9 +130,13 @@ export default async function VehicleDetailPage({ params }: VehicleDetailProps) 
                 {vehicle.customer.full_name}
               </Link>
               <div className="mt-2 flex flex-wrap gap-4 text-sm text-muted-foreground">
-                <span className="flex items-center gap-1.5">
+                <TelLink
+                  phone={vehicle.customer.phone}
+                  label={`Call ${vehicle.customer.full_name}`}
+                  className="flex items-center gap-1.5 hover:text-foreground hover:underline underline-offset-4"
+                >
                   <Phone className="h-4 w-4" /> {vehicle.customer.phone}
-                </span>
+                </TelLink>
                 {vehicle.customer.email && (
                   <span className="flex items-center gap-1.5">
                     <Mail className="h-4 w-4" /> {vehicle.customer.email}

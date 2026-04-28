@@ -9,6 +9,7 @@ import { CarImage } from "@/components/ui/car-image";
 import { RegPlate } from "@/components/ui/reg-plate";
 import { Separator } from "@/components/ui/separator";
 import { EmptyState } from "@/components/ui/empty-state";
+import { TelLink } from "@/components/ui/tel-link";
 import { BatteryReplacementIllustration } from "@/components/illustrations";
 import { PageContainer } from "@/components/app/page-container";
 import { AddVehicleForm } from "./AddVehicleForm";
@@ -62,9 +63,13 @@ export default async function CustomerDetailPage({ params }: CustomerDetailProps
       </div>
 
       <div className="mt-4 flex flex-wrap gap-4 text-sm text-muted-foreground">
-        <span className="flex items-center gap-1.5">
+        <TelLink
+          phone={customer.phone}
+          label={`Call ${customer.full_name}`}
+          className="flex items-center gap-1.5 hover:text-foreground hover:underline underline-offset-4"
+        >
           <Phone className="h-4 w-4" /> {customer.phone}
-        </span>
+        </TelLink>
         {customer.email && (
           <span className="flex items-center gap-1.5">
             <Mail className="h-4 w-4" /> {customer.email}

@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { PageContainer } from "@/components/app/page-container";
 import { PassbackBadge } from "@/components/ui/passback-badge";
 import { RegPlate } from "@/components/ui/reg-plate";
+import { TelLink } from "@/components/ui/tel-link";
 import { BookingsListRealtime } from "@/lib/realtime/shims";
 import {
   Table,
@@ -91,9 +92,13 @@ export default async function BookingsPage() {
                     </span>
                   </div>
                   <div className="mt-2 font-medium">{b.customer_name}</div>
-                  <div className="text-xs text-muted-foreground">
+                  <TelLink
+                    phone={b.customer_phone}
+                    label={`Call ${b.customer_name}`}
+                    className="inline-flex text-xs text-muted-foreground hover:text-foreground hover:underline underline-offset-4"
+                  >
                     {b.customer_phone}
-                  </div>
+                  </TelLink>
                   <div className="mt-2">
                     <RegPlate reg={b.registration} size="sm" />
                     {b.make ? (
@@ -161,9 +166,13 @@ export default async function BookingsPage() {
                     {/* Customer — identifier, top-weight text */}
                     <TableCell className="align-top">
                       <div className="font-medium">{b.customer_name}</div>
-                      <div className="text-xs text-muted-foreground">
+                      <TelLink
+                        phone={b.customer_phone}
+                        label={`Call ${b.customer_name}`}
+                        className="inline-flex text-xs text-muted-foreground hover:text-foreground hover:underline underline-offset-4"
+                      >
                         {b.customer_phone}
-                      </div>
+                      </TelLink>
                       {summary ? (
                         <div className="mt-1 inline-block rounded-md bg-warning/15 px-2 py-1 text-xs text-foreground">
                           {summary}
