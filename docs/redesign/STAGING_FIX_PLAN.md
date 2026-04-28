@@ -318,7 +318,7 @@ Not in scope for this plan; logged here so it doesn't get lost.
 | ID | Todoist | Title | Acceptance |
 |----|---------|-------|------------|
 | P1.1 ✓ | `6gRm3wjwfjGX8WmG` | Kiosk submit → 3s countdown → redirect to kiosk home | Kiosk success screen shows a visible 3-second countdown (large timer) then replaces `window.location` with the kiosk root URL. Works regardless of whether the SMS send succeeded.<br/>✓ 71a88ab 2026-04-25 |
-| P1.2 ✓ | `6gRm53ffqqG7jW2G` | MOT icon on every staff chip | Any place a staff member's name is rendered that has `roles.includes('mot_tester')` shows a Phosphor MOT icon (use the same icon already in the V2 icon barrel) next to the name. Covers: assignee badges on job detail, staff list page (when P3.1 ships), bay-board cards, My Work. Single component change wins: update `<RoleBadge>` / a shared chip helper rather than patching each call site.<br/>✓ 3308916 2026-04-25 (first pass — Phosphor SealCheck after name)<br/>✓ 503ec2f 2026-04-28 (followup — `public/MOT_Logo.svg` glyph, icon before name, `<StaffAvatar roles={…}>` corner badge centralisation) |
+| P1.2 ⚠ partial | `6gRm53ffqqG7jW2G` | MOT icon on every staff chip | First pass `3308916 2026-04-25` shipped a Phosphor SealCheck icon AFTER the name on bay-board chips + TeamManager. **Followup needed** (Hossein 2026-04-27): use `public/MOT_Logo.svg` as the canonical glyph (it's a PNG inside an .svg name — `next/image` handles it), render BEFORE the name not after, and centralise via `<StaffAvatar>`: add a `roles?` prop that overlays a small MOT badge corner-piece on the avatar circle, so every avatar surface (TechAssignmentModal — the "Create job from check-in" modal Hossein flagged — plus settings/staff, future /app/staff list) gets it for free. On surfaces without an avatar (bay-board chips, TeamManager badges), keep `<StaffRoleIcons />` but reorder it to render before the name. Preserve the existing component shape — Hossein's note: "do not innovate further". |
 | P1.3 ✓ | `6gRmCPPmjwxrHGCG` | Edit-customer card → modal mirroring NewCustomerForm | Clicking Edit on the customer detail page opens a shadcn `<Dialog>` containing the same zod schema + form layout as `NewCustomerForm`. Submitting saves via the existing `updateCustomer` server action; dialog closes + route revalidates. Inline edit form is removed.<br/>✓ 2f8ed30 2026-04-25 |
 
 ---
@@ -386,22 +386,45 @@ already had the Retry button. Migration 054 closes the remaining gaps:
 
 ### P2.3 — SMS templates settings page `6gRmH78FwCV5262G`
 
-**Status:** ✓ shipped 2026-04-25 (`f2afae1`). Migration number bumped
-to 055 (054 already taken by the SMS retry queue). Three templates
-seeded with the byte-identical hardcoded strings; renderer wired into
-`/api/status/request-code` (status_code) and `/app/jobs/approvals`
-action (approval_request); mot_reminder wired into the helper but
-inert until the dispatcher cron lands. Manager-only `/app/settings/sms`
-page renders three editor cards with a side-by-side live preview that
-tints filled vars (primary) vs unfilled (warning) so the manager can
-see what's substituted at glance. 9 new unit tests + 269/269 green.
+**Status:** ⚠ partial. First pass shipped 2026-04-25 (`f2afae1`).
+Migration 055 seeded three templates: `status_code`, `approval_request`,
+`mot_reminder`; renderer wired into `/api/status/request-code` + the
+approval-request action; `mot_reminder` wired into the helper but inert
+until the P2.8 cron lands. Manager-only `/app/settings/sms` editor
+renders three cards with a tinted live preview. 9 new unit tests, 269/269
+green.
 
-    ✓ f2afae1 2026-04-25
-    ✓ 8efc15d 2026-04-28 — followup (quote_sent / quote_updated /
-      invoice_sent templates, migration 057). Per-garage editor cards
-      now appear automatically. invoice_sent has no caller yet; next
-      caller wires `renderTemplate("invoice_sent", …)` without a new
-      migration.
+    ✓ f2afae1 2026-04-25 — first pass
+
+**Followup needed (flagged by Hossein 2026-04-27):** the Send Quote and
+Send Invoice paths bypass the template system entirely. The bodies are
+hardcoded in `src/app/(app)/app/jobs/charges/actions.ts` (line 469 for
+`quote_sent`, line 602 for `quote_sent`/`quote_updated`, plus the
+`invoice_sent` path) as inline template literals like
+`` `Dudley Auto Service: Your quote ${ref} for ${reg} is ready. …` ``.
+Three message_types exist in the codebase + `sms_outbox` CHECK
+constraint but have no matching `template_key`, so the manager has no
+way to edit them and the hardcoded "Dudley Auto Service" prefix breaks
+the white-label model when a 2nd garage onboards.
+
+Followup work (~1 h, scoped):
+1. Migration 057 — extend `sms_template_key_check` to include
+   `quote_sent`, `quote_updated`, `invoice_sent`; seed default bodies
+   verbatim from the current hardcoded strings (with the garage name
+   templated into a `{{garage_name}}` variable).
+2. Extend `TEMPLATE_KEYS` + `TEMPLATE_VARS` in
+   `src/lib/sms/template-schema.ts` to include the three new keys.
+3. Replace the three hardcoded `messageBody:` strings in
+   `charges/actions.ts` with `renderTemplate(messageType, vars,
+   garageId)` calls, mirroring how the approval-request path does it.
+4. The `/app/settings/sms` editor iterates `TEMPLATE_KEYS` so the three
+   new editor cards appear automatically — zero UI work.
+
+    ✓ 8efc15d 2026-04-28 — followup (quote + invoice templates,
+    migration 057). `invoice_sent` template seeded but no caller yet
+    — markAsInvoiced still doesn't dispatch an SMS; next caller
+    plugs in via `renderTemplate("invoice_sent", …)` without a new
+    migration.
 
 - **Migration 054** `sms_templates`: `(garage_id uuid, template_key text,
   body text, updated_at timestamptz, primary key (garage_id, template_key))`.
@@ -499,6 +522,160 @@ instrumentation added to the route that logs 429s with the bucket name
 + current count so future over-limits are traceable.
 
     ✓ b4be2dc 2026-04-28
+
+### P2.9 — Type-aware SMS retry policy + bulk Retry button `6gVPxxqfgRRrRWrG`
+
+**Why this exists.** Both manual retry (`retryMessage` server action) and the cron worker (`process_sms_retry_queue`, migration 054) treat every failed SMS identically. They have no idea that a `status_code` OTP older than its 10-minute server-side expiry can't be redeemed even if delivered, or that re-sending a `mot_reminder_5d` two days late tells the customer "5 days" when there's actually 3. They will happily fire useless or actively misleading messages. Manager UX gap on top of that: no bulk action — 12 failed rows means 12 Retry taps.
+
+**Locked retry windows (Hossein 2026-04-25):**
+
+| `message_type` | Retry deadline | Rationale |
+|---|---|---|
+| `status_code` | **8 minutes** after the original `created_at` | The code is server-valid for 10 min (CLAUDE.md rule #8). Retrying at minute 8 leaves ~2 min for SMS delivery (5–30s typical) + 6-digit typing. Past 8 min, the SMS would arrive after expiry. |
+| `approval_request` | 24 hours | Signed HMAC token expires at 24 h. |
+| `mot_reminder_30d` / `_7d` / `_5d` | 24 hours | Day-late is OK; week-late mislabels the window. |
+| `quote_sent` / `quote_updated` / `invoice_sent` | indefinite | No time-sensitive content. |
+
+**Scope:**
+
+1. **New helper** `src/lib/sms/retry-policy.ts`:
+   ```ts
+   export type RetryDecision =
+     | { ok: true }
+     | { ok: false; reason: 'expired_by_policy' | 'unknown_type'; ageMs: number };
+   export function canRetry(messageType: string, originalCreatedAt: Date | string): RetryDecision;
+   ```
+   Pure, no DB. Unit-tested with boundary cases (479s vs 480s vs 481s for OTP).
+
+2. **`retryMessage` action** (`messages/actions.ts`) calls `canRetry` before `queueSms`. On expired: returns `{ ok: false, error: 'This <type> is older than the retry window — sending it now would arrive after expiry. Cancel this row instead.' }`.
+
+3. **MessagesClient.tsx** Retry button is **disabled** with a tooltip when `canRetry` says no — same per-row check, run in the client purely for UX (server check is the security gate). Tooltip text mirrors the action error.
+
+4. **New "Retry all eligible" button** on the Failed tab. Iterates the visible failed rows, applies `canRetry` per row, calls `retryMessage` for each eligible. Returns a single toast: *"Retried N, skipped M expired."* No new server action — orchestrates client-side over the existing single-row action. Pending state shows a spinner on the button.
+
+5. **Migration 056** (number bumped because 055 is `sms_templates`): updates `private.process_sms_retry_queue()` to skip type-expired rows. New behaviour for ineligible rows: directly mark as `failed_final` with `error_code = 'expired_by_policy'` and `error_message = '<type> exceeded its <N>m retry window'`. Eligible rows go through the existing flip-back-to-`queued` logic.
+
+6. **Optional housekeeping cron tick** (~30 min cadence, deferred to v2 unless trivially included): finds rows where `status='failed' AND message_type='status_code' AND created_at < now() - interval '8 minutes'` and stamps `cancelled_at = now()` so the manager's Failed tab isn't cluttered with rows they can't usefully act on. Marker behaviour, not destructive.
+
+**Acceptance criteria:**
+
+- [ ] `canRetry` returns `ok: true` for an OTP at 7m59s, `ok: false` at 8m01s. Same shape for every other type at its respective boundary.
+- [ ] Tapping Retry on a 9-minute-old failed OTP shows a disabled button with tooltip; the action would also reject server-side if forced.
+- [ ] Tapping Retry on a 5-minute-old failed OTP succeeds and creates a fresh row.
+- [ ] Bulk retry on a mix (3 OTPs aged 2/5/9 min, 2 invoices, 1 mot_reminder_7d aged 25h) retries the 2-min and 5-min OTPs + both invoices, skips the 9-min OTP and the 25h mot_reminder. Toast: *"Retried 4, skipped 2 expired."*
+- [ ] Migration 056 applied; `process_sms_retry_queue()` no longer flips expired-by-policy rows back to queued. Re-running the function flips them to `failed_final` with the right error_code.
+- [ ] Unit tests for `canRetry`: each type, both sides of the boundary, plus `unknown_type` fallback.
+- [ ] vibe-security audit clean (server-side gate must hold even if the client UI is bypassed).
+
+**Test plan:**
+
+1. Pick a failed OTP row at 7m on staging. Tap Retry — succeeds.
+2. Wait until the row is 9m old (or seed one via SQL). Tap Retry — disabled with tooltip; force the server action via curl with the row id — returns `{ok:false, error: '… retry window …'}`.
+3. Seed 5 failed rows of mixed type/age. Tap "Retry all eligible". Verify toast counts match.
+4. Apply migration 056, manually invoke `select public.process_sms_retry_queue();` against staging Supabase. Verify expired rows now `failed_final` with `error_code='expired_by_policy'`.
+
+**Out of scope for v1:**
+- Per-customer suppression list / opt-out flag.
+- Twilio-side message-status webhook re-classification (e.g. carrier "delivered late" detection).
+- Auto-cancel-stale-OTPs cron tick — listed as optional in scope item 6 above; ship only if trivial in the same PR.
+
+    ✓ f366bbf 2026-04-28 — migration 058 applied to staging Supabase
+    (note: helper + worker rewrite landed under the next free prefix
+    058, not 056 as the plan originally suggested — 056 was taken by
+    P2.4's bay-change view).
+
+### P2.8 — MOT reminder activation `6gVPqPC4ff54VfvG`
+
+**Why this exists.** Infrastructure for MOT reminders is ~70% built (migration 047 schema, 055 templates, /app/settings/sms editor, MessagesClient badges, ExpiredMotList) but the loop is dead — nothing inserts `mot_reminder_30d/7d/5d` rows. Verified empirically 2026-04-25 via Supabase MCP: zero rows of any `mot_reminder_*` type have ever been queued; `pg_cron` extension is not installed; migration 054's `cron.schedule(...)` line is intentionally commented out.
+
+**Locked design (Hossein 2026-04-25):** two daily Dokploy-driven cron jobs, no `pg_cron`, no Edge Functions. Avoids HTTP-from-Postgres extension and keeps the whole loop visible in app logs.
+
+**Job 1 — DVSA refresh (`/api/cron/mot-refresh`), runs 04:00 London daily.**
+
+- For every vehicle where `mot_last_checked_at < now() - interval '7 days'` and `deleted_at is null` and `customer_id` resolves to an active customer.
+- Calls the existing DVSA helper (the one already used by the vehicle detail page on demand). Updates `mot_expiry_date` and `mot_last_checked_at` on the vehicle row.
+- Rationale: by 04:30 the data is fresh; the 09:00 reminder cron then reads truth-of-the-day, not whatever stale `mot_expiry_date` was sitting from a manual edit weeks ago.
+- Concurrency: process in batches of ~50 with a 200 ms gap between calls so we don't blow DVSA rate limits. Track per-batch failure rate; if a batch sees >20% failures, log + continue (don't fail the whole job — DVSA flake shouldn't lose tomorrow's reminders).
+- Idempotent: re-running mid-day is safe; rows whose `mot_last_checked_at` was just bumped won't re-process.
+
+**Job 2 — Reminder producer + immediate send (`/api/cron/mot-reminders`), runs 09:00 London daily.**
+
+- For each window (30, 7, 5 days):
+  ```sql
+  select v.id, v.registration, v.mot_expiry_date, c.id as customer_id, c.full_name, c.phone, v.garage_id
+    from vehicles v
+    join customers c on c.id = v.customer_id
+   where v.mot_expiry_date = current_date + (<n> || ' days')::interval
+     and v.deleted_at is null
+     and c.deleted_at is null
+     and c.phone is not null
+     and not exists (
+       select 1 from sms_outbox o
+        where o.vehicle_id = v.id
+          and o.message_type = 'mot_reminder_<n>d'
+          and o.created_at >= current_date - interval '7 days'
+     );
+  ```
+  The 7-day dedup window means re-running the cron the same day, or the next day, won't double-send.
+- For each row, render the `mot_reminder` template (vars: `garage_name`, `vehicle_reg`, `expiry_date`) and call `queueSms({ messageType: 'mot_reminder_<n>d', scheduledFor: null, … })` — immediate dispatch through the existing path.
+- No DVSA pre-check at send time in v1. Day-old data is good enough. (v2 hardening below.)
+
+**Both routes share these conventions:**
+
+- **GET-only.** No body, no params. Cron-friendly, easy to retry.
+- **`Authorization: Bearer ${CRON_SECRET}`** header check. New env var, generated with `openssl rand -base64 32`. Add to `src/lib/env.ts` zod schema as `nonEmpty`, `.env.example`, and Dokploy env tab.
+- **Returns** `application/json` with `{ scanned, queued, skipped_dedup, failed, took_ms }` so the schedule run log is useful.
+- **Per-row failures don't fail the route.** Each error is logged + counted in `failed`; the response is still 200 unless the whole job blew up.
+
+**Dokploy schedule entries** (Schedules tab on the staging app):
+
+| Job | Schedule (London) | Cron expression (UTC) |
+|-----|-------------------|-----------------------|
+| MOT refresh | 04:00 daily | `0 3 * * *` (winter) / `0 4 * * *` (summer) |
+| MOT reminders | 09:00 daily | `0 8 * * *` (winter) / `0 9 * * *` (summer) |
+
+(Dokploy's host runs UTC; BST adds 1h. Easiest path: set Dokploy schedules to `TZ=Europe/London` if it supports per-schedule timezone; otherwise use the seasonal split above and update twice a year. Confirm Dokploy's schedule UI on first config — if it has a TZ field, use it once and never think about it again.)
+
+Each schedule's command:
+```bash
+curl -fsSL --max-time 300 \
+  -H "Authorization: Bearer $CRON_SECRET" \
+  https://${TRAEFIK_DOMAIN}/api/cron/mot-refresh    # for refresh job
+```
+```bash
+curl -fsSL --max-time 300 \
+  -H "Authorization: Bearer $CRON_SECRET" \
+  https://${TRAEFIK_DOMAIN}/api/cron/mot-reminders  # for reminder job
+```
+`--max-time 300` lets the refresh job take up to 5 min for batch DVSA work without Dokploy killing it.
+
+**Acceptance criteria:**
+
+- [ ] `CRON_SECRET` added to env validator (`src/lib/env.ts` `nonEmpty`), `.env.example`, Dokploy env tab.
+- [ ] Both routes return 401 without the bearer; no DB rows created.
+- [ ] Refresh route updates `mot_last_checked_at` and (if changed) `mot_expiry_date` for every eligible vehicle. Re-runs are no-ops within 7-day window.
+- [ ] Reminder route creates exactly one `sms_outbox` row per qualifying vehicle per window per 7-day period. Each row reaches `status='sent'` with `twilio_sid` populated within 30 seconds.
+- [ ] Calling either route twice in the same day produces no duplicate effects.
+- [ ] Messages UI badges render correctly (`MOT 30d` amber, `MOT 7d` warmer amber, `MOT 5d` red — already in MessagesClient.tsx).
+- [ ] Both Dokploy schedules visible in the Schedules tab, executed at the right times for ≥3 consecutive days, schedule-run-log JSON shows non-error responses.
+- [ ] vibe-security audit clean (CRON_SECRET handling, route-handler shape, no service-role secret leaking into logs).
+
+**Test plan (run during P2.8 implementation, before declaring done):**
+
+1. Pick a Dudley test vehicle. Set `mot_expiry_date = current_date + interval '30 days'` and `mot_last_checked_at = now() - interval '8 days'` via Supabase MCP.
+2. Hit `/api/cron/mot-refresh` with the bearer. Expect `mot_last_checked_at` to bump to now; `mot_expiry_date` may or may not change (depends on real DVSA state). Expect 200 with `{scanned: 1, ...}`.
+3. Hit `/api/cron/mot-reminders` with the bearer. Expect `{scanned: 1, queued: 1, skipped_dedup: 0, failed: 0}`.
+4. Confirm `sms_outbox` row exists with `message_type='mot_reminder_30d'`, `status='sent'`, `twilio_sid` populated.
+5. Confirm SMS delivered to the test phone.
+6. Hit `/api/cron/mot-reminders` again immediately. Expect `{scanned: 1, queued: 0, skipped_dedup: 1, failed: 0}` (dedup gate fires).
+7. Update the same vehicle to `current_date + interval '7 days'`, hit reminder route, expect a fresh `mot_reminder_7d` row.
+8. Confirm Dokploy's first scheduled run hits the route with a 200 response and the JSON body is logged.
+
+**v2 hardening (logged here so it doesn't get lost):**
+- DVSA pre-check inside the reminder cron itself — just-before-send DVSA lookup catches "MOT renewed at another garage since 04:00". Costs DVSA quota per send. Add when false-positive complaints surface.
+- Per-customer opt-out flag — GDPR-clean way to suppress the reminder for customers who don't want it. Currently every customer with a phone gets reminded.
+- Customer-self-service "I've already renewed elsewhere" link in the SMS body, writing a row to a `mot_optouts` table that the producer reads.
+- Manager UI to manually fire one reminder for a specific vehicle (useful if a customer asks).
 
 ### P2.7 — Quote URL + approval-SMS send + super_admin role `6gRmVr9GFfgmHhRG`
 
@@ -764,10 +941,15 @@ support + SMS template defaults. Everything else waits until the 2nd or
 
 ---
 
-## Todoist label workflow
+## Todoist label + comment workflow
 
 The `done-by-claude` label is the audit trail Hossein reviews later. Apply
 it programmatically on each completion — don't tick Todoist manually.
+**Always leave a comment too** (standing rule, 2026-04-25): every fix or
+change posts a Todoist comment summarising what was done, in plain English,
+with the commit SHA + migration number + any caveats. The comment is the
+human-readable equivalent of the `done-by-claude` label — both must land
+together. Applies in Cowork mode as well as Claude terminal.
 
 **Token:** Hossein's personal API token. **Treat as burn-after-read.** Pass
 via env var, never commit.
@@ -808,6 +990,24 @@ curl -sS -X POST -H "Authorization: Bearer $TODOIST_TOKEN" \
 
 3. Append a one-line note to this plan doc under the item's row,
    format: `    ✓ <commit-sha> <YYYY-MM-DD>`.
+
+4. **Post a comment to the Todoist task** with a plain-English summary
+   of what was done. Required, not optional. Format:
+
+   ```bash
+   curl -sS -X POST -H "Authorization: Bearer $TODOIST_TOKEN" \
+     -H "Content-Type: application/json" \
+     "https://api.todoist.com/api/v1/comments" \
+     -d '{"task_id":"<TASK_ID>",
+          "content":"Shipped YYYY-MM-DD in commit <sha>. <4–8 sentences
+                     describing the user-facing change, the migration
+                     number if any, key implementation choices, and any
+                     caveats / follow-ups the reviewer should know>.
+                     Spec: docs/redesign/STAGING_FIX_PLAN.md > P<id>."}'
+   ```
+
+   Order of operations: commit → push → label → comment. Comment last so
+   the SHA is correct.
 
 ---
 
