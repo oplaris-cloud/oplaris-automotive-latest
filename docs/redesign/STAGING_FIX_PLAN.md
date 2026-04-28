@@ -397,6 +397,11 @@ tints filled vars (primary) vs unfilled (warning) so the manager can
 see what's substituted at glance. 9 new unit tests + 269/269 green.
 
     ✓ f2afae1 2026-04-25
+    ✓ 8efc15d 2026-04-28 — followup (quote_sent / quote_updated /
+      invoice_sent templates, migration 057). Per-garage editor cards
+      now appear automatically. invoice_sent has no caller yet; next
+      caller wires `renderTemplate("invoice_sent", …)` without a new
+      migration.
 
 - **Migration 054** `sms_templates`: `(garage_id uuid, template_key text,
   body text, updated_at timestamptz, primary key (garage_id, template_key))`.
