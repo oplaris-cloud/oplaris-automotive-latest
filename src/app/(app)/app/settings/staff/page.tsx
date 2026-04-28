@@ -74,6 +74,7 @@ export default async function StaffPage() {
                         src={(s as Record<string, unknown>).avatar_url as string | null}
                         name={s.full_name}
                         size={52}
+                        roles={roles}
                       />
                     </div>
                     <div className="min-w-0 flex-1">

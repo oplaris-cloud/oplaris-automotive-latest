@@ -193,10 +193,10 @@ export function BayBoardClient({ initialBays }: BayBoardClientProps) {
                                                 key={i}
                                                 className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-1 text-xs"
                                               >
-                                                {a.staff.full_name}
                                                 <StaffRoleIcons
                                                   roles={a.staff.roles}
                                                 />
+                                                {a.staff.full_name}
                                               </span>
                                             ))}
                                           </div>

@@ -20,7 +20,6 @@ import {
   CarSimple,
   Lightbulb,
   Lifebuoy,
-  SealCheck,
 } from "@phosphor-icons/react/dist/ssr";
 
 import { cn } from "@/lib/utils";
@@ -56,11 +55,25 @@ export function TyrePressureIcon({ className }: { className?: string }) {
   return <Lifebuoy className={cn(phosphorClass, className)} />;
 }
 
-// P1.2 — used on every staff chip whose roles include 'mot_tester' so a
-// manager can spot at a glance which assignees can sign off MOTs. The
-// seal-check shape mirrors the UK MOT certificate seal.
+// P1.2 followup — uses the canonical MOT logo Hossein supplied at
+// public/MOT_Logo.svg (it's actually a PNG inside an .svg-named file
+// — the browser content-sniffs and renders it as PNG regardless).
+// Plain <img> rather than next/image because routing this through
+// the optimiser would force `dangerouslyAllowSVG: true` in
+// next.config.ts; for a 4 KB asset the optimisation upside doesn't
+// pay for the security relaxation. Empty alt — the surrounding chip
+// or avatar badge owns the accessible label, so the icon's
+// contribution here is purely visual.
 export function MotTesterIcon({ className }: { className?: string }) {
-  return <SealCheck className={cn(phosphorClass, className)} weight="fill" />;
+  return (
+    <img
+      src="/MOT_Logo.svg"
+      alt=""
+      width={16}
+      height={16}
+      className={cn("inline-block object-contain", phosphorClass, className)}
+    />
+  );
 }
 
 // ---------------------------------------------------------------------------

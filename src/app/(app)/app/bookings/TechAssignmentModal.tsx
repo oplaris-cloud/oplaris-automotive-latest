@@ -231,7 +231,12 @@ function TechAvatarButton({ tech, onSelect, disabled }: TechAvatarButtonProps) {
             : "border-success bg-success/10 text-success"
         }`}
       >
-        <StaffAvatar src={tech.avatar_url} name={tech.full_name} size={74} />
+        <StaffAvatar
+          src={tech.avatar_url}
+          name={tech.full_name}
+          size={74}
+          roles={tech.roles}
+        />
       </div>
       <span className="text-center text-xs font-semibold text-gray-700 leading-tight">
         {shortName(tech.full_name)}

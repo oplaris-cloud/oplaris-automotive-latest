@@ -92,8 +92,8 @@ export function TeamManager({
         <div className="mt-1 flex flex-wrap gap-1.5">
           {assignedStaff.map((s) => (
             <Badge key={s.id} variant="secondary" className="gap-1 pr-1 text-xs">
-              {s.full_name}
               <StaffRoleIcons roles={s.roles} />
+              {s.full_name}
               <button
                 onClick={() => handleUnassign(s.id)}
                 disabled={isPending}
