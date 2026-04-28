@@ -429,6 +429,8 @@ see what's substituted at glance. 9 new unit tests + 269/269 green.
   predicates. Customer-facing timeline stays filtered to the existing
   customer subset; internal staff timeline shows the new events.
 
+    ✓ 6d29c49 2026-04-28 — migration 056 applied to staging Supabase
+
 ### P2.5 — Bay-board realtime fix `6gRm9xgpwm9Xhvwp`
 
 **Diagnosis closed in P0.4 (2026-04-25):** the bug is **not** in the
