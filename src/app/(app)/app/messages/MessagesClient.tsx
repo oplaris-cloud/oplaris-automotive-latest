@@ -55,6 +55,13 @@ import {
   type SmsStatus,
 } from "./actions";
 import type { SmsType } from "@/lib/sms/queue";
+import { canRetry, formatRetryWindow } from "@/lib/sms/retry-policy";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface Props {
   initialKpis: MessageKpis;
@@ -121,7 +128,7 @@ export function MessagesClient({ initialKpis, initialPage }: Props) {
   const [pageNumber, setPageNumber] = useState(1);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [searchInput, setSearchInput] = useState("");
-  const [, startTransition] = useTransition();
+  const [isPending, startTransition] = useTransition();
 
   // Debounced search — 300ms after the manager stops typing.
   useEffect(() => {
@@ -150,6 +157,19 @@ export function MessagesClient({ initialKpis, initialPage }: Props) {
     [page.rows],
   );
 
+  // P2.9 — visible eligible-for-bulk-retry count powers the "Retry
+  // all eligible" button label + disabled state. Counts both `failed`
+  // and `failed_final` so a manager hand-firing the bulk action picks
+  // up the cron-aged rows too.
+  const bulkRetryable = useMemo(
+    () =>
+      page.rows.filter((r) => {
+        if (r.status !== "failed" && r.status !== "failed_final") return false;
+        return canRetry(r.messageType, r.createdAt).ok;
+      }),
+    [page.rows],
+  );
+
   function handleRetry(id: string) {
     startTransition(async () => {
       const result = await retryMessage({ id });
@@ -158,6 +178,34 @@ export function MessagesClient({ initialKpis, initialPage }: Props) {
         return;
       }
       toast.success("Message resent");
+      const next = await getMessages(filter, pageNumber);
+      setPage(next);
+    });
+  }
+
+  // P2.9 — bulk retry orchestrates client-side over the existing
+  // single-row action so the security gate (canRetry on the server)
+  // remains the source of truth. Skipped rows are reported in the
+  // toast so the manager knows what didn't go.
+  function handleRetryAllEligible() {
+    if (bulkRetryable.length === 0) return;
+    startTransition(async () => {
+      let retried = 0;
+      let skipped = 0;
+      for (const row of bulkRetryable) {
+        const r = await retryMessage({ id: row.id });
+        if (r.ok) retried += 1;
+        else skipped += 1;
+      }
+      const totalFailedRows = page.rows.filter(
+        (r) => r.status === "failed" || r.status === "failed_final",
+      ).length;
+      const ineligible = totalFailedRows - bulkRetryable.length;
+      const summary =
+        skipped + ineligible > 0
+          ? `Retried ${retried}, skipped ${skipped + ineligible} (expired or ineligible).`
+          : `Retried ${retried}.`;
+      toast.success(summary);
       const next = await getMessages(filter, pageNumber);
       setPage(next);
     });
@@ -279,11 +327,27 @@ export function MessagesClient({ initialKpis, initialPage }: Props) {
         </div>
       </div>
 
+      {/* P2.9 — Failed-tab utility row. Bulk retry orchestrates over
+       *  the per-row retry action, applying canRetry per row so we
+       *  don't burn SMS on expired-by-policy content. */}
       {failedNow > 0 ? (
-        <p className="mt-4 text-xs text-muted-foreground">
-          {failedNow} failed message{failedNow === 1 ? "" : "s"} on this page.
-          Use the row menu to retry.
-        </p>
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+          <p className="text-xs text-muted-foreground">
+            {failedNow} failed message{failedNow === 1 ? "" : "s"} on this page.
+            {bulkRetryable.length > 0
+              ? ` ${bulkRetryable.length} eligible to retry.`
+              : ""}
+          </p>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={isPending || bulkRetryable.length === 0}
+            onClick={handleRetryAllEligible}
+          >
+            <Send className="h-4 w-4" />
+            {isPending ? "Retrying…" : `Retry all eligible (${bulkRetryable.length})`}
+          </Button>
+        </div>
       ) : null}
 
       {/* Table — desktop */}
@@ -470,12 +534,26 @@ function RowActions({ row, onRetry, onCancel }: RowActionsProps) {
   // failed_final means "cron has given up auto-retrying" — manual
   // intervention is the whole point of the state, so the Retry action
   // stays available. Manager can still re-fire (creates a fresh row).
-  const canRetry = row.status === "failed" || row.status === "failed_final";
+  const isFailed = row.status === "failed" || row.status === "failed_final";
+  // P2.9 — type-aware retry policy. status_code older than 8m, or
+  // mot_reminder/approval_request older than 24h, is refused
+  // server-side. We mirror the check here so the menu item is
+  // disabled with a tooltip; the action would also reject if forced.
+  const retryDecision = isFailed
+    ? canRetry(row.messageType, row.createdAt)
+    : { ok: false, reason: "unknown_type" as const, ageMs: 0, windowMs: null };
   const canCancel = row.status === "queued";
   const hasVehicle = row.vehicleId !== null;
   const hasJob = row.jobId !== null;
 
-  if (!canRetry && !canCancel && !hasVehicle && !hasJob) return null;
+  if (!isFailed && !canCancel && !hasVehicle && !hasJob) return null;
+
+  const retryDisabledReason =
+    isFailed && !retryDecision.ok
+      ? retryDecision.reason === "expired_by_policy"
+        ? `This ${TYPE_LABEL[row.messageType]} is older than the ${formatRetryWindow(row.messageType)} retry window — sending it now would arrive after expiry.`
+        : `Unknown message type — cancel this row instead.`
+      : null;
 
   return (
     <DropdownMenu>
@@ -487,10 +565,30 @@ function RowActions({ row, onRetry, onCancel }: RowActionsProps) {
         <MoreHorizontal className="h-4 w-4" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        {canRetry ? (
-          <DropdownMenuItem onClick={onRetry}>
-            <Send className="h-4 w-4" /> Retry send
-          </DropdownMenuItem>
+        {isFailed ? (
+          retryDisabledReason ? (
+            <TooltipProvider delay={150}>
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <DropdownMenuItem
+                      disabled
+                      onClick={(e) => e.preventDefault()}
+                    >
+                      <Send className="h-4 w-4" /> Retry send
+                    </DropdownMenuItem>
+                  }
+                />
+                <TooltipContent side="left" className="max-w-xs">
+                  {retryDisabledReason}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          ) : (
+            <DropdownMenuItem onClick={onRetry}>
+              <Send className="h-4 w-4" /> Retry send
+            </DropdownMenuItem>
+          )
         ) : null}
         {canCancel ? (
           <ConfirmDialog

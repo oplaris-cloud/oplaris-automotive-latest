@@ -7,6 +7,7 @@ import { requireManager } from "@/lib/auth/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { queueSms, type SmsType } from "@/lib/sms/queue";
+import { canRetry, formatRetryWindow } from "@/lib/sms/retry-policy";
 
 import type { ActionResult } from "../customers/actions";
 
@@ -232,7 +233,7 @@ export async function retryMessage(
   const { data: original } = await supabase
     .from("sms_outbox")
     .select(
-      "vehicle_id, customer_id, job_id, phone, message_body, message_type, status",
+      "vehicle_id, customer_id, job_id, phone, message_body, message_type, status, created_at",
     )
     .eq("id", parsed.data.id)
     .maybeSingle();
@@ -242,6 +243,26 @@ export async function retryMessage(
     return {
       ok: false,
       error: `Cannot retry — status is "${original.status}", only failed rows can be retried.`,
+    };
+  }
+
+  // P2.9 — server-side gate. The MessagesClient also disables the
+  // button via `canRetry` for UX, but this is the security gate: a
+  // forced curl call with a stale id of an expired-by-policy row
+  // must still be refused so we don't burn an SMS segment delivering
+  // a useless OTP / out-of-date MOT reminder.
+  const decision = canRetry(original.message_type, original.created_at);
+  if (!decision.ok) {
+    if (decision.reason === "unknown_type") {
+      return {
+        ok: false,
+        error: `Cannot retry — unknown message type "${original.message_type}". Cancel this row instead.`,
+      };
+    }
+    const window = formatRetryWindow(original.message_type);
+    return {
+      ok: false,
+      error: `Cannot retry — this ${original.message_type} is older than the ${window} retry window. Sending it now would arrive after expiry.`,
     };
   }
 
