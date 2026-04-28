@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { AsYouType } from "libphonenumber-js/core";
 import metadata from "libphonenumber-js/metadata.min.json";
 
@@ -57,21 +57,14 @@ export function PhoneInput({
   autoComplete = "tel-national",
   inputClassName,
 }: PhoneInputProps) {
-  // Hold the formatted display string locally — the parent gets the raw
-  // value but we re-render with the AsYouType output so the user sees
-  // spaces appear/disappear cleanly. AsYouType is stateful and resets
-  // per call, so we instantiate it inside the input handler each time
-  // rather than carrying an instance across renders.
-  const [display, setDisplay] = useState(() => formatForDisplay(value));
-
-  // If the parent changes `value` out-of-band (e.g. a form reset or
-  // prefilled defaultValue), re-format the display. We deliberately key
-  // off `value` only — typing keeps display in sync via the local
-  // setDisplay call below, so this effect doesn't fight live input.
-  useEffect(() => {
-    const next = formatForDisplay(value);
-    setDisplay((prev) => (prev === next ? prev : next));
-  }, [value]);
+  // Display is derived from `value` on every render — the parent owns
+  // the raw user-typed string, we re-format it through AsYouType for
+  // visual feedback. AsYouType is stateful within a single .input()
+  // sequence, so we instantiate fresh inside `formatForDisplay` per
+  // call to avoid sticky formatting on deletions. No local state +
+  // sync-effect dance because the parent's setState already triggers
+  // a re-render with the new value, and the formatter is pure.
+  const display = useMemo(() => formatForDisplay(value), [value]);
 
   // Validity is reported up so the parent's Submit gate can mirror it.
   const isValid = useMemo(() => isValidPhoneNumberInput(value), [value]);
@@ -80,11 +73,9 @@ export function PhoneInput({
   }, [isValid, onValidChange]);
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const raw = e.target.value;
     // Pass the raw user-typed value up — that's what gets normalised
-    // server-side. The display below uses AsYouType to re-format.
-    onChange(raw);
-    setDisplay(formatForDisplay(raw));
+    // server-side. The next render derives `display` from it.
+    onChange(e.target.value);
   }
 
   return (

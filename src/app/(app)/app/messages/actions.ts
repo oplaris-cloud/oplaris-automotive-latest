@@ -239,7 +239,16 @@ export async function retryMessage(
     .maybeSingle();
 
   if (!original) return { ok: false, error: "Message not found" };
-  if (original.status !== "failed") {
+  // failed_final means "auto-retry exhausted" — manual Retry from the
+  // Messages UI is the whole point of that terminal state, so accept
+  // both `failed` and `failed_final`. Anything else (queued, sent,
+  // delivered, cancelled) is rejected. P2.9 audit fix 2026-04-28 —
+  // previously only `failed` was accepted, which contradicted the
+  // RowActions comment + the bulk-retry filter that includes
+  // `failed_final` rows. The type-aware canRetry gate below is the
+  // real security check; this status gate is just "is the row in a
+  // re-fireable state".
+  if (original.status !== "failed" && original.status !== "failed_final") {
     return {
       ok: false,
       error: `Cannot retry — status is "${original.status}", only failed rows can be retried.`,
