@@ -4,6 +4,7 @@ import { z } from "zod";
 import { serverEnv } from "@/lib/env";
 import { verifyKioskCookie } from "@/lib/security/kiosk-cookie";
 import { checkRateLimit } from "@/lib/security/rate-limit";
+import { getClientIp } from "@/lib/security/client-ip";
 import { getDvsaAccessToken } from "@/lib/dvla/token";
 
 const requestSchema = z.object({
@@ -28,9 +29,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Unauthorised device" }, { status: 401 });
   }
 
-  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
-  const limit = await checkRateLimit(`kiosk_reg_lookup_ip:${ip}`, 10);
+  const ip = getClientIp(request);
+  const REG_LOOKUP_IP_LIMIT = 10;
+  const limit = await checkRateLimit(`kiosk_reg_lookup_ip:${ip}`, REG_LOOKUP_IP_LIMIT);
   if (!limit.allowed) {
+    console.warn(
+      `[rate-limit] 429 kiosk_reg_lookup_ip bucket=${ip} limit=${REG_LOOKUP_IP_LIMIT} (P2.6 instrumentation)`,
+    );
     return NextResponse.json({ error: "Too many requests" }, { status: 429 });
   }
 

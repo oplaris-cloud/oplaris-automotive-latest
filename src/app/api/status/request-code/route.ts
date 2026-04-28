@@ -3,6 +3,7 @@ import { createHash, randomInt } from "node:crypto";
 
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { checkRateLimit } from "@/lib/security/rate-limit";
+import { getClientIp } from "@/lib/security/client-ip";
 import { normaliseRegistration } from "@/lib/validation/registration";
 import { normalisePhoneSafe } from "@/lib/validation/phone";
 import { serverEnv } from "@/lib/env";
@@ -16,9 +17,16 @@ import { renderTemplate } from "@/lib/sms/templates";
  *   - Same JSON shape + HTTP status for hit/miss (always 200 + { ok: true })
  *   - Consistent timing via padded delay (250ms ± jitter)
  *   - Phone + reg are hashed before storage; raw values never persisted
- *   - Rate limited: 3/phone/hr + 10/IP/hr
+ *   - Rate limited: 6/phone/hr + 10/IP/hr
  *
  * The 6-digit code is hashed (sha256) before storage. 10-minute expiry.
+ *
+ * P2.6 (2026-04-28): per-phone limit raised from 3 to 6/hr after
+ * staging diagnostic showed Hossein hitting it during normal manager
+ * testing (4–7 retries on the same phone within an hour). The 6/hr
+ * cap still prevents SMS-bombing one customer; per-phone is not the
+ * enumeration gate (vehicle-reg + phone-on-file match are). CLAUDE.md
+ * Rule #8 updated to match.
  */
 
 const OK_RESPONSE = {
@@ -43,20 +51,37 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return padded(startMs, NextResponse.json({ error: "registration and phone required" }, { status: 400 }));
   }
 
-  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  const ip = getClientIp(request);
+
+  // P2.6 — hash on the *normalised* phone, not the raw input. If we
+  // hashed `rawPhone` directly, "07911..." and "+44 7911..." would land
+  // in different buckets, letting a determined caller circumvent the
+  // per-phone cap by varying the format. `normalisePhoneSafe` returns
+  // null on parse failure → fall back to a hash of the trimmed raw
+  // value so unparseable input still rate-limits (sub-3 mins of
+  // hostile gibberish shouldn't cost us extra SMS sends downstream).
+  const normalisedForHash = normalisePhoneSafe(rawPhone) ?? rawPhone.trim();
+  const phoneHash = hash(normalisedForHash + env.STATUS_PHONE_PEPPER);
 
   // Rate limits (fail closed)
-  const phoneHash = hash(rawPhone + env.STATUS_PHONE_PEPPER);
-  const phoneLimit = await checkRateLimit(`status_phone:${phoneHash}`, 3);
+  const PHONE_LIMIT = 6;
+  const IP_LIMIT = 10;
+  const phoneLimit = await checkRateLimit(`status_phone:${phoneHash}`, PHONE_LIMIT);
   if (!phoneLimit.allowed) {
+    console.warn(
+      `[rate-limit] 429 status_phone bucket=hash:${phoneHash.slice(0, 8)} limit=${PHONE_LIMIT} (P2.6 instrumentation)`,
+    );
     return padded(startMs, NextResponse.json({ error: "Too many requests" }, { status: 429 }));
   }
-  const ipLimit = await checkRateLimit(`status_ip:${ip}`, 10);
+  const ipLimit = await checkRateLimit(`status_ip:${ip}`, IP_LIMIT);
   if (!ipLimit.allowed) {
+    console.warn(
+      `[rate-limit] 429 status_ip bucket=${ip} limit=${IP_LIMIT} (P2.6 instrumentation)`,
+    );
     return padded(startMs, NextResponse.json({ error: "Too many requests" }, { status: 429 }));
   }
 
-  // Normalise
+  // Normalise reg (phone already done above for the hash)
   const reg = normaliseRegistration(rawReg);
   const regHash = hash(reg + env.STATUS_PHONE_PEPPER);
 

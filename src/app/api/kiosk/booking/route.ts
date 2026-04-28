@@ -4,6 +4,7 @@ import { z } from "zod";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { verifyKioskCookie } from "@/lib/security/kiosk-cookie";
 import { checkRateLimit } from "@/lib/security/rate-limit";
+import { getClientIp } from "@/lib/security/client-ip";
 import { normalisePhone, PhoneParseError } from "@/lib/validation/phone";
 
 const bookingSchema = z.object({
@@ -70,7 +71,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     throw e;
   }
 
-  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
+  const ip = getClientIp(request);
+  // For the DB audit row we prefer null over the literal "unknown"
+  // sentinel so the column tells the truth. The rate-limit bucket
+  // uses `ip` directly because Postgres can't be a key with null.
+  const ipForRow = ip === "unknown" ? null : ip;
   const userAgent = request.headers.get("user-agent") ?? null;
 
   // M1 Go-Live Blocker B9 — rate-limit kiosk bookings.
@@ -87,18 +92,26 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   // Note: checkRateLimit windows are hourly (rate_limits table truncates
   // to the hour). Per-minute windows would need a schema change; hourly
   // is sufficient for v1 spam prevention.
-  const rateIp = ip ?? "unknown";
+  const rateIp = ip;
   const normalisedReg = parsed.data.registration.replace(/\s+/g, "").toUpperCase();
 
-  const ipLimit = await checkRateLimit(`kiosk_booking_ip:${rateIp}`, 5);
+  const KIOSK_IP_LIMIT = 5;
+  const KIOSK_IP_REG_LIMIT = 3;
+  const ipLimit = await checkRateLimit(`kiosk_booking_ip:${rateIp}`, KIOSK_IP_LIMIT);
   if (!ipLimit.allowed) {
+    console.warn(
+      `[rate-limit] 429 kiosk_booking_ip bucket=${rateIp} limit=${KIOSK_IP_LIMIT} (P2.6 instrumentation)`,
+    );
     return NextResponse.json({ error: "Too many requests" }, { status: 429 });
   }
   const ipRegLimit = await checkRateLimit(
     `kiosk_booking_ip_reg:${rateIp}|${normalisedReg}`,
-    3,
+    KIOSK_IP_REG_LIMIT,
   );
   if (!ipRegLimit.allowed) {
+    console.warn(
+      `[rate-limit] 429 kiosk_booking_ip_reg bucket=${rateIp}|${normalisedReg} limit=${KIOSK_IP_REG_LIMIT} (P2.6 instrumentation)`,
+    );
     return NextResponse.json({ error: "Too many requests" }, { status: 429 });
   }
 
@@ -117,7 +130,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       model: parsed.data.model || null,
       preferred_date: parsed.data.preferredDate || null,
       notes: parsed.data.notes || null,
-      ip,
+      ip: ipForRow,
       user_agent: userAgent,
     })
     .select("id")

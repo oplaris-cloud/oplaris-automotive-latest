@@ -5,7 +5,9 @@ import { createHmac } from "node:crypto";
 
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { checkRateLimit } from "@/lib/security/rate-limit";
+import { getClientIp } from "@/lib/security/client-ip";
 import { normaliseRegistration } from "@/lib/validation/registration";
+import { normalisePhoneSafe } from "@/lib/validation/phone";
 import { serverEnv } from "@/lib/env";
 
 /**
@@ -33,14 +35,24 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   // Rate limit: 5 verify attempts per IP per hour (brute-force prevention)
-  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
-  const ipLimit = await checkRateLimit(`verify_ip:${ip}`, 5);
+  const ip = getClientIp(request);
+  const VERIFY_IP_LIMIT = 5;
+  const ipLimit = await checkRateLimit(`verify_ip:${ip}`, VERIFY_IP_LIMIT);
   if (!ipLimit.allowed) {
+    console.warn(
+      `[rate-limit] 429 verify_ip bucket=${ip} limit=${VERIFY_IP_LIMIT} (P2.6 instrumentation)`,
+    );
     return NextResponse.json({ error: "Too many attempts" }, { status: 429 });
   }
 
+  // P2.6 — phone hash MUST mirror the normalisation done in
+  // /api/status/request-code, otherwise the row stored under the
+  // normalised hash on request can't be found on verify. Same fall-
+  // back: unparseable input drops to the trimmed-raw hash so the
+  // verify still attempts a lookup (which will return null and 410).
   const reg = normaliseRegistration(registration);
-  const phoneHash = hash(phone.trim() + env.STATUS_PHONE_PEPPER);
+  const normalisedForHash = normalisePhoneSafe(phone) ?? phone.trim();
+  const phoneHash = hash(normalisedForHash + env.STATUS_PHONE_PEPPER);
   const regHash = hash(reg + env.STATUS_PHONE_PEPPER);
   const codeHash = hash(code);
 
