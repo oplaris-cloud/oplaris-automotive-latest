@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import {
   DragDropContext,
   Droppable,
@@ -18,11 +18,7 @@ import { cn } from "@/lib/utils";
 import type { BayWithJobs } from "../jobs/actions";
 import type { JobStatus } from "@/lib/validation/job-schemas";
 
-import {
-  applyPendingMoves,
-  pruneAcceptedMoves,
-  type PendingMoves,
-} from "./bay-board-overlay";
+import { applyPendingMoves, type PendingMoves } from "./bay-board-overlay";
 
 interface BayBoardClientProps {
   initialBays: BayWithJobs[];
@@ -35,14 +31,16 @@ export function BayBoardClient({ initialBays }: BayBoardClientProps) {
   // session. The overlay below is the only local state that survives a
   // re-render, and it covers just the in-flight drag → server →
   // realtime window.
+  //
+  // Old entries don't need pruning: `applyPendingMoves` is a no-op
+  // for any entry whose destination already matches the job's current
+  // bay (i.e. realtime has caught up). Re-dragging the same job
+  // overwrites by jobId. So the Map's effective size stays bounded
+  // by the number of in-flight drags (typically 1-2).
   const [pendingMoves, setPendingMoves] = useState<PendingMoves>(
     () => new Map(),
   );
   const [isPending, startTransition] = useTransition();
-
-  useEffect(() => {
-    setPendingMoves((prev) => pruneAcceptedMoves(initialBays, prev));
-  }, [initialBays]);
 
   const bays = useMemo(
     () => applyPendingMoves(initialBays, pendingMoves),
