@@ -440,6 +440,8 @@ new `supabase.channel(` call sites; no migration. Add a regression in
 postgres_changes event and asserts the rendered DOM reflects the new
 state within the 2-second debounce.
 
+    ✓ 411a508 2026-04-28
+
 ### P2.6 — Status page "too many requests" false-positives `6gRmVJHc2g72VX6G`
 
 **Symptom:** Hossein reports random 429s on the public status page,
