@@ -677,6 +677,15 @@ curl -fsSL --max-time 300 \
 - Customer-self-service "I've already renewed elsewhere" link in the SMS body, writing a row to a `mot_optouts` table that the producer reads.
 - Manager UI to manually fire one reminder for a specific vehicle (useful if a customer asks).
 
+    ✓ c5b10f7 2026-04-28 — code-side complete (route handlers + zod
+    env + 9 auth unit tests). Operator action still required:
+    Hossein generates the CRON_SECRET, pastes it into Dokploy +
+    .env.local, and adds the two scheduled curl jobs at 04:00 / 09:00
+    London (commands are in the section above + the commit body).
+    The `done-by-claude` label on Todoist 6gVPqPC4ff54VfvG should
+    only be applied AFTER the first scheduled run completes
+    end-to-end with a real SMS delivered.
+
 ### P2.7 — Quote URL + approval-SMS send + super_admin role `6gRmVr9GFfgmHhRG`
 
 **Three concerns in one Todoist ticket — split and addressed separately.**
