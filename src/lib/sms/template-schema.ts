@@ -160,6 +160,42 @@ export const FALLBACK_BODIES: Record<TemplateKey, string> = {
 // Pure functions — safe to use from server or client.
 // ────────────────────────────────────────────────────────────────────
 
+/** Belt-and-braces normaliser for the public app URL before it goes
+ *  into an SMS body. Defends against the `https:host.tld` operator-side
+ *  typo (missing `//`) which Node's URL constructor accepts as
+ *  scheme+path with empty host — that reaches the customer as an
+ *  unclickable link. P2.7a (2026-04-28).
+ *
+ *  - Inserts `//` after `https:` / `http:` if missing.
+ *  - Throws if the parsed URL has an empty host.
+ *  - Strips trailing slash so callers can `+ "/status"` cleanly.
+ *
+ *  Always validate at the SMS render path even after the env value is
+ *  fixed in Dokploy — env values can be rotated by hand and the next
+ *  customer SMS shouldn't be the canary. */
+export function normaliseAppUrl(raw: string): string {
+  if (typeof raw !== "string" || raw.trim() === "") {
+    throw new Error("normaliseAppUrl: empty input");
+  }
+
+  // Insert `//` after `https:` / `http:` if an operator pasted
+  // `https:host.tld`. Anchored to the start, case-insensitive, and a
+  // negative-lookahead so we never double-insert.
+  const fixed = raw.trim().replace(/^(https?):(?!\/\/)/i, "$1://");
+
+  let parsed: URL;
+  try {
+    parsed = new URL(fixed);
+  } catch {
+    throw new Error(`normaliseAppUrl: not parseable: ${raw}`);
+  }
+  if (!parsed.host) {
+    throw new Error(`normaliseAppUrl: empty host: ${raw}`);
+  }
+
+  return fixed.replace(/\/+$/, "");
+}
+
 /** `{{var}}` substitution. Variables not in `vars` are left as a
  *  literal placeholder so we never silently send a half-filled SMS;
  *  the call site is expected to provide every variable in the

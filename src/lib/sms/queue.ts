@@ -3,6 +3,7 @@ import "server-only";
 import { serverEnv } from "@/lib/env";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
+import { normaliseAppUrl } from "./template-schema";
 import { sendSms } from "./twilio";
 
 /**
@@ -85,7 +86,15 @@ function statusCallbackUrl(): string | undefined {
   const env = serverEnv();
   const base = env.TWILIO_WEBHOOK_BASE_URL || env.NEXT_PUBLIC_APP_URL;
   if (!base) return undefined;
-  return `${base.replace(/\/+$/, "")}/api/webhooks/twilio/status`;
+  // P2.7a — normaliseAppUrl rejects `https:host.tld` (missing `//`)
+  // and inserts the slashes as a last-resort defence. Twilio swallows
+  // a bad statusCallback URL silently (no delivery updates, no error)
+  // so we'd rather throw here at outbox time than ship a dead webhook.
+  try {
+    return `${normaliseAppUrl(base)}/api/webhooks/twilio/status`;
+  } catch {
+    return undefined;
+  }
 }
 
 export async function queueSms(input: QueueSmsInput): Promise<QueueSmsResult> {

@@ -9,7 +9,7 @@ import {
   generateApprovalToken,
 } from "@/lib/security/approval-tokens";
 import { queueSms } from "@/lib/sms/queue";
-import { renderTemplate } from "@/lib/sms/templates";
+import { normaliseAppUrl, renderTemplate } from "@/lib/sms/templates";
 import { serverEnv } from "@/lib/env";
 import { isValidTransition, type JobStatus } from "@/lib/validation/job-schemas";
 
@@ -96,8 +96,11 @@ export async function requestApproval(
     return { ok: false, error: insertErr.message };
   }
 
-  // Build the approval URL
-  const approvalUrl = `${env.NEXT_PUBLIC_APP_URL}/api/approvals/${encodeURIComponent(token)}`;
+  // Build the approval URL. P2.7a — normaliseAppUrl is the belt-and-
+  // braces fix for the `https:host.tld` operator typo (env value missing
+  // the `//` after the scheme). Even after the env value is corrected,
+  // we keep the helper so the next bad paste doesn't reach the customer.
+  const approvalUrl = `${normaliseAppUrl(env.NEXT_PUBLIC_APP_URL)}/api/approvals/${encodeURIComponent(token)}`;
 
   // Migration 047 — fire through queueSms so failures land in the
   // sms_outbox row instead of getting swallowed by console.error.

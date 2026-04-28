@@ -7,7 +7,7 @@ import { z } from "zod";
 import { requireManager } from "@/lib/auth/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { queueSms } from "@/lib/sms/queue";
-import { renderTemplate } from "@/lib/sms/templates";
+import { normaliseAppUrl, renderTemplate } from "@/lib/sms/templates";
 import { serverEnv } from "@/lib/env";
 
 import type { ActionResult } from "../../customers/actions";
@@ -482,7 +482,7 @@ export async function markAsQuoted(jobId: string): Promise<ActionResult> {
         ((invoice as { total_pence: number }).total_pence ?? 0) / 100
       ).toFixed(2);
       const ref = (invoice as { invoice_number: string }).invoice_number;
-      const link = `${env.NEXT_PUBLIC_APP_URL}/status`;
+      const link = `${normaliseAppUrl(env.NEXT_PUBLIC_APP_URL)}/status`;
       const garageName = await getGarageName(supabase, session.garageId);
       await queueSms({
         garageId: session.garageId,
@@ -615,7 +615,7 @@ export async function resendQuote(jobId: string): Promise<ActionResult> {
   ).toFixed(2);
   const ref = (invoice as { invoice_number: string }).invoice_number;
   const revision = (invoice as { revision: number }).revision ?? 1;
-  const link = `${env.NEXT_PUBLIC_APP_URL}/status`;
+  const link = `${normaliseAppUrl(env.NEXT_PUBLIC_APP_URL)}/status`;
   const garageName = await getGarageName(supabase, session.garageId);
 
   const messageType = revision > 1 ? "quote_updated" : "quote_sent";

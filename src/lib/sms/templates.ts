@@ -30,6 +30,7 @@ export {
   TEMPLATE_LABEL,
   TEMPLATE_VARS,
   TEMPLATE_VAR_HINTS,
+  normaliseAppUrl,
   previewSegments,
   substitute,
   type PreviewSegment,
