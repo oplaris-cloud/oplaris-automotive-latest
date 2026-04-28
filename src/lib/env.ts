@@ -59,6 +59,14 @@ const serverEnvSchema = z.object({
   KIOSK_PAIRING_SECRET: nonEmpty,
   NEXT_SERVER_ACTIONS_ENCRYPTION_KEY: optionalNonEmpty,
 
+  // P2.8 — bearer secret for the Dokploy-driven cron route handlers
+  // (/api/cron/mot-refresh, /api/cron/mot-reminders). Generated with
+  // `openssl rand -base64 32` and pasted into Dokploy + .env.local.
+  // Optional during local dev so a fresh checkout doesn't have to
+  // generate one before `pnpm dev` boots; the routes themselves
+  // refuse to run when the env var is absent.
+  CRON_SECRET: optionalNonEmpty,
+
   // hCaptcha
   NEXT_PUBLIC_HCAPTCHA_SITE_KEY: optionalNonEmpty,
   HCAPTCHA_SECRET: optionalNonEmpty,
