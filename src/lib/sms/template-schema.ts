@@ -16,18 +16,31 @@ export const TEMPLATE_KEYS = [
   "status_code",
   "approval_request",
   "mot_reminder",
+  "quote_sent",
+  "quote_updated",
+  "invoice_sent",
 ] as const;
 
 export type TemplateKey = (typeof TEMPLATE_KEYS)[number];
 
 /** Variables each template accepts. Keep in sync with migration 055
- *  default bodies + every call site. Adding a new variable is a
+ *  / 057 default bodies + every call site. Adding a new variable is a
  *  three-edit chore: this list, the call site, and (usually) the
  *  default body. */
 export const TEMPLATE_VARS: Record<TemplateKey, readonly string[]> = {
   status_code: ["code"],
   approval_request: ["garage_name", "description", "amount", "approval_url"],
   mot_reminder: ["garage_name", "vehicle_reg", "expiry_date"],
+  quote_sent: ["garage_name", "reference", "vehicle_reg", "total", "status_url"],
+  quote_updated: [
+    "garage_name",
+    "reference",
+    "vehicle_reg",
+    "revision",
+    "total",
+    "status_url",
+  ],
+  invoice_sent: ["garage_name", "reference", "vehicle_reg", "total", "status_url"],
 } as const;
 
 /** Human-friendly labels surfaced on the settings page next to each
@@ -41,6 +54,10 @@ export const TEMPLATE_VAR_HINTS: Record<string, string> = {
   approval_url: "Signed approval link",
   vehicle_reg: "Vehicle registration",
   expiry_date: "MOT expiry date",
+  reference: "Quote / invoice number (e.g. INV-DUD-2026-00042)",
+  total: "Total in £ (already formatted)",
+  revision: "Quote revision number",
+  status_url: "Customer status page URL",
 };
 
 /** What each template fires for. Surfaced as the editor card
@@ -64,6 +81,21 @@ export const TEMPLATE_LABEL: Record<
     firesWhen:
       "Sent automatically to customers whose MOT is approaching expiry.",
   },
+  quote_sent: {
+    name: "Quote sent",
+    firesWhen:
+      "Sent to a customer when staff click “Send Quote” on a job — first time the quote goes out.",
+  },
+  quote_updated: {
+    name: "Quote updated",
+    firesWhen:
+      "Sent when a manager edits a quoted job and re-fires the SMS — copy includes the revision number.",
+  },
+  invoice_sent: {
+    name: "Invoice sent",
+    firesWhen:
+      "Sent when a manager dispatches the final invoice. (Not yet wired to a button — the template seed is here so it’s ready when the call site lands.)",
+  },
 };
 
 /** Sample values used to render the preview pane. Realistic enough
@@ -83,17 +115,45 @@ export const SAMPLE_VARS: Record<TemplateKey, Record<string, string>> = {
     vehicle_reg: "AB12 CDE",
     expiry_date: "12 May 2026",
   },
+  quote_sent: {
+    garage_name: "Dudley Auto Service",
+    reference: "INV-DUD-2026-00042",
+    vehicle_reg: "AB12 CDE",
+    total: "245.00",
+    status_url: "https://example.com/status",
+  },
+  quote_updated: {
+    garage_name: "Dudley Auto Service",
+    reference: "INV-DUD-2026-00042",
+    vehicle_reg: "AB12 CDE",
+    revision: "2",
+    total: "265.00",
+    status_url: "https://example.com/status",
+  },
+  invoice_sent: {
+    garage_name: "Dudley Auto Service",
+    reference: "INV-DUD-2026-00042",
+    vehicle_reg: "AB12 CDE",
+    total: "265.00",
+    status_url: "https://example.com/status",
+  },
 };
 
-/** Mirrors the migration 055 seed values exactly — used as a last
- *  resort when the DB row is missing, AND as the template body the
- *  client-side preview falls back to if the editor is unsaved. */
+/** Mirrors the migration 055 + 057 seed values exactly — used as a
+ *  last resort when the DB row is missing, AND as the template body
+ *  the client-side preview falls back to if the editor is unsaved. */
 export const FALLBACK_BODIES: Record<TemplateKey, string> = {
   status_code: "Your vehicle status code: {{code}}\nExpires in 10 minutes.",
   approval_request:
     "{{garage_name}} needs your approval: {{description}} — £{{amount}}.\n\nApprove or decline: {{approval_url}}",
   mot_reminder:
     "Hi from {{garage_name}}. Your vehicle {{vehicle_reg}} MOT expires on {{expiry_date}}. Reply to this message or call us to book a test.",
+  quote_sent:
+    "{{garage_name}}: Your quote {{reference}} for {{vehicle_reg}} is ready. Total £{{total}}. Review: {{status_url}}",
+  quote_updated:
+    "{{garage_name}}: Your quote {{reference}} for {{vehicle_reg}} has been updated (rev {{revision}}). New total £{{total}}. Review: {{status_url}}",
+  invoice_sent:
+    "{{garage_name}}: Your invoice {{reference}} for {{vehicle_reg}} is ready. Total £{{total}}. View and pay: {{status_url}}",
 };
 
 // ────────────────────────────────────────────────────────────────────

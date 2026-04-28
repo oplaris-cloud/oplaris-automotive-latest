@@ -21,16 +21,13 @@ export default async function SmsTemplatesPage() {
     .eq("garage_id", session.garageId);
 
   // Map to a stable shape keyed by template_key. If a row is missing
-  // (shouldn't happen — migration 055 seeds all three on garage create)
-  // the editor renders with an empty body and the manager can populate.
-  const templatesByKey: Record<
-    TemplateKey,
-    { body: string; updatedAt: string | null }
-  > = {
-    status_code: { body: "", updatedAt: null },
-    approval_request: { body: "", updatedAt: null },
-    mot_reminder: { body: "", updatedAt: null },
-  };
+  // (shouldn't happen — migrations 055 + 057 seed every key on garage
+  // create) the editor renders with an empty body and the manager can
+  // populate. Built from TEMPLATE_KEYS so adding a new template only
+  // requires editing the schema, not this page.
+  const templatesByKey = Object.fromEntries(
+    TEMPLATE_KEYS.map((k) => [k, { body: "", updatedAt: null }]),
+  ) as Record<TemplateKey, { body: string; updatedAt: string | null }>;
 
   for (const row of data ?? []) {
     const key = row.template_key as TemplateKey;

@@ -7,8 +7,13 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  FALLBACK_BODIES,
+  SAMPLE_VARS,
+  TEMPLATE_KEYS,
+  TEMPLATE_VARS,
   previewSegments,
   substitute,
+  type TemplateKey,
 } from "@/lib/sms/templates";
 
 describe("substitute", () => {
@@ -78,5 +83,70 @@ describe("previewSegments", () => {
       { type: "filled", value: "World", varName: "name" },
       { type: "text", value: "!" },
     ]);
+  });
+});
+
+describe("template schema invariants (P2.3 followup)", () => {
+  // Migration 057 added quote_sent / quote_updated / invoice_sent to
+  // both the DB CHECK constraint and the schema. These tests catch the
+  // common drift modes: a key listed in TEMPLATE_KEYS but missing from
+  // TEMPLATE_VARS, or a fallback body that references a variable the
+  // schema doesn't declare. Either of those would silently send a
+  // half-rendered SMS.
+
+  const newKeys: readonly TemplateKey[] = [
+    "quote_sent",
+    "quote_updated",
+    "invoice_sent",
+  ];
+
+  function placeholdersIn(body: string): Set<string> {
+    const out = new Set<string>();
+    for (const m of body.matchAll(/\{\{\s*([a-z_][a-z0-9_]*)\s*\}\}/gi)) {
+      if (m[1]) out.add(m[1]);
+    }
+    return out;
+  }
+
+  it.each(newKeys)("%s is registered in TEMPLATE_KEYS", (key) => {
+    expect(TEMPLATE_KEYS).toContain(key);
+  });
+
+  it.each(newKeys)("%s declares variables in TEMPLATE_VARS", (key) => {
+    expect(TEMPLATE_VARS[key]?.length ?? 0).toBeGreaterThan(0);
+  });
+
+  it.each(newKeys)(
+    "%s fallback body's placeholders match TEMPLATE_VARS exactly",
+    (key) => {
+      const declared = new Set(TEMPLATE_VARS[key]);
+      const used = placeholdersIn(FALLBACK_BODIES[key]);
+      expect(Array.from(used).sort()).toEqual(Array.from(declared).sort());
+    },
+  );
+
+  it.each(newKeys)(
+    "%s SAMPLE_VARS covers every declared variable",
+    (key) => {
+      const declared = TEMPLATE_VARS[key];
+      const sample = SAMPLE_VARS[key];
+      for (const v of declared) {
+        expect(sample[v]).toBeDefined();
+      }
+    },
+  );
+
+  it("quote_updated references the revision variable, quote_sent does not", () => {
+    expect(TEMPLATE_VARS.quote_updated).toContain("revision");
+    expect(TEMPLATE_VARS.quote_sent).not.toContain("revision");
+  });
+
+  it("substituting SAMPLE_VARS into FALLBACK_BODIES leaves no placeholders", () => {
+    for (const key of newKeys) {
+      const out = substitute(FALLBACK_BODIES[key], SAMPLE_VARS[key]);
+      expect(out, `template ${key} still has placeholders: ${out}`).not.toMatch(
+        /\{\{[^}]+\}\}/,
+      );
+    }
   });
 });

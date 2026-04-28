@@ -1,14 +1,35 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 
 import { requireManager } from "@/lib/auth/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { queueSms } from "@/lib/sms/queue";
+import { renderTemplate } from "@/lib/sms/templates";
 import { serverEnv } from "@/lib/env";
 
 import type { ActionResult } from "../../customers/actions";
+
+// P2.3 followup — quote / invoice templates pull the garage's display
+// name through the same `brand_name → name → fallback` precedence as
+// the approval-request path in approvals/actions.ts. Centralised here
+// so both call sites in this file stay byte-identical.
+async function getGarageName(
+  supabase: SupabaseClient,
+  garageId: string,
+): Promise<string> {
+  const { data } = await supabase
+    .from("garages")
+    .select("brand_name, name")
+    .eq("id", garageId)
+    .maybeSingle();
+  const row = data as
+    | { brand_name?: string | null; name?: string | null }
+    | null;
+  return row?.brand_name ?? row?.name ?? "Your garage";
+}
 
 // ------------------------------------------------------------------
 // Schemas
@@ -457,9 +478,12 @@ export async function markAsQuoted(jobId: string): Promise<ActionResult> {
     const phone = (customer as { phone?: string } | null)?.phone;
     if (phone && invoice) {
       const reg = (vehicle as { registration?: string } | null)?.registration ?? "your vehicle";
-      const total = `£${(((invoice as { total_pence: number }).total_pence ?? 0) / 100).toFixed(2)}`;
+      const total = (
+        ((invoice as { total_pence: number }).total_pence ?? 0) / 100
+      ).toFixed(2);
       const ref = (invoice as { invoice_number: string }).invoice_number;
       const link = `${env.NEXT_PUBLIC_APP_URL}/status`;
+      const garageName = await getGarageName(supabase, session.garageId);
       await queueSms({
         garageId: session.garageId,
         vehicleId: (details as { vehicle_id?: string } | null)?.vehicle_id ?? undefined,
@@ -467,7 +491,17 @@ export async function markAsQuoted(jobId: string): Promise<ActionResult> {
         jobId,
         phone,
         messageType: "quote_sent",
-        messageBody: `Dudley Auto Service: Your quote ${ref} for ${reg} is ready. Total ${total}. Review: ${link}`,
+        messageBody: await renderTemplate(
+          "quote_sent",
+          {
+            garage_name: garageName,
+            reference: ref,
+            vehicle_reg: reg,
+            total,
+            status_url: link,
+          },
+          session.garageId,
+        ),
       });
     }
   } catch (smsErr) {
@@ -576,17 +610,27 @@ export async function resendQuote(jobId: string): Promise<ActionResult> {
   const reg =
     (vehicle as { registration?: string } | null)?.registration ??
     "your vehicle";
-  const total = `£${(
+  const total = (
     ((invoice as { total_pence: number }).total_pence ?? 0) / 100
-  ).toFixed(2)}`;
+  ).toFixed(2);
   const ref = (invoice as { invoice_number: string }).invoice_number;
   const revision = (invoice as { revision: number }).revision ?? 1;
   const link = `${env.NEXT_PUBLIC_APP_URL}/status`;
+  const garageName = await getGarageName(supabase, session.garageId);
 
-  const message =
-    revision > 1
-      ? `Dudley Auto Service: Your quote ${ref} for ${reg} has been updated (rev ${revision}). New total ${total}. Review: ${link}`
-      : `Dudley Auto Service: Your quote ${ref} for ${reg} is ready. Total ${total}. Review: ${link}`;
+  const messageType = revision > 1 ? "quote_updated" : "quote_sent";
+  const message = await renderTemplate(
+    messageType,
+    {
+      garage_name: garageName,
+      reference: ref,
+      vehicle_reg: reg,
+      total,
+      status_url: link,
+      ...(revision > 1 ? { revision: String(revision) } : {}),
+    },
+    session.garageId,
+  );
 
   // Migration 047 — track resends in the outbox so the manager can see
   // the exact revision number that went out + delivery state. Status
@@ -599,7 +643,7 @@ export async function resendQuote(jobId: string): Promise<ActionResult> {
     jobId,
     phone,
     messageBody: message,
-    messageType: revision > 1 ? "quote_updated" : "quote_sent",
+    messageType,
   });
   if (result.status === "failed") {
     return { ok: false, error: "SMS failed — check Twilio settings" };

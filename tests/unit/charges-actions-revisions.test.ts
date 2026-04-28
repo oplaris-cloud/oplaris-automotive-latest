@@ -38,6 +38,26 @@ vi.mock("@/lib/env", () => ({
   }),
 }));
 
+// P2.3 followup — quote/invoice paths now route through renderTemplate
+// (which would normally hit the DB via the admin client). Stub it to a
+// pure substitution over FALLBACK_BODIES so the test stays focused on
+// action behaviour, not template plumbing (which has its own tests).
+vi.mock("@/lib/sms/templates", async () => {
+  const schema =
+    await vi.importActual<typeof import("@/lib/sms/template-schema")>(
+      "@/lib/sms/template-schema",
+    );
+  return {
+    ...schema,
+    renderTemplate: vi.fn(
+      async (
+        key: keyof typeof schema.FALLBACK_BODIES,
+        vars: Record<string, string>,
+      ) => schema.substitute(schema.FALLBACK_BODIES[key], vars),
+    ),
+  };
+});
+
 // ------------------------------------------------------------------
 // Supabase mock — chainable query builder that records every call so
 // each test can inspect what was attempted (and block some ops, if
