@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import {
   DragDropContext,
   Droppable,
@@ -15,16 +15,39 @@ import { Stack } from "@/components/ui/stack";
 import { StaffRoleIcons } from "@/components/ui/staff-role-icons";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { cn } from "@/lib/utils";
-import type { BayWithJobs, BayJob } from "../jobs/actions";
+import type { BayWithJobs } from "../jobs/actions";
 import type { JobStatus } from "@/lib/validation/job-schemas";
+
+import {
+  applyPendingMoves,
+  pruneAcceptedMoves,
+  type PendingMoves,
+} from "./bay-board-overlay";
 
 interface BayBoardClientProps {
   initialBays: BayWithJobs[];
 }
 
 export function BayBoardClient({ initialBays }: BayBoardClientProps) {
-  const [bays, setBays] = useState(initialBays);
+  // P2.5 — render directly from the prop. The previous version stashed
+  // `initialBays` in `useState`, so prop updates from `router.refresh()`
+  // were dropped on the floor and a peer's bay move never reached this
+  // session. The overlay below is the only local state that survives a
+  // re-render, and it covers just the in-flight drag → server →
+  // realtime window.
+  const [pendingMoves, setPendingMoves] = useState<PendingMoves>(
+    () => new Map(),
+  );
   const [isPending, startTransition] = useTransition();
+
+  useEffect(() => {
+    setPendingMoves((prev) => pruneAcceptedMoves(initialBays, prev));
+  }, [initialBays]);
+
+  const bays = useMemo(
+    () => applyPendingMoves(initialBays, pendingMoves),
+    [initialBays, pendingMoves],
+  );
 
   const handleDragEnd = (result: DropResult) => {
     const { source, destination, draggableId } = result;
@@ -37,32 +60,21 @@ export function BayBoardClient({ initialBays }: BayBoardClientProps) {
       return;
     }
 
-    const sourceBayId = source.droppableId;
     const destBayId = destination.droppableId;
 
-    // Optimistic update
-    setBays((prev) => {
-      const next = prev.map((bay) => ({
-        ...bay,
-        jobs: [...bay.jobs],
-      }));
-
-      const sourceBay = next.find((b) => b.id === sourceBayId);
-      const destBay = next.find((b) => b.id === destBayId);
-      if (!sourceBay || !destBay) return prev;
-
-      const jobIndex = sourceBay.jobs.findIndex((j) => j.id === draggableId);
-      if (jobIndex === -1) return prev;
-
-      const removed = sourceBay.jobs.splice(jobIndex, 1);
-      if (!removed[0]) return prev;
-      destBay.jobs.splice(destination.index, 0, removed[0]);
-
+    setPendingMoves((prev) => {
+      const next = new Map(prev);
+      next.set(draggableId, destBayId);
       return next;
     });
 
-    // Server action to persist
     startTransition(async () => {
+      const revert = () =>
+        setPendingMoves((prev) => {
+          const next = new Map(prev);
+          next.delete(draggableId);
+          return next;
+        });
       try {
         const res = await fetch("/api/bay-board/move", {
           method: "POST",
@@ -72,13 +84,9 @@ export function BayBoardClient({ initialBays }: BayBoardClientProps) {
             bayId: destBayId,
           }),
         });
-
-        if (!res.ok) {
-          // Revert on failure
-          setBays(initialBays);
-        }
+        if (!res.ok) revert();
       } catch {
-        setBays(initialBays);
+        revert();
       }
     });
   };

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import {
   Shield,
   AlertTriangle,
@@ -34,6 +34,14 @@ export function MotHistorySection({
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [expandedTest, setExpandedTest] = useState<number | null>(null);
+
+  // P2.5 audit — same prop-sync anti-pattern as BayBoardClient.
+  // VehicleDetailRealtime can re-deliver this prop after `router.refresh()`
+  // (and a future shim could subscribe to mot_history_cache); without
+  // the sync, useState would freeze the list at first mount.
+  useEffect(() => {
+    setMotHistory(initialHistory);
+  }, [initialHistory]);
 
   const handleRefresh = () => {
     setError(null);
