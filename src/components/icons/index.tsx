@@ -56,18 +56,23 @@ export function TyrePressureIcon({ className }: { className?: string }) {
 }
 
 // P1.2 followup — uses the canonical MOT logo Hossein supplied at
-// public/MOT_Logo.svg (it's actually a PNG inside an .svg-named file
-// — the browser content-sniffs and renders it as PNG regardless).
-// Plain <img> rather than next/image because routing this through
-// the optimiser would force `dangerouslyAllowSVG: true` in
-// next.config.ts; for a 4 KB asset the optimisation upside doesn't
-// pay for the security relaxation. Empty alt — the surrounding chip
-// or avatar badge owns the accessible label, so the icon's
-// contribution here is purely visual.
+// public/MOT_Logo.png. The asset arrived with a misleading `.svg`
+// extension despite being PNG bytes; Next's static handler honours
+// the extension and sets `Content-Type: image/svg+xml`, so the
+// browser tries to parse PNG bytes as XML and the image renders as
+// a broken-file glyph. Renaming to `.png` lets the static handler
+// emit `image/png` and the badge displays correctly.
+//
+// Plain <img> rather than next/image because <Image> would route
+// the asset through the optimiser, which would force
+// `dangerouslyAllowSVG: true` for any future SVG version of this
+// glyph. Empty alt — the surrounding chip or avatar badge owns the
+// accessible label, so the icon's contribution here is purely
+// visual.
 export function MotTesterIcon({ className }: { className?: string }) {
   return (
     <img
-      src="/MOT_Logo.svg"
+      src="/MOT_Logo.png"
       alt=""
       width={16}
       height={16}
