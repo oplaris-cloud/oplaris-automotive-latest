@@ -496,6 +496,8 @@ testing session without hitting 429 during normal use. One-liner
 instrumentation added to the route that logs 429s with the bucket name
 + current count so future over-limits are traceable.
 
+    ✓ b4be2dc 2026-04-28
+
 ### P2.7 — Quote URL + approval-SMS send + super_admin role `6gRmVr9GFfgmHhRG`
 
 **Three concerns in one Todoist ticket — split and addressed separately.**
