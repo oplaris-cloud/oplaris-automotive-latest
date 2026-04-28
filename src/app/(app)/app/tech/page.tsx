@@ -13,6 +13,7 @@ import { RegPlate } from "@/components/ui/reg-plate";
 import { Section } from "@/components/ui/section";
 import { Stack } from "@/components/ui/stack";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { TelLink } from "@/components/ui/tel-link";
 import type { JobStatus } from "@/lib/validation/job-schemas";
 import {
   summarisePassback,
@@ -334,16 +335,17 @@ function JobRow({ job, href }: { job: AssignedJob; href: string }) {
           ) : null}
 
           {/* Line 4b — tap-to-call (audit F7). stopPropagation prevents
-              the tap from activating the outer Link to the job detail. */}
+              the tap from activating the outer Link to the job detail.
+              Lives behind a client boundary because event handlers
+              cannot be serialised in the RSC payload (Next 16). */}
           {job.customer?.phone ? (
-            <a
-              href={`tel:${job.customer.phone}`}
-              onClick={(e) => e.stopPropagation()}
+            <TelLink
+              phone={job.customer.phone}
+              label={`Call ${job.customer.full_name}`}
               className="mt-2 inline-flex min-h-11 items-center gap-2 text-sm text-primary underline-offset-4 hover:underline"
-              aria-label={`Call ${job.customer.full_name}`}
             >
               <Phone className="h-4 w-4" /> {formatPhone(job.customer.phone)}
-            </a>
+            </TelLink>
           ) : null}
 
           {/* Line 5 — description */}
@@ -432,16 +434,16 @@ function CheckInRow({
 
             {/* Line 1b — tap-to-call (audit F7). Check-in cards aren't
                 wrapped in an outer Link, so stopPropagation is belt-only;
-                kept for symmetry with JobRow's anchor. */}
+                kept for symmetry with JobRow's anchor. Same client
+                boundary reason as JobRow above (RSC handler limit). */}
             {checkIn.customer_phone ? (
-              <a
-                href={`tel:${checkIn.customer_phone}`}
-                onClick={(e) => e.stopPropagation()}
+              <TelLink
+                phone={checkIn.customer_phone}
+                label={`Call ${checkIn.customer_name}`}
                 className="mt-1 inline-flex min-h-11 items-center gap-2 text-sm text-primary underline-offset-4 hover:underline"
-                aria-label={`Call ${checkIn.customer_name}`}
               >
                 <Phone className="h-4 w-4" /> {formatPhone(checkIn.customer_phone)}
-              </a>
+              </TelLink>
             ) : null}
 
             {/* Line 2 — category chips */}
