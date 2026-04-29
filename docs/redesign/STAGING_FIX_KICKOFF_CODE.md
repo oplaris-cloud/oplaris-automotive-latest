@@ -66,7 +66,7 @@
 - **P3.4 (KPIs on reports + staff detail):** `cognitive-load-and-information.md` + `visual-hierarchy-and-layout.md`. Three KPIs max per strip — don't build a dashboard of 15 numbers nobody reads.
 - **P3.5 (/admin super_admin surfaces):** `cognitive-load-and-information.md` + `visual-hierarchy-and-layout.md` + `content-and-copy.md`. Plus vibe-security (this is a privilege-escalation surface). The impersonation banner is the most important piece of copy in the whole app — get it right.
 
-## Todoist label workflow
+## Todoist label + comment workflow
 
 Every plan item carries a Todoist task ID (`6gRm…`). On completion of any item:
 
@@ -75,7 +75,22 @@ Every plan item carries a Todoist task ID (`6gRm…`). On completion of any item
    - Token lives at `~/.oplaris/todoist.token` (or env var `TODOIST_TOKEN`). If absent, stop and ask Hossein.
    - First completion: create the label (see STAGING_FIX_PLAN.md > *Todoist label workflow*).
    - Then `POST` the task's `labels` array with `done-by-claude` merged in (don't replace existing labels).
-3. Order of ops: commit the code changes → push → then apply the label.
+3. **Always leave a Todoist comment summarising what was done.** This is a standing rule (Hossein 2026-04-25): every fix, every change, gets a written summary on the relevant Todoist task so a human reviewer can read what happened without diffing commits. Comment shape:
+
+   ```
+   POST https://api.todoist.com/api/v1/comments
+   { "task_id": "<id>",
+     "content": "Shipped <YYYY-MM-DD> in commit <sha>. <one-paragraph
+                 plain-English summary of what changed and why, including
+                 any caveats or follow-ups>. Spec:
+                 docs/redesign/STAGING_FIX_PLAN.md > P<id>." }
+   ```
+
+   Length: aim for 4–8 sentences. Mention the commit SHA, the migration number if any, the user-facing change, and any "but watch out for X" the reviewer should know.
+
+4. **Order of ops:** commit the code changes → push → then apply the label → then post the comment. Comment last so the SHA + plan-doc reference are accurate.
+
+This rule applies equally in Cowork mode if a Cowork session is the one closing out an item.
 
 ## Starting queue — Phase 0 remaining
 

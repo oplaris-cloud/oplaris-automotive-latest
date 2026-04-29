@@ -42,3 +42,12 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Claude Code per-worktree scratch (state lives in repo root via the
+# tracked .claude/settings*.json — worktrees themselves shouldn't sync).
+.claude/worktrees/
+
+# Envato asset packs — ~20 MB each, downloaded externally per illustration
+# import, do NOT commit. Naming convention is `<slug>-YYYY-MM-DD-…-utc`.
+/public/*-utc/
+/public/*-utc-*/

@@ -2,6 +2,48 @@
 
 ---
 
+## Wed 29 Apr 2026 — Daily Standup
+
+**Yesterday (Tue 28 Apr):** Zero commits. Last work was the 24-commit overnight 27→28 Apr P1.x + P2.x staging-fix close-out (P1.2 MOT logo glyph, P2.3 followup migration 057 quote/invoice templates, P2.4 migration 056 bay chooser, P2.5 bay-board prop derivation, P2.6 rate-limit per-phone 6/hr, P2.7a/b approval routing, P2.8 cron MOT refresh + reminders, P2.9 migration 058 type-aware retry, TelLink click-to-call). Tuesday's stated "today" task — rewrite `bookings/actions.ts` + `bookings/page.tsx` off `passed_from_job_id` / `passback_note` / `passback_items` ahead of migration 034 — did not land. Confirmed: those files still read the deprecated columns; migration 034 still absent from `supabase/migrations/` (last is 058).
+
+**Today:** Land the bookings rewrite (drop `passed_from_job_id` / `passback_note` / `passback_items` reads in both files), then write + apply migration 034 to drop the columns + the `awaiting_passback` flag + `status='awaiting_mechanic'` enum value. Soak window expired yesterday — this is now overdue by one day.
+
+**Blockers:** Phase 4 deploy still gated on Hossein: Dokploy access, prod Supabase URL + service-role, real Twilio creds (SID still placeholder), domain + TLS. Outstanding 9 days.
+
+**Decision from Hossein:** Phase 4 credentials drop-date — same ask, third week running.
+
+**Calendar:** M1 (Thu 16 Apr) was 13 days ago, M2 (Thu 23 Apr) was 6 days ago. Superseded by 2026-04-14 quality-over-deadline call. Not flagged overdue under current policy.
+
+---
+
+## Tue 28 Apr 2026 — Daily Standup
+
+**Yesterday (overnight 27→28 Apr):** Massive sprint close-out — ~24 commits between 01:01 and 04:14 cleared the remaining P1.x + P2.x staging-fix backlog. P1.2 followup (MOT logo glyph + avatar corner badge, `.svg→.png` Content-Type fix). P2.3 followup: per-garage quote + invoice SMS templates (migration 057). P2.4: bay chooser on Create-job + audit + timeline (migration 056). P2.5: bay-board derive bays from prop. P2.6: rate-limit per-phone 3→6/hr + normalised hash + getClientIp + 429 logs. P2.7a/b: `normaliseAppUrl` helper + ApprovalDialog routing fix. P2.8: cron MOT refresh + reminders activated. P2.9: type-aware retry policy + bulk Retry (migration 058). Click-to-call `TelLink` rollout + audit-pass cleanup + per-task Todoist comments.
+
+**Today:** P51.10 migration 034 column drop is soak-due today. Before applying: rewrite `src/app/(app)/app/bookings/actions.ts` + `bookings/page.tsx` off `passed_from_job_id` / `passback_note` / `passback_items` (still reading the deprecated columns — drop will break them). Then apply migration 034.
+
+**Blockers:** Phase 4 deploy still gated on Dokploy access + prod Supabase URL/service-role + real Twilio creds (SID still placeholder) + domain/TLS. All from Hossein.
+
+**Decision from Hossein:** Phase 4 credentials drop-date — outstanding 8 days now.
+
+**Calendar:** M1 (Thu 16 Apr) was 12 days ago, M2 (Thu 23 Apr) was 5 days ago. Superseded by 2026-04-14 quality-over-deadline call. Not flagged overdue under current policy.
+
+---
+
+## Mon 27 Apr 2026 — Daily Standup
+
+**Yesterday (Sun 26 Apr):** Quiet — zero commits. Last activity was Sat 25 Apr's 21-commit STAGING_FIX_PLAN P0–P2 push: CSP/`pattern` rename/env hardening; P1.1 kiosk 3s countdown + reset; P1.2 MOT-tester chip icons; P1.3 edit-customer Dialog; P2.1 `<PhoneInput>` + canonical `normalisePhone`; P2.2 migration 054 SMS retry queue + `failed_final`; P2.3 migration 055 per-garage SMS templates + `/app/settings/sms` editor.
+
+**Today:** P51.10 migration 034 column drop is soak-gated to ~2026-04-28 — tomorrow. Prep the migration + grep `awaiting_passback` / `status='awaiting_mechanic'` / `bookings.passback_*` for any new writers. Also clean working tree: only `.claude/settings.local.json` and 10 untracked Envato dumps under `public/`.
+
+**Blockers:** Phase 4 deploy still gated on Dokploy access, prod Supabase URL + service-role, real Twilio creds (SID not `AC…`), domain + TLS — all from Hossein.
+
+**Decision from Hossein:** Phase 4 credentials drop-date — same ask as last week, still open.
+
+**Calendar:** M1 (Thu 16 Apr) was 11 days ago, M2 (Thu 23 Apr) was 4 days ago. Both superseded by 2026-04-14 quality-over-deadline call — not flagged overdue, but original M2 has now passed without prod deploy.
+
+---
+
 ## Mon 20 Apr 2026 — Daily Standup
 
 **Yesterday (Sun + Mon early):** Scoped + started SMS queue work. `docs/redesign/SMS_QUEUE_PLAN.md` agreed with Hossein 2026-04-20 — universal `sms_outbox` (all message types) + MOT reminder automation with DVSA pre-checks + manager Messages page. Migration `047_sms_outbox.sql` written (outbox table + indexes + CHECK constraints on type/status/dvsa_result). `src/lib/sms/queue.ts` wired as the new single path for every outgoing SMS (replaces direct `sendSms()` calls for audit + delivery tracking). New `/app/messages/` page (list + `ExpiredMotList`), `twilio/status` webhook extended to upgrade queued→sent→delivered, charges/approvals actions migrated to the queue, `status/request-code` rewired. New unit tests: sms-queue, twilio-status-webhook, charges-actions-revisions, status-dev-bypass.
