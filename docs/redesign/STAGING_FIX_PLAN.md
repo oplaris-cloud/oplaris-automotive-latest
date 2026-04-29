@@ -886,6 +886,8 @@ below for reference if that ever comes up.
 
 **Done when:** manager toggles checklist on for mechanics, a tech completes a job → modal appears → 3 yes/no answers → job completes → manager sees the checklist entry on job-detail timeline. All 4+6+1 tests green; typecheck + spacing-lint clean.
 
+    ✓ 477105a 2026-04-29
+
 ### P3.4 — KPI dashboard on reports + staff detail `6gRm9C88J3wJCfHp`
 
 **Design-first split (Hossein 2026-04-29):** the original 4-bullet
