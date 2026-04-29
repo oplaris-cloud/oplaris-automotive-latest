@@ -4,6 +4,7 @@ import {
   Grid3X3,
   Briefcase,
   Users,
+  UserSquare,
   Car,
   CalendarCheck,
   BarChart3,
@@ -64,6 +65,15 @@ const NAV_ITEMS: NavItem[] = [
     href: "/app/customers",
     label: "Customers",
     icon: <Users className="h-5 w-5" />,
+    roles: ["manager"],
+  },
+  // P3.1 — Live staff status board (manager-only). Sits next to Customers
+  // because the manager's "who's working" question naturally lives in the
+  // people-management cluster.
+  {
+    href: "/app/staff",
+    label: "Staff",
+    icon: <UserSquare className="h-5 w-5" />,
     roles: ["manager"],
   },
   {

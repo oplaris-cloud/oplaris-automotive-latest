@@ -183,6 +183,33 @@ export function StaffSettingsRealtime({ garageId }: { garageId: string }) {
 }
 
 // ---------------------------------------------------------------------------
+// P3.1 — /app/staff live-status page. Manager-only. Subscribes to
+// work_logs (status flips when a tech starts / pauses / completes) and
+// to staff (deactivations + role changes flow through). Both tables are
+// already in supabase_realtime + ALLOWED_TABLES.
+// ---------------------------------------------------------------------------
+
+export function StaffPageRealtime({ garageId }: { garageId: string }) {
+  useRealtimeRouterRefresh({ table: "work_logs", filter: garageFilter(garageId) });
+  useRealtimeRouterRefresh({ table: "staff",     filter: garageFilter(garageId) });
+  return null;
+}
+
+// Detail view (`/app/staff/[id]`) — same two tables but per-staff scoped
+// so the detail surface only refreshes on its own subject.
+export function StaffDetailRealtime({
+  staffId,
+  garageId,
+}: {
+  staffId: string;
+  garageId: string;
+}) {
+  useRealtimeRouterRefresh({ table: "work_logs", filter: eqUuidFilter("staff_id", staffId) });
+  useRealtimeRouterRefresh({ table: "staff",     filter: garageFilter(garageId) });
+  return null;
+}
+
+// ---------------------------------------------------------------------------
 // Bay board.
 // ---------------------------------------------------------------------------
 
