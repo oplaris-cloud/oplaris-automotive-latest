@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { MessageSquare, Package, Palette, Receipt, ScrollText, UserCircle, Users } from "lucide-react";
+import { ClipboardCheck, MessageSquare, Package, Palette, Receipt, ScrollText, UserCircle, Users } from "lucide-react";
 
 import { requireStaffSession } from "@/lib/auth/session";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,6 +17,7 @@ export default async function SettingsPage() {
     { href: "/app/settings/billing", label: "Billing", description: "Default labour rate and charge text", icon: Receipt, managerOnly: true },
     { href: "/app/settings/staff", label: "Staff", description: "Manage technicians and managers", icon: Users, managerOnly: true },
     { href: "/app/settings/sms", label: "SMS templates", description: "Edit the wording of OTP, approval, and MOT-reminder messages", icon: MessageSquare, managerOnly: true },
+    { href: "/app/settings/checklists", label: "End-of-job checklist", description: "Force technicians to confirm the bay is clean before they can complete a job", icon: ClipboardCheck, managerOnly: true },
     { href: "/app/settings/audit-log", label: "Audit Log", description: "View all staff actions", icon: ScrollText, managerOnly: true },
     { href: "/app/stock", label: "Stock & Warranties", description: "Parts inventory and supplier warranties", icon: Package, managerOnly: true },
   ].filter((l) => !l.managerOnly || isManager);

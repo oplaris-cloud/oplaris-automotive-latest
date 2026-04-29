@@ -17,6 +17,7 @@ import {
   resumeWork,
   completeWork,
 } from "../../../jobs/work-logs/actions";
+import { getActiveChecklist } from "../../../jobs/completion/actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -32,6 +33,7 @@ import {
   type ActiveWorkLogForTimer,
 } from "./work-log-timer";
 import { TechSecondaryActions } from "./TechSecondaryActions";
+import { ChecklistDialog } from "./ChecklistDialog";
 
 const TASK_TYPES = [
   { value: "diagnosis", label: "Diagnosis" },
@@ -81,6 +83,13 @@ export function TechJobClient({
   const [taskType, setTaskType] = useState<TaskType>("diagnosis");
   const [taskDesc, setTaskDesc] = useState("");
   const [elapsed, setElapsed] = useState(0);
+  // P3.3 — when the manager has enabled a per-role checklist, the
+  // Complete button opens this blocking dialog before completeWork()
+  // fires. Null while the checklist is closed (or absent).
+  const [checklist, setChecklist] = useState<{
+    role: "mechanic" | "mot_tester";
+    items: string[];
+  } | null>(null);
 
   const paused = isPaused(activeWorkLog);
 
@@ -142,7 +151,7 @@ export function TechJobClient({
     });
   };
 
-  const handleComplete = () => {
+  const runComplete = () => {
     if (!activeWorkLog) return;
     setError(null);
     startTransition(async () => {
@@ -153,6 +162,39 @@ export function TechJobClient({
       }
       router.refresh();
     });
+  };
+
+  // P3.3 — gate Complete on the manager's per-role checklist. Fetch
+  // the active list; if absent or disabled, run completeWork() straight
+  // through (preserves the pre-P3.3 click-to-complete UX). Otherwise
+  // open the modal and chain on submit.
+  const handleComplete = () => {
+    if (!activeWorkLog) return;
+    setError(null);
+    startTransition(async () => {
+      try {
+        const active = await getActiveChecklist({
+          jobId,
+          taskType: activeWorkLog.task_type,
+        });
+        if (!active) {
+          runComplete();
+          return;
+        }
+        setChecklist(active);
+      } catch (err) {
+        console.error("[checklist] load failed", err);
+        // Fail open — don't trap a tech behind a broken modal. The audit
+        // log won't capture an opt-out for this job, which is acceptable
+        // given the alternative is the timer never stopping.
+        runComplete();
+      }
+    });
+  };
+
+  const handleChecklistSubmitted = () => {
+    setChecklist(null);
+    runComplete();
   };
 
   const isWorking = !!activeWorkLog;
@@ -332,6 +374,17 @@ export function TechJobClient({
       {error && (
         <p role="alert" className="text-sm text-destructive">{error}</p>
       )}
+
+      {checklist ? (
+        <ChecklistDialog
+          jobId={jobId}
+          role={checklist.role}
+          items={checklist.items}
+          open={true}
+          onCancel={() => setChecklist(null)}
+          onSubmitted={handleChecklistSubmitted}
+        />
+      ) : null}
     </div>
   );
 }

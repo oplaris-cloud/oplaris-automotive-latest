@@ -26,7 +26,7 @@ const VALID_UUID = "aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa";
 const VALID_UUID_2 = "bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb";
 
 describe("ALLOWED_TABLES", () => {
-  it("matches the publication membership we expect (manual sync with migrations 035 + 036 + 047)", () => {
+  it("matches the publication membership we expect (manual sync with migrations 035 + 036 + 047 + 060)", () => {
     expect([...ALLOWED_TABLES].sort()).toEqual([
       "approval_requests",
       "bays",
@@ -35,6 +35,9 @@ describe("ALLOWED_TABLES", () => {
       "invoices",
       "job_assignments",
       "job_charges",
+      // Added by migration 060 (P3.3) — completion-check submissions
+      // refresh manager dashboards via realtime.
+      "job_completion_checks",
       "job_parts",
       "job_passbacks",
       // Added by migration 036 (P54) — the status transition audit

@@ -4,6 +4,7 @@ import {
   Play,
   CircleDot,
   Activity,
+  ClipboardCheck,
   GitBranch,
 } from "lucide-react";
 
@@ -259,6 +260,36 @@ function StaffRow({ event }: { event: TimelineRow }): React.JSX.Element {
           meta={`started ${formatWorkLogTime(event.at)}`}
           timestamp={event.at}
           pinned
+        />
+      );
+    }
+
+    case "completion_check": {
+      // P3.3 — End-of-job checklist submission. Summarise the answer
+      // counts so the manager sees compliance at a glance without
+      // expanding the row.
+      const answers = Array.isArray(payload.answers)
+        ? (payload.answers as Array<{ answer?: string }>)
+        : [];
+      const total = answers.length;
+      const yesCount = answers.filter((a) => a.answer === "yes").length;
+      const noCount = answers.filter((a) => a.answer === "no").length;
+      const role = typeof payload.role === "string" ? payload.role : "tech";
+      return (
+        <RowShell
+          accent={noCount > 0 ? "amber" : "green"}
+          icon={<ClipboardCheck className="h-3.5 w-3.5" />}
+          primary={
+            <>
+              {actor ?? "A technician"} ran the end-of-job checklist
+              <span className="ml-1 text-muted-foreground">
+                ({yesCount}/{total} yes
+                {noCount > 0 ? `, ${noCount} no` : ""})
+              </span>
+            </>
+          }
+          meta={`as ${role.replace(/_/g, " ")}`}
+          timestamp={event.at}
         />
       );
     }

@@ -29,6 +29,10 @@ export const ALLOWED_TABLES = [
   // flips from queued → sent → delivered) so the manager sees Twilio
   // delivery reports land live without a refresh.
   "sms_outbox",
+  // P3.3 (migration 060) — Manager pages refresh when a tech submits a
+  // completion checklist so JobActivity timeline + audit log reflect
+  // the new entry without a hard reload.
+  "job_completion_checks",
 ] as const;
 
 export type AllowedTable = (typeof ALLOWED_TABLES)[number];
