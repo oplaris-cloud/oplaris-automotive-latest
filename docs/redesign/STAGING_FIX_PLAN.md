@@ -765,7 +765,8 @@ managers override per-garage.
 
 **Manager-only**, per-garage.
 
-- New route `/app/staff` (sidebar item gated by `manager` role).
+- New route `/app/staff` (sidebar item gated by `manager` role —
+  add to `NAV_ITEMS_BY_ROLE` per the CLAUDE.md page-access policy).
 - Grid of `<StaffCard>` per staff member showing: avatar (initials fallback),
   full name, role chips (reuse `<RoleBadge>`), status dot (red if any
   `work_logs.ended_at IS NULL`, green otherwise), and when busy: current
@@ -774,11 +775,61 @@ managers override per-garage.
   `work-log-timer.ts` helper. Plus "Jobs completed today": count of
   distinct `work_logs.job_id` where `ended_at::date = today`.
 - **Realtime** via the existing `useRealtimeRouterRefresh` hook subscribed
-  to `work_logs` filtered by `garage_id`. No new realtime plumbing.
+  to `work_logs` filtered by `garage_id`. `work_logs` is already in the
+  `supabase_realtime` publication + `ALLOWED_TABLES` whitelist (P50). No
+  new realtime plumbing.
 - Tap a card → `/app/staff/[id]` detail page: larger live timer, today's
-  work-log list, this-week-summary, and the KPI strip described in P3.4.
+  work-log list, this-week-summary. **The KPI strip described in P3.4
+  is not included this sprint** — staff detail surface should render
+  cleanly without the strip and gain it later in P3.4-γ once
+  KPI_PLAN.md is approved.
 
-### P3.2 — Bays rearrangeable `6gRm8vH9mWc773cG`
+**Server actions / data layer:**
+- `getStaffWithLiveStatus()` in
+  `src/app/(app)/app/staff/actions.ts` — returns `[{staff, activeWorkLog?, jobsCompletedToday}]`
+  for the current garage. Single round-trip via a CTE on `staff` left
+  joined to `work_logs` filtered by `ended_at IS NULL` and to a
+  `count(*)` subquery for today's completions.
+- `getStaffDetail(staffId)` for the detail page — staff record +
+  today's work_logs + this-week's `work_logs`.
+- Both manager-only (use `requireManager`).
+
+**Tests:**
+- 2 RLS tests in `tests/rls/staff_visibility.test.ts`: non-manager
+  selecting via the staff page route fails; cross-garage staff
+  invisible.
+- 4 unit tests in `tests/unit/staff-status.test.ts`: `computeStaffStatus(workLogs)`
+  → `'busy'`/`'free'`; `formatLiveTimer(activeWorkLog)` reuses
+  `work-log-timer.ts` math; "jobs completed today" date-boundary
+  test (today vs yesterday).
+- 1 component test for `<StaffCard>` rendering busy + free state.
+
+**Done when:** manager visits `/app/staff`, sees 6 cards (Dudley
+staff count). Mechanic A starts a job in another tab → A's card flips
+red within ~2 s with the running vehicle reg + live timer. Tech logs
+out of A's session → card flips green. `/app/staff/[someTechId]`
+loads cleanly. 2+4+1 tests green; typecheck + spacing-lint clean.
+P3.1 plan-doc audit-trail line stamped after merge.
+
+    ✓ ca48a7b 2026-04-29
+
+### P3.2 — Bays rearrangeable `6gRm8vH9mWc773cG` ✓ DONE (interpretation resolved)
+
+**Resolved 2026-04-29 as "shipped, interpreted as job-card drag-between-bays."**
+The Todoist title was ambiguous between (a) bay columns reorderable and
+(b) the job cards on the bays being draggable between bays. Confirmed
+via code + staging that (b) is fully working — `BayBoardClient.tsx`
+wraps each bay in `<Droppable>` + each card in `<Draggable>`, drop POSTs
+to `/api/bay-board/move`, realtime broadcasts the move. Shipped earlier
+in commit **`e37f4df`** ("P9+P12: Edit job details, bay/tech assignment,
+add/delete parts"). Todoist comment posted + `done-by-claude` applied
+2026-04-29.
+
+If bay-COLUMN reorder (interpretation a) is wanted later, raise a fresh
+Todoist item — do NOT inherit from this one. Original spec retained
+below for reference if that ever comes up.
+
+<details><summary>Original spec (interpretation a — not built)</summary>
 
 **Manager-only**, persist per-garage (global order, not per-user).
 
@@ -789,44 +840,75 @@ managers override per-garage.
   `@hello-pangea/dnd` for the cards within each bay), make the bay
   *headers* draggable horizontally. On drop, call `reorderBays`.
 
+</details>
+
 ### P3.3 — End-of-job checklist `6gRm83rVhrR5jVXG`
 
 **Manager-configurable per tech role, global toggle on/off.**
 
-- **Migration 056** `job_completion_checklists`:
-  `(garage_id, role text, items jsonb, enabled bool, updated_at)`.
-  Manager RLS. Seed three rows on migration — one per role —
-  preloaded with `{"items":["Have you returned the wheel locking nut?",
-  "Have you put your tools away?","Have you left the vehicle clean?"]}`
-  and `enabled=false` (opt-in).
-- **Migration 057** `job_completion_checks`: `(job_id, staff_id,
-  items_jsonb, submitted_at)` — stores the tech's answers.
-- **Settings page** `/app/settings/checklists`: one tab per role,
-  enable-toggle, editable list of items (add/remove/reorder).
-- **Modal** on tech's "Complete job" action: if the role's checklist is
-  enabled, show the checklist as a blocking modal before the job status
-  flips. Each item is a required Yes/No. On submit, write to
-  `job_completion_checks`.
-- **Manager visibility**: checklist entry on the job detail timeline
-  (`job_timeline_events` extension) and on the staff detail page.
+> **Migration numbers updated 2026-04-29:** prefixes 056 + 057 are
+> already taken (`056_p2.4_bay_change_timeline`,
+> `057_sms_templates_quote_invoice`). New prefixes for this work
+> are **059** + **060**.
+
+**Migration 059 — `059_p3_3_completion_checklists.sql`:**
+- `public.job_completion_checklists (id uuid pk default gen_random_uuid(), garage_id uuid not null references garages(id), role text not null check (role in ('mechanic','mot_tester')), items jsonb not null default '[]'::jsonb, enabled bool not null default false, updated_at timestamptz not null default now())`
+- Unique index on `(garage_id, role)` — one checklist per (garage, role).
+- Trigger to bump `updated_at` on UPDATE.
+- RLS: read = `manager` OR `mechanic` OR `mot_tester` (all staff need to read so the tech UI knows what items to render); write = manager only, scoped by `garage_id = private.current_garage()`. INSERT and UPDATE policies both have `WITH CHECK` (Rule #3).
+- Seed: on migration apply, insert two rows per existing garage (one per role) with `enabled=false` and `items` preloaded as `["Have you returned the wheel locking nut?","Have you put your tools away?","Have you left the vehicle clean?"]`.
+
+**Migration 060 — `060_p3_3_completion_checks.sql`:**
+- `public.job_completion_checks (id uuid pk default gen_random_uuid(), garage_id uuid not null, job_id uuid not null references jobs(id), staff_id uuid not null references staff(id), role text not null, answers jsonb not null, submitted_at timestamptz not null default now())`
+- `answers` shape: `[{"question":"…","answer":"yes"|"no"|"n/a"}, …]`. Zod schema in `src/lib/validation/checklist-schemas.ts`.
+- RLS: read = `manager` OR (any staff scoped to garage_id); write = staff inserting their own row (`staff_id = auth.uid()` via private helper) for a job assigned to them. Manager override via direct UPDATE.
+- INSERT mediated by SECURITY DEFINER RPC `public.submit_completion_check(p_job_id uuid, p_answers jsonb)` — wraps validation + assignment check + audit_log entry.
+- Add table to `supabase_realtime` publication + `ALLOWED_TABLES` whitelist (CLAUDE.md realtime convention) so manager pages refresh on submission.
+- Extend `job_timeline_events` view to include `('completion_check', submitted_at)` rows so the existing JobActivity surface picks them up — no JobActivity client changes needed.
+
+**Settings page `/app/settings/checklists`:**
+- Manager-only (use existing `requireManager` helper).
+- Two tabs: *Mechanic* / *MOT Tester*. Each tab has the enable-toggle + items list (add / remove / reorder via existing `<Combobox>`-style affordances or just a vertical list with up/down/delete buttons).
+- Server actions `setChecklistEnabled(role, enabled)` + `updateChecklistItems(role, items)` — both write through `garages_update_manager`-style policies. zod-validated input.
+
+**Modal on tech's "Complete job" action:**
+- Hook into the existing `completeWork({workLogId})` action site (`TechJobClient.tsx:148`). Before firing the existing action, fetch the role's checklist; if `enabled=true` and `items.length > 0`, render `<ChecklistDialog>` (new component, blocking, dismiss-disabled). On submit, call `submit_completion_check` RPC, then chain into the original `completeWork`.
+- Each item rendered as Yes/No segmented buttons (no third option in v1; "n/a" comes later). Submit button is disabled until every item answered.
+
+**Manager visibility:**
+- JobActivity timeline already pulls from `job_timeline_events` — once that view is extended (migration 060), entries appear automatically with the existing icon-gutter row pattern.
+- Staff detail page (`/app/staff/[id]`, the one P3.1 ships) gets a "Recent checklists" section showing the last 10 `job_completion_checks` for the staff member. Phase γ of P3.4 is the right home for this; for *this* sprint just write the `job_completion_checks` rows and let the staff-detail surface follow in a later sprint.
+
+**Tests:**
+- 4 new RLS tests in `tests/rls/completion_checklists.test.ts`: non-manager cannot UPDATE checklist; non-staff cannot SELECT checks; cross-garage SELECT blocked; tech can SELECT own garage's checklist (read needed for the UI).
+- 6 unit tests in `tests/unit/completion-check-validation.test.ts`: zod schema accepts valid answers, rejects missing fields, rejects extra answers, rejects unknown question text, accepts `"n/a"` even though UI doesn't surface it (forward-compat).
+- 1 unit test for the modal flow at `tests/unit/checklist-dialog.test.tsx` — submit disabled until all answered, fires the RPC + chains `completeWork`.
+
+**Done when:** manager toggles checklist on for mechanics, a tech completes a job → modal appears → 3 yes/no answers → job completes → manager sees the checklist entry on job-detail timeline. All 4+6+1 tests green; typecheck + spacing-lint clean.
 
 ### P3.4 — KPI dashboard on reports + staff detail `6gRm9C88J3wJCfHp`
 
-Both on the existing `/app/reports` page (new "Operations" section) and
-as a strip on each `/app/staff/[id]` page.
+**Design-first split (Hossein 2026-04-29):** the original 4-bullet
+spec was too thin given the breadth of the Todoist ask ("everything
+possible"). Split into:
 
-- Top 3 KPIs to ship first:
-  1. **Bay utilisation %** — fraction of working hours a bay has an
-     in-progress job assigned. Per-bay bar chart by day.
-  2. **Jobs-per-type count** — group `jobs.type` / charge categories,
-     show last-7-days, last-30-days, and overall.
-  3. **Avg cycle time per job type** — median time from
-     `jobs.created_at` to `jobs.status='complete'`.
-- Per-staff-detail KPIs: jobs completed / week, total billed hours this
-  month, average job cycle time, current live timer (reuses P3.1
-  infrastructure).
-- Reports page gets a CSV export alongside the existing revenue export.
-- No new realtime here — reports render at request time.
+- **P3.4-design** (Cowork, this sprint) — `docs/redesign/KPI_PLAN.md`
+  drafted 2026-04-29. 28-KPI catalogue across Operations / Staff /
+  Customer / Financial / SMS, source-table mapping, recharts as the
+  chart library decision, three implementation phases (α / β / γ /
+  δ), and 7 open questions for Hossein. **Not approved yet** — sign-off
+  line at top of `KPI_PLAN.md` required before any Code work.
+- **P3.4-α** (Code, follow-up sprint) — Operations section + recharts
+  install + first 3 KPIs (Bay utilisation, Throughput, Cycle time).
+- **P3.4-β** (Code, follow-up) — Customer + SMS sections.
+- **P3.4-γ** (Code, follow-up) — Staff KPI strip on
+  `/app/staff/[id]` (depends on P3.1 shipping first).
+- **P3.4-δ** (Code, follow-up) — Financial extras on existing
+  Receivables section.
+
+Estimated ~5 days of Code work across α–δ, after design sign-off.
+ε-phase (schema-gated KPIs O5/O6/O7/S6/S7) sized after open-question
+answers.
 
 ### P3.5 — `super_admin` Oplaris-staff support role (~1 day) `6gRmVr9GFfgmHhRG` (part c)
 
@@ -935,6 +1017,64 @@ visible at `/admin/audit`.
 no billing / subscription surface, no white-label branding editor. Just
 support + SMS template defaults. Everything else waits until the 2nd or
 3rd real garage is onboarded.
+
+### P3.6 — Points System (gamification layer over KPIs) `6gRm9C88J3wJCfHp` (part b) — **PARKED 2026-04-29**
+
+**Status: parked.** Hossein decided not to pursue in v1; revisit
+~2 months after KPI dashboard (P3.4) has been in production use.
+Design preserved as draft in `docs/redesign/POINTS_SYSTEM_PLAN.md`
+(parked status documented at the top of that file). Partial decisions
+captured: leaderboard manager-only, three-period view, positive-only
+points, manager appears on leaderboard. Edge-case questions left
+open for future revisit.
+
+**Do NOT implement.** No phase A–E work this sprint or next. If the
+KPI dashboard reveals a clear need for a single-score-per-staff
+view that direct KPIs don't satisfy, raise a fresh decision then.
+
+<details><summary>Original spawn notes 2026-04-29 (kept for context)</summary>
+
+**Spawned 2026-04-29** during the P3.4 KPI scoping pairing — Hossein
+asked for a points-based view of staff performance on top of the raw
+KPI counts. This is the recognition / performance-review layer.
+**Design lives in `docs/redesign/POINTS_SYSTEM_PLAN.md`** — read it
+first, do not start implementation until the §10 questions are
+answered and an `Approved YYYY-MM-DD` line is at the top of that
+file.
+
+**Phase ordering — must ship after the KPI infrastructure (P3.4)**
+because point rules consume `jobs.job_type` (Q1) and `jobs.mot_result`
+(Q2) added in P3.4-α migrations.
+
+- **P3.6-A** — Schema + ledger (`point_events`, `point_rules`,
+  `v_staff_points_weekly` view). RLS + SECURITY DEFINER award
+  functions. Seed default weights. ~1 day.
+- **P3.6-B** — Auto-award triggers on `job_status_events`,
+  `job_passbacks`, `job_completion_checks`, `work_logs`. Backfill
+  90 days of historical events so the leaderboard isn't empty on
+  ship-day. ~1 day.
+- **P3.6-C** — "Team Leaderboard" section on `/app/reports` with
+  period toggle (this/last week, this/last month). ~½ day.
+- **P3.6-D** — Personal "Performance" breakdown on
+  `/app/staff/[id]` with this-week headline + 12-week trend +
+  recent-events list. Recharts. ~½ day.
+- **P3.6-E** — Manager manual-bonus dialog +
+  `/app/settings/points` weight editor (manager-only). ~½ day.
+
+**Total: ~3.5 days** after KPI work ships. **Default visibility for
+v1:** techs see only their own score; manager sees the full
+leaderboard. (See POINTS_SYSTEM_PLAN.md §10 Q1 for the policy
+discussion.)
+
+**Done when:** manager visits `/app/reports`, sees a leaderboard for
+the current week with each staff member's score; tapping a row
+navigates to that staff's detail page where the breakdown lines up
+with their actual job/MOT/checklist history; manager can issue a
+manual bonus with note that appears on the recipient's recent-events
+list; weights are editable at `/app/settings/points`. Tests across
+A–E green.
+
+</details>
 
 ---
 
