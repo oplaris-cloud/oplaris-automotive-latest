@@ -56,11 +56,18 @@ export function AppShell({
       />
 
       {/* Mobile drawer — rendered always so the Sheet can animate; only
-          actually visible when drawerOpen flips true. */}
+          actually visible when drawerOpen flips true.
+          Hardcoded slate-900 sidebar — revisit when multi-garage
+          white-label ships per 2026-04-27 decision (STAGING_FIX_PLAN.md). */}
       <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
-        <SheetContent side="left" className="w-64 p-0">
-          <SheetHeader>
-            <SheetTitle>{garageName}</SheetTitle>
+        <SheetContent
+          side="left"
+          className="w-64 bg-slate-900 p-0 text-white"
+        >
+          <SheetHeader className="border-b border-white/10 px-4 py-3">
+            <SheetTitle className="text-left text-white">
+              {garageName}
+            </SheetTitle>
           </SheetHeader>
           <SidebarNavList
             roles={roles}

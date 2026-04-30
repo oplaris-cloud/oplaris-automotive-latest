@@ -135,6 +135,11 @@ export function SidebarNavList({
   // content (`p-4 sm:p-6`) so the sidebar's first nav link aligns with
   // the page title's baseline; bottom + inner-row padding stay tight
   // (8 px / 4 px) for nav density.
+  //
+  // B3.4 — link colour tokens are hardcoded white-on-slate-900 here
+  // (not sidebar-* tokens) so the operational chrome stays consistent
+  // regardless of per-garage --primary theming. See <Sidebar /> for
+  // the wrapper override + the multi-garage white-label note.
   return (
     <nav
       className="flex flex-col gap-1 px-4 pt-4 pb-2 sm:px-3 sm:pt-3"
@@ -152,8 +157,8 @@ export function SidebarNavList({
             className={cn(
               "flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
               active
-                ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
+                ? "bg-white/10 text-white"
+                : "text-white/70 hover:bg-white/5 hover:text-white",
             )}
           >
             {item.icon}
@@ -198,11 +203,16 @@ export function Sidebar({
   garageShowName = true,
 }: SidebarProps) {
   return (
+    // Hardcoded slate-900 sidebar — revisit when multi-garage
+    // white-label ships per 2026-04-27 decision (STAGING_FIX_PLAN.md).
+    // Operational chrome wants consistent contrast regardless of
+    // per-garage --primary theming; brand expression belongs on the
+    // public surfaces (status page, kiosk, public booking).
     <aside
-      className="hidden w-56 shrink-0 flex-col border-r bg-sidebar md:flex"
+      className="hidden w-56 shrink-0 flex-col bg-slate-900 text-white md:flex"
       aria-label="Main navigation"
     >
-      <div className="flex h-14 items-center border-b px-4">
+      <div className="flex h-14 items-center border-b border-white/10 px-4">
         <GarageLogo
           name={garageName}
           logoUrl={garageLogoUrl}
@@ -217,9 +227,9 @@ export function Sidebar({
       {/* V5.4 — Resale credit line. Small + muted so the garage brand
        *  stays dominant, but always present so the Oplaris signature
        *  travels with the product. */}
-      <div className="mt-auto border-t px-4 py-2 text-[11px] text-sidebar-foreground/50">
+      <div className="mt-auto border-t border-white/10 px-4 py-2 text-[11px] text-white/50">
         Powered by{" "}
-        <span className="font-semibold text-sidebar-foreground/70">
+        <span className="font-semibold text-white/70">
           Oplaris
         </span>
       </div>
