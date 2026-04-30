@@ -1,5 +1,6 @@
-import Link from "next/link";
 import { AlertTriangle, Phone } from "lucide-react";
+
+import { CustomerNameLink } from "@/components/ui/customer-name-link";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { RegPlate } from "@/components/ui/reg-plate";
@@ -59,9 +60,11 @@ export function ExpiredMotList({ rows }: { rows: ExpiredMotRow[] }) {
               className="rounded-lg border p-3 text-sm"
             >
               <div className="flex items-center justify-between">
-                <Link href={`/app/vehicles/${r.vehicleId}`}>
-                  <RegPlate reg={r.registration} size="default" />
-                </Link>
+                <RegPlate
+                  reg={r.registration}
+                  size="default"
+                  vehicleId={r.vehicleId}
+                />
                 <span
                   className={
                     r.daysOverdue > 30
@@ -73,7 +76,14 @@ export function ExpiredMotList({ rows }: { rows: ExpiredMotRow[] }) {
                 </span>
               </div>
               <div className="mt-2 text-sm">
-                {r.customerName ?? "—"}
+                {r.customerName ? (
+                  <CustomerNameLink
+                    customerId={r.customerId}
+                    fullName={r.customerName}
+                  />
+                ) : (
+                  "—"
+                )}
               </div>
               {r.customerPhone ? (
                 <TelLink
@@ -105,11 +115,22 @@ export function ExpiredMotList({ rows }: { rows: ExpiredMotRow[] }) {
               {rows.map((r) => (
                 <TableRow key={r.vehicleId}>
                   <TableCell>
-                    <Link href={`/app/vehicles/${r.vehicleId}`}>
-                      <RegPlate reg={r.registration} size="sm" />
-                    </Link>
+                    <RegPlate
+                      reg={r.registration}
+                      size="sm"
+                      vehicleId={r.vehicleId}
+                    />
                   </TableCell>
-                  <TableCell>{r.customerName ?? "—"}</TableCell>
+                  <TableCell>
+                    {r.customerName ? (
+                      <CustomerNameLink
+                        customerId={r.customerId}
+                        fullName={r.customerName}
+                      />
+                    ) : (
+                      "—"
+                    )}
+                  </TableCell>
                   <TableCell>
                     {r.customerPhone ? (
                       <TelLink

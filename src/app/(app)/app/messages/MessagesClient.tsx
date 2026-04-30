@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
+
+import { CustomerNameLink } from "@/components/ui/customer-name-link";
 import {
   Calendar,
   CheckCircle2,
@@ -639,7 +641,11 @@ function MessageTableRow({ row, expanded, onToggle, onRetry, onCancel }: RowProp
       >
         <TableCell>
           {row.vehicleReg ? (
-            <RegPlate reg={row.vehicleReg} size="sm" />
+            <RegPlate
+              reg={row.vehicleReg}
+              size="sm"
+              vehicleId={row.vehicleId}
+            />
           ) : (
             <span className="text-xs text-muted-foreground">—</span>
           )}
@@ -741,16 +747,10 @@ function ExpandedDetail({ row }: { row: MessageRow }) {
         <>
           <dt className="text-muted-foreground">Customer</dt>
           <dd>
-            {row.customerId ? (
-              <Link
-                href={`/app/customers/${row.customerId}`}
-                className="text-primary hover:underline"
-              >
-                {row.customerFullName}
-              </Link>
-            ) : (
-              row.customerFullName
-            )}
+            <CustomerNameLink
+              customerId={row.customerId}
+              fullName={row.customerFullName}
+            />
           </dd>
         </>
       ) : null}

@@ -1,5 +1,5 @@
 import { notFound, redirect } from "next/navigation";
-import Link from "next/link";
+import { CustomerNameLink } from "@/components/ui/customer-name-link";
 
 import { requireStaffSession } from "@/lib/auth/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -255,31 +255,32 @@ export default async function JobDetailPage({ params }: JobDetailProps) {
               <CardTitle className="text-sm text-muted-foreground">Customer</CardTitle>
             </CardHeader>
             <CardContent>
-              <Link href={`/app/customers/${(customer as { id: string }).id}`} className="font-medium hover:underline">
-                {(customer as { full_name: string }).full_name}
-              </Link>
+              <CustomerNameLink
+                customerId={(customer as { id: string }).id}
+                fullName={(customer as { full_name: string }).full_name}
+                className="font-medium"
+              />
               <div className="mt-1 text-sm text-muted-foreground">{(customer as { phone: string }).phone}</div>
             </CardContent>
           </Card>
         )}
         {vehicle && (
-          <Link href={`/app/vehicles/${(vehicle as { id: string }).id}`}>
-            <Card className="transition-shadow hover:shadow-md">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm text-muted-foreground">Vehicle</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <RegPlate
-                  reg={(vehicle as { registration: string }).registration}
-                  size="default"
-                />
-                <div className="mt-1 text-sm text-muted-foreground">
-                  {[(vehicle as { make?: string }).make, (vehicle as { model?: string }).model, (vehicle as { year?: number }).year].filter(Boolean).join(" ")}
-                  {(vehicle as { mileage?: number }).mileage != null && ` · ${((vehicle as { mileage: number }).mileage).toLocaleString()} mi`}
-                </div>
-              </CardContent>
-            </Card>
-          </Link>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm text-muted-foreground">Vehicle</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <RegPlate
+                reg={(vehicle as { registration: string }).registration}
+                size="default"
+                vehicleId={(vehicle as { id: string }).id}
+              />
+              <div className="mt-1 text-sm text-muted-foreground">
+                {[(vehicle as { make?: string }).make, (vehicle as { model?: string }).model, (vehicle as { year?: number }).year].filter(Boolean).join(" ")}
+                {(vehicle as { mileage?: number }).mileage != null && ` · ${((vehicle as { mileage: number }).mileage).toLocaleString()} mi`}
+              </div>
+            </CardContent>
+          </Card>
         )}
         <Card>
           <CardHeader className="pb-2">

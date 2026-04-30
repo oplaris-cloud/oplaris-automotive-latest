@@ -4,6 +4,7 @@ import { Plus, Wrench } from "lucide-react";
 import { requireManager } from "@/lib/auth/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
+import { CustomerNameLink } from "@/components/ui/customer-name-link";
 import { RegPlate } from "@/components/ui/reg-plate";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -33,6 +34,7 @@ export default async function JobsPage({ searchParams }: JobsPageProps) {
     .from("jobs")
     .select(`
       id, job_number, status, description, created_at, estimated_ready_at,
+      customer_id, vehicle_id,
       customers!customer_id ( full_name ),
       vehicles!vehicle_id ( registration, make, model )
     `)
@@ -118,13 +120,29 @@ export default async function JobsPage({ searchParams }: JobsPageProps) {
                       </Link>
                     </TableCell>
                     <TableCell className="text-sm">
-                      {(customer as { full_name: string } | null)?.full_name ?? "—"}
+                      {(customer as { full_name: string } | null)?.full_name ? (
+                        <CustomerNameLink
+                          customerId={
+                            (j as unknown as { customer_id: string | null })
+                              .customer_id
+                          }
+                          fullName={
+                            (customer as { full_name: string }).full_name
+                          }
+                        />
+                      ) : (
+                        "—"
+                      )}
                     </TableCell>
                     <TableCell className="hidden sm:table-cell">
                       {(vehicle as { registration: string } | null)?.registration && (
                         <RegPlate
                           reg={(vehicle as { registration: string }).registration}
                           size="sm"
+                          vehicleId={
+                            (j as unknown as { vehicle_id: string | null })
+                              .vehicle_id
+                          }
                         />
                       )}
                       <span className="ml-2 text-sm text-muted-foreground">

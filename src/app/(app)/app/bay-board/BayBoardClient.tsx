@@ -163,7 +163,16 @@ export function BayBoardClient({ initialBays }: BayBoardClientProps) {
                                         status={job.status as JobStatus}
                                       />
                                     </div>
-                                    {/* Primary identity (reg + customer) — 8 px rhythm */}
+                                    {/* Primary identity (reg + customer) — 8 px rhythm.
+                                        B3.3: deliberately NOT wrapping in
+                                        CustomerNameLink/RegPlate vehicleId here
+                                        — the entire card is already a Link to
+                                        /app/jobs/[id], and nested anchors are
+                                        invalid HTML. The card's existing UX is
+                                        "click anywhere → job detail"; a deeper
+                                        navigation refactor (job-number as the
+                                        only Link, rest interactive) is a larger
+                                        item. */}
                                     <Stack gap="sm" className="mt-2">
                                       {job.vehicle && (
                                         <div className="font-mono text-sm">

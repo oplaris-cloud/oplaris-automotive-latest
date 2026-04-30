@@ -36,6 +36,7 @@ describe("<StaffCard>", () => {
         id: "wl-1",
         jobId: "00000000-0000-0000-0000-0000000a0b01",
         jobNumber: "DUD-0042",
+        vehicleId: "00000000-0000-0000-0000-0000000a0e01",
         vehicleReg: "AB12CDE",
         startedAt,
         pausedAt: null,

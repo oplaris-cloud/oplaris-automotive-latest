@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { CustomerNameLink } from "@/components/ui/customer-name-link";
 import { RegPlate } from "@/components/ui/reg-plate";
 import { StatusBadge } from "@/components/ui/status-badge";
 import type { JobStatus } from "@/lib/validation/job-schemas";
@@ -59,8 +60,10 @@ interface TechJobClientProps {
   jobNumber: string;
   status: string;
   description: string | null;
+  vehicleId: string | null;
   vehicleReg: string | null;
   vehicleMakeModel: string;
+  customerId: string | null;
   customerName: string | null;
   customerPhone: string | null;
   activeWorkLog: ActiveWorkLog | null;
@@ -71,8 +74,10 @@ export function TechJobClient({
   jobNumber,
   status,
   description,
+  vehicleId,
   vehicleReg,
   vehicleMakeModel,
+  customerId,
   customerName,
   customerPhone,
   activeWorkLog,
@@ -217,7 +222,7 @@ export function TechJobClient({
         {vehicleReg && (
           <Card>
             <CardContent className="p-3">
-              <RegPlate reg={vehicleReg} size="lg" />
+              <RegPlate reg={vehicleReg} size="lg" vehicleId={vehicleId} />
               <div className="mt-1 text-xs text-muted-foreground">{vehicleMakeModel}</div>
             </CardContent>
           </Card>
@@ -225,7 +230,12 @@ export function TechJobClient({
         {customerName && (
           <Card>
             <CardContent className="p-3">
-              <div className="text-sm font-medium">{customerName}</div>
+              <div className="text-sm font-medium">
+                <CustomerNameLink
+                  customerId={customerId}
+                  fullName={customerName}
+                />
+              </div>
               {customerPhone && (
                 <Button
                   asChild

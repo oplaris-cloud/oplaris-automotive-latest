@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { forwardRef } from "react";
 import { cn } from "@/lib/utils";
 
@@ -8,6 +9,11 @@ import { cn } from "@/lib/utils";
  *  Three sizes so the same vehicle plate renders consistently across
  *  dense tables, cards, and hero surfaces. Uses the same yellow (rear)
  *  / white (front) colour convention as the input variant.
+ *
+ *  B3.3 (2026-04-30) — when a `vehicleId` prop is passed, the plate
+ *  becomes a Link to `/app/vehicles/[id]`. Without it, render as today
+ *  (static `<span>`). Public surfaces (kiosk, status, /approve) never
+ *  pass it — the staff app does where the vehicle id is in scope.
  *
  *  `py-0.5` is the single off-grid exception in `DESIGN_SYSTEM.md §1.3`
  *  — plates need the tight vertical aspect to look like real plates
@@ -22,6 +28,10 @@ interface RegPlateProps {
   reg: string;
   size?: RegPlateSize;
   variant?: RegPlateVariant;
+  /** When set, the plate becomes a link to /app/vehicles/[id]. Omit
+   *  on public surfaces (kiosk, status, /approve) where the staff
+   *  app routes are not reachable. */
+  vehicleId?: string | null;
   className?: string;
 }
 
@@ -31,24 +41,43 @@ const SIZE_CLASS: Record<RegPlateSize, string> = {
   lg: "px-3 py-1 text-xl tracking-[0.15em]",
 };
 
+const SHARED_CLASSES =
+  "inline-flex items-center rounded-[3px] border border-black font-mono font-black uppercase leading-none";
+
+const LINK_AFFORDANCE =
+  "transition-shadow hover:ring-2 hover:ring-ring/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+
 export function RegPlate({
   reg,
   size = "default",
   variant = "rear",
+  vehicleId,
   className,
 }: RegPlateProps) {
   const isRear = variant === "rear";
+  const baseClasses = cn(
+    SHARED_CLASSES,
+    isRear ? "bg-[#FFD307] text-black" : "bg-white text-black",
+    SIZE_CLASS[size],
+    className,
+  );
+
+  if (vehicleId) {
+    return (
+      <Link
+        data-slot="reg-plate"
+        data-size={size}
+        href={`/app/vehicles/${vehicleId}`}
+        className={cn(baseClasses, LINK_AFFORDANCE)}
+        aria-label={`View vehicle ${reg}`}
+      >
+        {reg}
+      </Link>
+    );
+  }
+
   return (
-    <span
-      data-slot="reg-plate"
-      data-size={size}
-      className={cn(
-        "inline-flex items-center rounded-[3px] border border-black font-mono font-black uppercase leading-none",
-        isRear ? "bg-[#FFD307] text-black" : "bg-white text-black",
-        SIZE_CLASS[size],
-        className,
-      )}
-    >
+    <span data-slot="reg-plate" data-size={size} className={baseClasses}>
       {reg}
     </span>
   );

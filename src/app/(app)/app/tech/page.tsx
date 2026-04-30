@@ -9,6 +9,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { MilestoneAchievementIllustration } from "@/components/illustrations";
 import { PageContainer } from "@/components/app/page-container";
 import { PassbackBadge } from "@/components/ui/passback-badge";
+import { CustomerNameLink } from "@/components/ui/customer-name-link";
 import { RegPlate } from "@/components/ui/reg-plate";
 import { Section } from "@/components/ui/section";
 import { Stack } from "@/components/ui/stack";
@@ -38,8 +39,8 @@ interface AssignedJob {
   description: string | null;
   service: string | null;
   awaiting_passback: boolean;
-  vehicle: { registration: string; make: string | null; model: string | null } | null;
-  customer: { full_name: string; phone: string | null } | null;
+  vehicle: { id: string; registration: string; make: string | null; model: string | null } | null;
+  customer: { id: string; full_name: string; phone: string | null } | null;
   activeSince: string | null;
 }
 
@@ -64,8 +65,8 @@ export default async function MyWorkPage() {
       `job_id,
        jobs!job_id (
          id, job_number, status, description, service, awaiting_passback,
-         vehicles!vehicle_id ( registration, make, model ),
-         customers!customer_id ( full_name, phone )
+         vehicles!vehicle_id ( id, registration, make, model ),
+         customers!customer_id ( id, full_name, phone )
        )`,
     )
     .eq("staff_id", session.userId);
@@ -134,8 +135,8 @@ export default async function MyWorkPage() {
       .select(
         `id, job_number, status, description, service, awaiting_passback,
          updated_at,
-         vehicles!vehicle_id ( registration, make, model ),
-         customers!customer_id ( full_name, phone ),
+         vehicles!vehicle_id ( id, registration, make, model ),
+         customers!customer_id ( id, full_name, phone ),
          job_assignments ( staff_id, staff:staff!staff_id ( roles ) )`,
       )
       .eq("current_role", "mechanic")
@@ -380,16 +381,23 @@ function PassbackRow({ job }: { job: AssignedJob }) {
               <PassbackBadge />
             </div>
             {job.vehicle ? (
-              <div className="mt-2 font-mono text-sm">
-                <RegPlate reg={job.vehicle.registration} size="sm" />
-                <span className="ml-2 font-sans text-xs text-muted-foreground">
+              <div className="mt-2 text-sm">
+                <RegPlate
+                  reg={job.vehicle.registration}
+                  size="sm"
+                  vehicleId={job.vehicle.id}
+                />
+                <span className="ml-2 text-xs text-muted-foreground">
                   {[job.vehicle.make, job.vehicle.model].filter(Boolean).join(" ")}
                 </span>
               </div>
             ) : null}
             {job.customer ? (
               <div className="mt-1 text-sm text-muted-foreground">
-                {job.customer.full_name}
+                <CustomerNameLink
+                  customerId={job.customer.id}
+                  fullName={job.customer.full_name}
+                />
               </div>
             ) : null}
             {job.description ? (

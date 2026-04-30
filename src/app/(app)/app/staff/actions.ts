@@ -34,6 +34,7 @@ export interface ActiveWorkLogSummary {
   id: string;
   jobId: string;
   jobNumber: string | null;
+  vehicleId: string | null;
   vehicleReg: string | null;
   startedAt: string;
   pausedAt: string | null;
@@ -57,7 +58,7 @@ interface RawWorkLog {
   paused_seconds_total: number | null;
   jobs: {
     job_number: string | null;
-    vehicles: { registration: string | null } | null;
+    vehicles: { id: string | null; registration: string | null } | null;
   } | null;
 }
 
@@ -89,7 +90,7 @@ export async function getStaffWithLiveStatus(): Promise<StaffWithLiveStatus[]> {
         .from("work_logs")
         .select(
           `id, staff_id, job_id, started_at, ended_at, paused_at, paused_seconds_total,
-           jobs ( job_number, vehicles ( registration ) )`,
+           jobs ( job_number, vehicles ( id, registration ) )`,
         )
         .eq("garage_id", session.garageId)
         .or(`ended_at.is.null,ended_at.gte.${dayStart.toISOString()}`),
@@ -125,6 +126,7 @@ export async function getStaffWithLiveStatus(): Promise<StaffWithLiveStatus[]> {
             id: active.id,
             jobId: active.job_id,
             jobNumber: active.jobs?.job_number ?? null,
+            vehicleId: active.jobs?.vehicles?.id ?? null,
             vehicleReg: active.jobs?.vehicles?.registration ?? null,
             startedAt: active.started_at,
             pausedAt: active.paused_at,
@@ -155,6 +157,7 @@ export interface TodayLog {
   id: string;
   jobId: string;
   jobNumber: string | null;
+  vehicleId: string | null;
   vehicleReg: string | null;
   startedAt: string;
   endedAt: string | null;
@@ -193,7 +196,7 @@ export async function getStaffDetail(
       .select(
         `id, staff_id, job_id, task_type, started_at, ended_at, paused_at,
          paused_seconds_total, duration_seconds,
-         jobs ( job_number, vehicles ( registration ) )`,
+         jobs ( job_number, vehicles ( id, registration ) )`,
       )
       .eq("garage_id", session.garageId)
       .eq("staff_id", staffId)
@@ -222,6 +225,7 @@ export async function getStaffDetail(
       id: l.id,
       jobId: l.job_id,
       jobNumber: l.jobs?.job_number ?? null,
+      vehicleId: l.jobs?.vehicles?.id ?? null,
       vehicleReg: l.jobs?.vehicles?.registration ?? null,
       startedAt: l.started_at,
       endedAt: l.ended_at,
@@ -252,6 +256,7 @@ export async function getStaffDetail(
           id: active.id,
           jobId: active.job_id,
           jobNumber: active.jobs?.job_number ?? null,
+          vehicleId: active.jobs?.vehicles?.id ?? null,
           vehicleReg: active.jobs?.vehicles?.registration ?? null,
           startedAt: active.started_at,
           pausedAt: active.paused_at,

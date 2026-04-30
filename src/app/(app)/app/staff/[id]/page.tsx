@@ -134,7 +134,11 @@ export default async function StaffDetailPage({ params }: PageProps) {
                 >
                   <div className="flex items-center gap-2">
                     {log.vehicleReg ? (
-                      <RegPlate reg={log.vehicleReg} size="sm" />
+                      <RegPlate
+                        reg={log.vehicleReg}
+                        size="sm"
+                        vehicleId={log.vehicleId}
+                      />
                     ) : null}
                     <Link
                       href={`/app/jobs/${log.jobId}`}

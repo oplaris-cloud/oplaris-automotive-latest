@@ -19,6 +19,7 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { CarImage } from "@/components/ui/car-image";
+import { CustomerNameLink } from "@/components/ui/customer-name-link";
 import { RegPlate } from "@/components/ui/reg-plate";
 import { TelLink } from "@/components/ui/tel-link";
 import { PageContainer } from "@/components/app/page-container";
@@ -120,12 +121,11 @@ export default async function VehicleDetailPage({ params }: VehicleDetailProps) 
           <h2 className="text-lg font-semibold">Owner</h2>
           <Card className="mt-3">
             <CardContent className="p-4">
-              <Link
-                href={`/app/customers/${vehicle.customer.id}`}
-                className="text-base font-medium hover:underline"
-              >
-                {vehicle.customer.full_name}
-              </Link>
+              <CustomerNameLink
+                customerId={vehicle.customer.id}
+                fullName={vehicle.customer.full_name}
+                className="text-base font-medium"
+              />
               <div className="mt-2 flex flex-wrap gap-4 text-sm text-muted-foreground">
                 <TelLink
                   phone={vehicle.customer.phone}

@@ -57,7 +57,13 @@ export function StaffActiveHero({ log }: StaffActiveHeroProps) {
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          {log.vehicleReg ? <RegPlate reg={log.vehicleReg} size="lg" /> : null}
+          {log.vehicleReg ? (
+            <RegPlate
+              reg={log.vehicleReg}
+              size="lg"
+              vehicleId={log.vehicleId}
+            />
+          ) : null}
           {log.jobNumber ? (
             <span className="text-sm font-medium text-muted-foreground">
               {log.jobNumber}

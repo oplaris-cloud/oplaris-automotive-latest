@@ -24,8 +24,8 @@ export default async function TechJobDetailPage({ params }: TechJobDetailProps) 
     .from("jobs")
     .select(`
       id, job_number, status, description,
-      customers!customer_id ( full_name, phone ),
-      vehicles!vehicle_id ( registration, make, model )
+      customers!customer_id ( id, full_name, phone ),
+      vehicles!vehicle_id ( id, registration, make, model )
     `)
     .eq("id", id)
     .is("deleted_at", null)
@@ -91,12 +91,14 @@ export default async function TechJobDetailPage({ params }: TechJobDetailProps) 
         jobNumber={job.job_number}
         status={job.status}
         description={job.description}
+        vehicleId={(vehicle as { id: string } | null)?.id ?? null}
         vehicleReg={(vehicle as { registration: string } | null)?.registration ?? null}
         vehicleMakeModel={
           [(vehicle as { make?: string } | null)?.make, (vehicle as { model?: string } | null)?.model]
             .filter(Boolean)
             .join(" ") || "Unknown vehicle"
         }
+        customerId={(customer as { id: string } | null)?.id ?? null}
         customerName={(customer as { full_name: string } | null)?.full_name ?? null}
         customerPhone={(customer as { phone: string } | null)?.phone ?? null}
         activeWorkLog={activeLog}

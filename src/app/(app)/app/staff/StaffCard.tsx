@@ -150,6 +150,12 @@ function ActiveWorkPanel({ log }: { log: ActiveWorkLogSummary }) {
       className="mt-3 flex items-center justify-between gap-2 rounded-lg bg-destructive/5 p-2 ring-1 ring-destructive/20"
     >
       <div className="flex items-center gap-2">
+        {/* B3.3: deliberately omitting `vehicleId` — the entire
+            StaffCard is wrapped in a Link to /app/staff/[id], so a
+            nested anchor here would be invalid HTML. The card
+            already gives a one-tap path to staff detail; vehicle
+            navigation is available from the staff detail page +
+            from the bay-board / job pages. */}
         {log.vehicleReg ? (
           <RegPlate reg={log.vehicleReg} size="sm" />
         ) : (
