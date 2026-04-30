@@ -167,10 +167,10 @@ export function AddVehicleForm({ customerId }: { customerId: string }) {
           <FormCard.Fields>
           {/* Gov.uk style reg plate input with lookup */}
       <div>
-        <Label htmlFor="registration" className="text-base font-semibold" required>
-          Registration Number
+        <Label htmlFor="registration" required>
+          Registration
         </Label>
-        <div className="mt-2 flex items-stretch gap-2">
+        <div className="mt-1 flex items-stretch gap-2">
           <div className="flex-1">
             <RegPlateInput
               id="registration"
@@ -194,16 +194,16 @@ export function AddVehicleForm({ customerId }: { customerId: string }) {
           </div>
           <Button
             type="button"
+            variant="secondary"
             onClick={lookupReg}
             disabled={looking || reg.replace(/\s+/g, "").length < 2}
-            className="h-auto px-4"
           >
             {looking ? (
-              <Loader2 className="h-5 w-5 animate-spin" />
+              <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
-              <Search className="h-5 w-5" />
+              <Search className="h-4 w-4" />
             )}
-            <span className="ml-2 hidden sm:inline">
+            <span className="hidden sm:inline">
               {looking ? "Looking up…" : "Look up"}
             </span>
           </Button>

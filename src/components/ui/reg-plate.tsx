@@ -80,31 +80,25 @@ export const RegPlateInput = forwardRef<HTMLInputElement, RegPlateInputProps>(
           className,
         )}
       >
-        {/* Blue side strip */}
+        {/* Blue side strip — modern post-2021 UK plate spec: Union Jack
+            mini-flag + "UK" wordmark in white. The previous SVG drew a
+            blue-on-blue circle (invisible) with sub-pixel "EU stars"
+            (also invisible), leaving the strip looking like a flat
+            blue void. */}
         <div className="flex w-10 flex-shrink-0 flex-col items-center justify-center bg-[#003da5] py-2">
           <svg
-            viewBox="0 0 24 24"
-            className="h-4 w-4"
-            fill="none"
+            viewBox="0 0 60 36"
+            className="h-3 w-5"
+            aria-hidden="true"
           >
-            <circle cx="12" cy="12" r="10" fill="#003da5" />
-            {/* EU/UK stars circle */}
-            {Array.from({ length: 12 }).map((_, i) => {
-              const angle = (i * 30 - 90) * (Math.PI / 180);
-              const cx = 12 + 8 * Math.cos(angle);
-              const cy = 12 + 8 * Math.sin(angle);
-              return (
-                <circle
-                  key={i}
-                  cx={cx}
-                  cy={cy}
-                  r={0.8}
-                  fill="#FFD700"
-                />
-              );
-            })}
+            <rect width="60" height="36" fill="#012169" />
+            <path d="M0,0 L60,36 M60,0 L0,36" stroke="#FFFFFF" strokeWidth="6" />
+            <path d="M0,0 L60,36" stroke="#C8102E" strokeWidth="3" />
+            <path d="M60,0 L0,36" stroke="#C8102E" strokeWidth="3" />
+            <path d="M30,0 V36 M0,18 H60" stroke="#FFFFFF" strokeWidth="10" />
+            <path d="M30,0 V36 M0,18 H60" stroke="#C8102E" strokeWidth="6" />
           </svg>
-          <span className="mt-1 text-[9px] font-bold leading-none text-white">
+          <span className="mt-1 text-xs font-bold leading-none tracking-wider text-white">
             UK
           </span>
         </div>
