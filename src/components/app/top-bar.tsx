@@ -1,5 +1,6 @@
 import { LogOut, Menu } from "lucide-react";
 
+import { signOutAction } from "@/app/(auth)/logout/actions";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -61,7 +62,7 @@ export function TopBar({
           <DropdownMenuSeparator />
           <ThemeToggle />
           <DropdownMenuSeparator />
-          <form action="/logout" method="post">
+          <form action={signOutAction}>
             <button
               type="submit"
               className="flex w-full items-center gap-2 rounded-sm px-2 py-2 text-sm hover:bg-muted"
