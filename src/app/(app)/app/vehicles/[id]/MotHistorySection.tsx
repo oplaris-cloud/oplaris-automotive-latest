@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { isMotExpired, isMotExpiringSoon } from "@/lib/mot/expiry";
 import type { MotHistoryEntry } from "../actions";
 
@@ -34,6 +35,13 @@ export function MotHistorySection({
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [expandedTest, setExpandedTest] = useState<number | null>(null);
+  // B3.2 — progressive-disclosure of older MOT rows. Default
+  // collapsed when there's >1 historical row so the section opens at
+  // a single screen-height (cognitive-load-and-information.md > "5±2
+  // things on screen at once"). The summary card already surfaces the
+  // latest at the top — the collapsed row below it is the same test,
+  // expanded for cross-reference; older tests only render on demand.
+  const [showAllHistory, setShowAllHistory] = useState(false);
 
   // P2.5 audit — same prop-sync anti-pattern as BayBoardClient.
   // VehicleDetailRealtime can re-deliver this prop after `router.refresh()`
@@ -205,7 +213,7 @@ export function MotHistorySection({
         </p>
       ) : (
         <div className="mt-3 space-y-2">
-          {motHistory.map((test, i) => {
+          {(showAllHistory ? motHistory : motHistory.slice(0, 1)).map((test, i) => {
             const passed = test.testResult?.toUpperCase() === "PASSED";
             const expanded = expandedTest === i;
             const defects = test.defects ?? [];
@@ -298,6 +306,35 @@ export function MotHistorySection({
               </Card>
             );
           })}
+          {/* B3.2 — older-rows toggle. Hidden when there's only the
+              latest row (no priors to expand) — in that case we show a
+              quiet "No prior MOT history" line so the section reads as
+              intentionally minimal rather than truncated. */}
+          {motHistory.length > 1 ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setShowAllHistory((v) => !v)}
+              aria-expanded={showAllHistory}
+            >
+              {showAllHistory ? (
+                <>
+                  <ChevronUp className="h-4 w-4" />
+                  Hide full history
+                </>
+              ) : (
+                <>
+                  <ChevronDown className="h-4 w-4" />
+                  Show full history ({motHistory.length - 1})
+                </>
+              )}
+            </Button>
+          ) : (
+            <p className="px-1 text-xs text-muted-foreground">
+              No prior MOT history.
+            </p>
+          )}
         </div>
       )}
     </div>
