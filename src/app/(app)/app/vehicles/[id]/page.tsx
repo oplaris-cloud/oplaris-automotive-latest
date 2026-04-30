@@ -42,9 +42,6 @@ export default async function VehicleDetailPage({ params }: VehicleDetailProps) 
   const activeJobs = jobs.filter(
     (j) => j.status !== "completed" && j.status !== "cancelled",
   );
-  const completedJobs = jobs.filter(
-    (j) => j.status === "completed" || j.status === "cancelled",
-  );
 
   return (
     <PageContainer width="default">
@@ -183,16 +180,9 @@ export default async function VehicleDetailPage({ params }: VehicleDetailProps) 
         </>
       )}
 
-      {/* MOT History */}
-      <Separator className="my-6" />
-      <MotHistorySection
-        vehicleId={vehicle.id}
-        registration={vehicle.registration}
-        motHistory={motHistory}
-        now={new Date()}
-      />
-
-      {/* Full job history */}
+      {/* Full job history — moved above MOT History per Hossein
+          2026-04-30 (Todoist 6gVQJ3Ggmg6mFwHG): job history is the
+          more frequently-accessed lookup when checking a vehicle. */}
       <Separator className="my-6" />
       <h2 className="flex items-center gap-2 text-lg font-semibold">
         <History className="h-5 w-5" /> Job History ({jobs.length})
@@ -230,6 +220,15 @@ export default async function VehicleDetailPage({ params }: VehicleDetailProps) 
           ))}
         </div>
       )}
+
+      {/* MOT History */}
+      <Separator className="my-6" />
+      <MotHistorySection
+        vehicleId={vehicle.id}
+        registration={vehicle.registration}
+        motHistory={motHistory}
+        now={new Date()}
+      />
     </PageContainer>
   );
 }
