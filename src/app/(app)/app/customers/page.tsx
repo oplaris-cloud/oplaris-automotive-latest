@@ -21,6 +21,7 @@ import { RestoreButton } from "./RestoreButton";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { CustomersListRealtime } from "@/lib/realtime/shims";
 import { TelLink } from "@/components/ui/tel-link";
+import { TraderBadge } from "@/components/ui/trader-badge";
 
 interface CustomersPageProps {
   searchParams: Promise<{ q?: string; page?: string; openJob?: string; deleted?: string }>;
@@ -36,14 +37,24 @@ export default async function CustomersPage({ searchParams }: CustomersPageProps
   const currentPage = Math.max(1, parseInt(page ?? "1", 10));
   const perPage = 25;
 
-  let customers: { id: string; full_name: string; phone: string; email: string | null; created_at: string }[] | null;
+  // TODO: trader filter chip — wires up when Batch 5 in-page search ships.
+  let customers:
+    | {
+        id: string;
+        full_name: string;
+        phone: string;
+        email: string | null;
+        is_trader: boolean;
+        created_at: string;
+      }[]
+    | null;
   let count: number | null;
 
   if (filterOpenJob) {
     // Use inner join: only customers with at least one non-terminal job
     const result = await supabase
       .from("customers")
-      .select("id, full_name, phone, email, created_at, jobs!inner(status)", { count: "exact" })
+      .select("id, full_name, phone, email, is_trader, created_at, jobs!inner(status)", { count: "exact" })
       .is("deleted_at", null)
       .not("jobs.status", "in", "(completed,cancelled)")
       .order("created_at", { ascending: false })
@@ -52,12 +63,12 @@ export default async function CustomersPage({ searchParams }: CustomersPageProps
     const seen = new Set<string>();
     customers = (result.data ?? [])
       .filter((c) => { if (seen.has(c.id)) return false; seen.add(c.id); return true; })
-      .map(({ id, full_name, phone, email, created_at }) => ({ id, full_name, phone, email, created_at }));
+      .map(({ id, full_name, phone, email, is_trader, created_at }) => ({ id, full_name, phone, email, is_trader, created_at }));
     count = result.count;
   } else {
     let query = supabase
       .from("customers")
-      .select("id, full_name, phone, email, created_at", { count: "exact" })
+      .select("id, full_name, phone, email, is_trader, created_at", { count: "exact" })
       .is("deleted_at", null)
       .order("created_at", { ascending: false })
       .range((currentPage - 1) * perPage, currentPage * perPage - 1);
@@ -195,7 +206,10 @@ export default async function CustomersPage({ searchParams }: CustomersPageProps
                   href={`/app/customers/${c.id}`}
                   className="block rounded-lg border bg-card p-4 transition-colors hover:bg-accent/50"
                 >
-                  <div className="font-medium">{c.full_name}</div>
+                  <div className="font-medium">
+                    {c.full_name}
+                    <TraderBadge isTrader={c.is_trader} />
+                  </div>
                   <TelLink
                     phone={c.phone}
                     label={`Call ${c.full_name}`}
@@ -233,6 +247,7 @@ export default async function CustomersPage({ searchParams }: CustomersPageProps
                       >
                         {c.full_name}
                       </Link>
+                      <TraderBadge isTrader={c.is_trader} />
                     </TableCell>
                     <TableCell className="font-mono text-sm">
                       <TelLink

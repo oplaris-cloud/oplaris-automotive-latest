@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 
+import { TraderBadge } from "@/components/ui/trader-badge";
 import { cn } from "@/lib/utils";
 
 /** B3.3 — clickable customer name primitive.
@@ -12,6 +13,11 @@ import { cn } from "@/lib/utils";
  * (e.g. audit-log entries by deleted users) renders inert text so the
  * historical row doesn't pretend to navigate somewhere it can't.
  *
+ * B4 — accepts an optional `isTrader` flag and renders a TraderBadge
+ * inline after the name. Centralising it here means every existing
+ * call site picks up the badge for free as soon as the row carries
+ * `is_trader` in its select.
+ *
  * Visual rule: the underlying text colour is unchanged — the link is
  * signposted by `hover:underline` only, so the row reads as the same
  * piece of text whether or not the user is moused over it. No layout
@@ -20,6 +26,7 @@ import { cn } from "@/lib/utils";
 interface CustomerNameLinkProps {
   customerId: string | null | undefined;
   fullName: string;
+  isTrader?: boolean | null;
   className?: string;
 }
 
@@ -29,23 +36,27 @@ const LINK_AFFORDANCE =
 export function CustomerNameLink({
   customerId,
   fullName,
+  isTrader,
   className,
 }: CustomerNameLinkProps) {
   if (!customerId) {
     return (
       <span data-slot="customer-name-link" className={className}>
         {fullName}
+        <TraderBadge isTrader={isTrader} />
       </span>
     );
   }
   return (
-    <Link
-      data-slot="customer-name-link"
-      href={`/app/customers/${customerId}`}
-      className={cn(LINK_AFFORDANCE, className)}
-      aria-label={`View customer ${fullName}`}
-    >
-      {fullName}
-    </Link>
+    <span data-slot="customer-name-link-wrapper" className="inline">
+      <Link
+        href={`/app/customers/${customerId}`}
+        className={cn(LINK_AFFORDANCE, className)}
+        aria-label={`View customer ${fullName}`}
+      >
+        {fullName}
+      </Link>
+      <TraderBadge isTrader={isTrader} />
+    </span>
   );
 }

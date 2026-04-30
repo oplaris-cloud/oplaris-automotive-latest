@@ -8,6 +8,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { CarRepairInProgressIllustration } from "@/components/illustrations";
 import { CarImage } from "@/components/ui/car-image";
 import { RegPlate } from "@/components/ui/reg-plate";
+import { TraderBadge } from "@/components/ui/trader-badge";
 import { PageContainer } from "@/components/app/page-container";
 import { VehiclesListRealtime } from "@/lib/realtime/shims";
 
@@ -25,7 +26,7 @@ export default async function VehiclesPage({ searchParams }: VehiclesPageProps) 
     .select(
       `
       id, registration, make, model, year, colour,
-      customer:customers!customer_id ( id, full_name, phone )
+      customer:customers!customer_id ( id, full_name, phone, is_trader )
     `,
     )
     .is("deleted_at", null)
@@ -109,6 +110,12 @@ export default async function VehiclesPage({ searchParams }: VehiclesPageProps) 
                     {customer && (
                       <div className="mt-1 text-xs text-muted-foreground">
                         {(customer as { full_name: string }).full_name}
+                        <TraderBadge
+                          isTrader={
+                            (customer as { is_trader?: boolean }).is_trader ??
+                            false
+                          }
+                        />
                       </div>
                     )}
                   </CardContent>

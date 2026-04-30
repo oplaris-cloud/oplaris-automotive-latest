@@ -24,7 +24,7 @@ export default async function TechJobDetailPage({ params }: TechJobDetailProps) 
     .from("jobs")
     .select(`
       id, job_number, status, description,
-      customers!customer_id ( id, full_name, phone ),
+      customers!customer_id ( id, full_name, phone, is_trader ),
       vehicles!vehicle_id ( id, registration, make, model )
     `)
     .eq("id", id)
@@ -101,6 +101,9 @@ export default async function TechJobDetailPage({ params }: TechJobDetailProps) 
         customerId={(customer as { id: string } | null)?.id ?? null}
         customerName={(customer as { full_name: string } | null)?.full_name ?? null}
         customerPhone={(customer as { phone: string } | null)?.phone ?? null}
+        customerIsTrader={
+          (customer as { is_trader?: boolean } | null)?.is_trader ?? false
+        }
         activeWorkLog={activeLog}
       />
 

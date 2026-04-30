@@ -16,6 +16,10 @@ export const createCustomerSchema = z.object({
   addressLine2: z.string().max(200).optional().or(z.literal("")),
   postcode: z.string().max(10).optional().or(z.literal("")),
   notes: z.string().max(2000).optional().or(z.literal("")),
+  // B4 — Trade customer flag. Defaults false; the action layer is
+  // manager-gated and the DB trigger (mig 063 + 064) blocks any
+  // non-manager attempt to set this true.
+  isTrader: z.boolean().optional(),
 });
 export type CreateCustomerInput = z.infer<typeof createCustomerSchema>;
 
@@ -28,6 +32,7 @@ export const updateCustomerSchema = z.object({
   addressLine2: z.string().max(200).optional().or(z.literal("")),
   postcode: z.string().max(10).optional().or(z.literal("")),
   notes: z.string().max(2000).optional().or(z.literal("")),
+  isTrader: z.boolean().optional(),
 });
 export type UpdateCustomerInput = z.infer<typeof updateCustomerSchema>;
 

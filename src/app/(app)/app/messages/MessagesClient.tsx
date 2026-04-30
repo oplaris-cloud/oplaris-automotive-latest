@@ -750,6 +750,7 @@ function ExpandedDetail({ row }: { row: MessageRow }) {
             <CustomerNameLink
               customerId={row.customerId}
               fullName={row.customerFullName}
+              isTrader={row.customerIsTrader}
             />
           </dd>
         </>

@@ -59,6 +59,10 @@ export async function createCustomer(
       address_line2: parsed.data.addressLine2 || null,
       postcode: parsed.data.postcode || null,
       notes: parsed.data.notes || null,
+      // B4 — Trade flag. Caller is requireManager()-gated so the DB
+      // trigger (mig 063 + 064) is the defence-in-depth layer for
+      // direct-PostgREST callers.
+      is_trader: parsed.data.isTrader ?? false,
     })
     .select("id")
     .single();
@@ -113,6 +117,7 @@ export async function updateCustomer(
   if (parsed.data.postcode !== undefined)
     updates.postcode = parsed.data.postcode || null;
   if (parsed.data.notes !== undefined) updates.notes = parsed.data.notes || null;
+  if (parsed.data.isTrader !== undefined) updates.is_trader = parsed.data.isTrader;
 
   if (Object.keys(updates).length === 0) {
     return { ok: true, id: parsed.data.id };

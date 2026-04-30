@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 
 interface EditCustomerDialogProps {
@@ -29,6 +30,7 @@ interface EditCustomerDialogProps {
     address_line2: string | null;
     postcode: string | null;
     notes: string | null;
+    is_trader: boolean;
   };
 }
 
@@ -44,6 +46,9 @@ export function EditCustomerDialog({ customer }: EditCustomerDialogProps) {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  // B4 — controlled state on the Switch (base-ui's Switch.Root has no
+  // FormData submit, so we lift it).
+  const [isTrader, setIsTrader] = useState<boolean>(customer.is_trader);
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -62,6 +67,7 @@ export function EditCustomerDialog({ customer }: EditCustomerDialogProps) {
         addressLine2: (form.get("addressLine2") as string) || "",
         postcode: (form.get("postcode") as string) || "",
         notes: (form.get("notes") as string) || "",
+        isTrader,
       });
 
       if (!result.ok) {
@@ -207,6 +213,32 @@ export function EditCustomerDialog({ customer }: EditCustomerDialogProps) {
               defaultValue={customer.notes ?? ""}
               className="mt-1 w-full"
             />
+          </div>
+
+          {/* B4 — Trade-customer toggle. Manager-only at the action +
+              DB-trigger level (mig 063 + 064); the dialog itself is
+              already manager-gated via the customers/[id] page. */}
+          <div className="flex items-start gap-3 rounded-lg border border-border/60 bg-muted/30 p-3">
+            <Switch
+              id="edit-isTrader"
+              checked={isTrader}
+              onCheckedChange={(v) => setIsTrader(v as boolean)}
+              aria-describedby="edit-isTrader-help"
+            />
+            <div className="flex-1">
+              <Label
+                htmlFor="edit-isTrader"
+                className="cursor-pointer text-sm font-medium"
+              >
+                TRADER
+              </Label>
+              <p
+                id="edit-isTrader-help"
+                className="mt-1 text-xs text-muted-foreground"
+              >
+                Trade customer — billing + pricing may differ.
+              </p>
+            </div>
           </div>
 
           {error && (

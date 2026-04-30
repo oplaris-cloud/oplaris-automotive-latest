@@ -35,7 +35,7 @@ export default async function JobsPage({ searchParams }: JobsPageProps) {
     .select(`
       id, job_number, status, description, created_at, estimated_ready_at,
       customer_id, vehicle_id,
-      customers!customer_id ( full_name ),
+      customers!customer_id ( full_name, is_trader ),
       vehicles!vehicle_id ( registration, make, model )
     `)
     .is("deleted_at", null)
@@ -128,6 +128,10 @@ export default async function JobsPage({ searchParams }: JobsPageProps) {
                           }
                           fullName={
                             (customer as { full_name: string }).full_name
+                          }
+                          isTrader={
+                            (customer as { is_trader?: boolean | null })
+                              .is_trader ?? false
                           }
                         />
                       ) : (

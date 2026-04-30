@@ -66,6 +66,7 @@ interface TechJobClientProps {
   customerId: string | null;
   customerName: string | null;
   customerPhone: string | null;
+  customerIsTrader?: boolean;
   activeWorkLog: ActiveWorkLog | null;
 }
 
@@ -80,6 +81,7 @@ export function TechJobClient({
   customerId,
   customerName,
   customerPhone,
+  customerIsTrader,
   activeWorkLog,
 }: TechJobClientProps) {
   const router = useRouter();
@@ -234,6 +236,7 @@ export function TechJobClient({
                 <CustomerNameLink
                   customerId={customerId}
                   fullName={customerName}
+                  isTrader={customerIsTrader}
                 />
               </div>
               {customerPhone && (

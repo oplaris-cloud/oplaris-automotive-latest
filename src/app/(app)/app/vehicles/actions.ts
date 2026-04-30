@@ -59,7 +59,7 @@ export async function getVehicleDetail(vehicleId: string): Promise<{
     .from("vehicles")
     .select(`
       id, registration, make, model, year, vin, colour, mileage, notes,
-      customer:customers!customer_id ( id, full_name, phone, email )
+      customer:customers!customer_id ( id, full_name, phone, email, is_trader )
     `)
     .eq("id", vehicleId)
     .is("deleted_at", null)

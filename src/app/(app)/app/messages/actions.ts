@@ -58,6 +58,7 @@ export interface MessageRow {
   // Joined for the table cells — saves a per-row trip
   vehicleReg: string | null;
   customerFullName: string | null;
+  customerIsTrader: boolean;
   jobNumber: string | null;
 }
 
@@ -149,7 +150,7 @@ export async function getMessages(
        twilio_sid, status, status_updated_at,
        error_code, error_message, cancelled_at, cancel_reason, created_at,
        vehicles:vehicles!vehicle_id ( registration ),
-       customers:customers!customer_id ( full_name ),
+       customers:customers!customer_id ( full_name, is_trader ),
        jobs:jobs!job_id ( job_number )`,
       { count: "exact" },
     )
@@ -208,6 +209,8 @@ export async function getMessages(
       vehicleReg: (vehicle as { registration?: string } | null)?.registration ?? null,
       customerFullName:
         (customer as { full_name?: string } | null)?.full_name ?? null,
+      customerIsTrader:
+        (customer as { is_trader?: boolean } | null)?.is_trader ?? false,
       jobNumber: (job as { job_number?: string } | null)?.job_number ?? null,
     };
   });
@@ -341,6 +344,7 @@ export interface ExpiredMotRow {
   customerId: string | null;
   customerName: string | null;
   customerPhone: string | null;
+  customerIsTrader: boolean;
   expiredOn: string;
   daysOverdue: number;
 }
@@ -357,7 +361,7 @@ export async function getExpiredMots(): Promise<ExpiredMotRow[]> {
     .from("vehicles")
     .select(
       `id, registration, customer_id, mot_expiry_date,
-       customers:customers!customer_id ( full_name, phone )`,
+       customers:customers!customer_id ( full_name, phone, is_trader )`,
     )
     .lt("mot_expiry_date", todayIso)
     .is("deleted_at", null)
@@ -378,6 +382,8 @@ export async function getExpiredMots(): Promise<ExpiredMotRow[]> {
         (customer as { full_name?: string } | null)?.full_name ?? null,
       customerPhone:
         (customer as { phone?: string } | null)?.phone ?? null,
+      customerIsTrader:
+        (customer as { is_trader?: boolean } | null)?.is_trader ?? false,
       expiredOn: v.mot_expiry_date as string,
       daysOverdue,
     };

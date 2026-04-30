@@ -124,6 +124,10 @@ export default async function VehicleDetailPage({ params }: VehicleDetailProps) 
               <CustomerNameLink
                 customerId={vehicle.customer.id}
                 fullName={vehicle.customer.full_name}
+                isTrader={
+                  (vehicle.customer as { is_trader?: boolean }).is_trader ??
+                  false
+                }
                 className="text-base font-medium"
               />
               <div className="mt-2 flex flex-wrap gap-4 text-sm text-muted-foreground">

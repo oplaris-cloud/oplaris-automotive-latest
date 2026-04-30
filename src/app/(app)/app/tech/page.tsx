@@ -40,7 +40,7 @@ interface AssignedJob {
   service: string | null;
   awaiting_passback: boolean;
   vehicle: { id: string; registration: string; make: string | null; model: string | null } | null;
-  customer: { id: string; full_name: string; phone: string | null } | null;
+  customer: { id: string; full_name: string; phone: string | null; is_trader: boolean } | null;
   activeSince: string | null;
 }
 
@@ -66,7 +66,7 @@ export default async function MyWorkPage() {
        jobs!job_id (
          id, job_number, status, description, service, awaiting_passback,
          vehicles!vehicle_id ( id, registration, make, model ),
-         customers!customer_id ( id, full_name, phone )
+         customers!customer_id ( id, full_name, phone, is_trader )
        )`,
     )
     .eq("staff_id", session.userId);
@@ -136,7 +136,7 @@ export default async function MyWorkPage() {
         `id, job_number, status, description, service, awaiting_passback,
          updated_at,
          vehicles!vehicle_id ( id, registration, make, model ),
-         customers!customer_id ( id, full_name, phone ),
+         customers!customer_id ( id, full_name, phone, is_trader ),
          job_assignments ( staff_id, staff:staff!staff_id ( roles ) )`,
       )
       .eq("current_role", "mechanic")
@@ -397,6 +397,7 @@ function PassbackRow({ job }: { job: AssignedJob }) {
                 <CustomerNameLink
                   customerId={job.customer.id}
                   fullName={job.customer.full_name}
+                  isTrader={job.customer.is_trader}
                 />
               </div>
             ) : null}

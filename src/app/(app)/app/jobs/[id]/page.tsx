@@ -49,7 +49,7 @@ export default async function JobDetailPage({ params }: JobDetailProps) {
       id, job_number, status, description, created_at, updated_at,
       completed_at, estimated_ready_at, source, bay_id, service,
       awaiting_passback, current_role,
-      customers!customer_id ( id, full_name, phone, email ),
+      customers!customer_id ( id, full_name, phone, email, is_trader ),
       vehicles!vehicle_id ( id, registration, make, model, year, mileage ),
       bays!bay_id ( id, name )
     `)
@@ -258,6 +258,10 @@ export default async function JobDetailPage({ params }: JobDetailProps) {
               <CustomerNameLink
                 customerId={(customer as { id: string }).id}
                 fullName={(customer as { full_name: string }).full_name}
+                isTrader={
+                  (customer as { is_trader?: boolean | null }).is_trader ??
+                  false
+                }
                 className="font-medium"
               />
               <div className="mt-1 text-sm text-muted-foreground">{(customer as { phone: string }).phone}</div>

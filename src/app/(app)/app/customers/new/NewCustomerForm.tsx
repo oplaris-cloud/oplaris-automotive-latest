@@ -7,6 +7,7 @@ import { createCustomer } from "../actions";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { FormCard } from "@/components/ui/form-card";
 import { FormActions } from "@/components/ui/form-actions";
@@ -16,6 +17,8 @@ export function NewCustomerForm() {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  // B4 — Trade flag, defaults off.
+  const [isTrader, setIsTrader] = useState(false);
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -33,6 +36,7 @@ export function NewCustomerForm() {
         addressLine2: (form.get("addressLine2") as string) || "",
         postcode: (form.get("postcode") as string) || "",
         notes: (form.get("notes") as string) || "",
+        isTrader,
       });
 
       if (!result.ok) {
@@ -108,6 +112,30 @@ export function NewCustomerForm() {
           placeholder="Any notes about this customer…"
           className="mt-1 w-full"
         />
+      </div>
+
+      {/* B4 — Trade-customer toggle. Off by default. */}
+      <div className="flex items-start gap-3 rounded-lg border border-border/60 bg-muted/30 p-3">
+        <Switch
+          id="isTrader"
+          checked={isTrader}
+          onCheckedChange={(v) => setIsTrader(v as boolean)}
+          aria-describedby="isTrader-help"
+        />
+        <div className="flex-1">
+          <Label
+            htmlFor="isTrader"
+            className="cursor-pointer text-sm font-medium"
+          >
+            TRADER
+          </Label>
+          <p
+            id="isTrader-help"
+            className="mt-1 text-xs text-muted-foreground"
+          >
+            Trade customer — billing + pricing may differ.
+          </p>
+        </div>
       </div>
 
       {error && (

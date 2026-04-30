@@ -80,6 +80,7 @@ export function ExpiredMotList({ rows }: { rows: ExpiredMotRow[] }) {
                   <CustomerNameLink
                     customerId={r.customerId}
                     fullName={r.customerName}
+                    isTrader={r.customerIsTrader}
                   />
                 ) : (
                   "—"

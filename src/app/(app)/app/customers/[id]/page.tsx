@@ -10,6 +10,7 @@ import { RegPlate } from "@/components/ui/reg-plate";
 import { Separator } from "@/components/ui/separator";
 import { EmptyState } from "@/components/ui/empty-state";
 import { TelLink } from "@/components/ui/tel-link";
+import { TraderBadge } from "@/components/ui/trader-badge";
 import { BatteryReplacementIllustration } from "@/components/illustrations";
 import { PageContainer } from "@/components/app/page-container";
 import { AddVehicleForm } from "./AddVehicleForm";
@@ -55,7 +56,10 @@ export default async function CustomerDetailPage({ params }: CustomerDetailProps
     <PageContainer width="default">
       <CustomerDetailRealtime customerId={customer.id} />
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">{customer.full_name}</h1>
+        <h1 className="flex items-center text-2xl font-semibold">
+          {customer.full_name}
+          <TraderBadge isTrader={customer.is_trader} />
+        </h1>
         <div className="flex items-center gap-2">
           <EditCustomerDialog customer={customer} />
           {isManager && <GdprExportButton customerId={customer.id} customerName={customer.full_name} />}
