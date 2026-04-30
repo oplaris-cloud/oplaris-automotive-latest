@@ -332,6 +332,7 @@ Not in scope for this plan; logged here so it doesn't get lost.
 |----|---------|-------|------------|
 | B3.1 ✓ | `6gVQJ3Ggmg6mFwHG` | Vehicle detail: Job History above MOT | Two `<Section>` blocks on `/app/vehicles/[id]` swapped — Job History now sits above MOT History per the more-frequent-lookup rule. Active Jobs hero stays at the top.<br/>✓ 2ffb983 2026-04-30 |
 | B3.2 ✓ | `6gVQJ38f3VCV6WMG` | MOT history collapses to most recent + toggle | `MotHistorySection` now defaults to showing only `motHistory[0]` with a "Show full history (N)" button below (N = older count). Click expands inline + flips to "Hide full history"; `aria-expanded` toggles. Empty state when 0 priors: quiet "No prior MOT history" line. 3 unit tests cover the three documented row-count cases.<br/>✓ 1a9bb8c 2026-04-30 |
+| B3.3 ✓ | `6gVQJ344gFpC8g6G` | Clickable customer names + reg plates | `<RegPlate vehicleId>` becomes a Link when an id is passed; new `<CustomerNameLink customerId fullName />` primitive wraps the inline `customer.full_name` rendering pattern. Wired across jobs list, jobs/[id], messages, vehicles/[id] Owner, tech, staff hero + today-log. **Skipped** on StaffCard + bay-board cards + vehicles list cards — each wraps the whole card in an outer Link, so a nested anchor would be invalid HTML; comment-noted at each call site. 2 new unit tests + select extensions to project the missing ids. 411/411 unit + 149/149 RLS.<br/>✓ 81a416f 2026-04-30 |
 
 ---
 
