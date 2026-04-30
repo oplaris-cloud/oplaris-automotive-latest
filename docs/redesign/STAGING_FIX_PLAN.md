@@ -337,6 +337,14 @@ Not in scope for this plan; logged here so it doesn't get lost.
 
 ---
 
+## P1 sprint — Batch 4 (TRADER customer flag, 2026-04-30)
+
+| ID | Todoist | Title | Acceptance |
+|----|---------|-------|------------|
+| B4 ✓ | `6gVQJ3WFRHPQ257G` | TRADER customer flag end-to-end | Migrations 063 + 064 add `public.customers.is_trader` (manager-only trigger gate, defensive no-JWT bypass). New `<Switch>` + `<TraderBadge>` primitives. `<CustomerNameLink isTrader>` extended so every B3.3 surface picks up the badge. EditCustomer + NewCustomer forms gained the Switch (manager-gated). Surfaces wired across customers list/detail, jobs list/detail, messages, tech, vehicles. Filter chip deferred to Batch 5 — TODO marker left in customers/page.tsx. 5 unit + 8 RLS new tests; 416/416 unit + 157/157 RLS green.<br/>✓ dd63d19 2026-04-30 |
+
+---
+
 ## Phase 2 — Medium fixes (1–3 h each)
 
 ### P2.1 — Twilio hardening `6gRmF2xrXvGJPQ4p`
