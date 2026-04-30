@@ -29,6 +29,10 @@ const COVERAGE_TABLES = [
   "approval_requests",
   "bays",
   "bookings",
+  // Added by migration 060 (P3.3) so manager pages refresh when a
+  // tech submits a completion checklist; the JobActivity timeline +
+  // audit log surfaces both update without a manual reload.
+  "job_completion_checks",
   "customers",
   "invoices",
   "job_assignments",
