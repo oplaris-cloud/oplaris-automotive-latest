@@ -331,6 +331,7 @@ Not in scope for this plan; logged here so it doesn't get lost.
 | ID | Todoist | Title | Acceptance |
 |----|---------|-------|------------|
 | B3.1 ✓ | `6gVQJ3Ggmg6mFwHG` | Vehicle detail: Job History above MOT | Two `<Section>` blocks on `/app/vehicles/[id]` swapped — Job History now sits above MOT History per the more-frequent-lookup rule. Active Jobs hero stays at the top.<br/>✓ 2ffb983 2026-04-30 |
+| B3.2 ✓ | `6gVQJ38f3VCV6WMG` | MOT history collapses to most recent + toggle | `MotHistorySection` now defaults to showing only `motHistory[0]` with a "Show full history (N)" button below (N = older count). Click expands inline + flips to "Hide full history"; `aria-expanded` toggles. Empty state when 0 priors: quiet "No prior MOT history" line. 3 unit tests cover the three documented row-count cases.<br/>✓ 1a9bb8c 2026-04-30 |
 
 ---
 
