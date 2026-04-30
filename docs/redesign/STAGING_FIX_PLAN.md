@@ -326,6 +326,14 @@ Not in scope for this plan; logged here so it doesn't get lost.
 
 ---
 
+## P1 sprint — Batch 3 (manager UI polish, 2026-04-30)
+
+| ID | Todoist | Title | Acceptance |
+|----|---------|-------|------------|
+| B3.1 ✓ | `6gVQJ3Ggmg6mFwHG` | Vehicle detail: Job History above MOT | Two `<Section>` blocks on `/app/vehicles/[id]` swapped — Job History now sits above MOT History per the more-frequent-lookup rule. Active Jobs hero stays at the top.<br/>✓ 2ffb983 2026-04-30 |
+
+---
+
 ## Phase 2 — Medium fixes (1–3 h each)
 
 ### P2.1 — Twilio hardening `6gRmF2xrXvGJPQ4p`
