@@ -48,6 +48,7 @@ beforeEach(() => {
   process.env.STATUS_PHONE_PEPPER = "pepper";
   process.env.KIOSK_PAIRING_SECRET = "kiosk-secret";
   process.env.SUPER_ADMIN_COOKIE_SECRET = "sa-cookie-secret";
+  process.env.SMTP_ENCRYPTION_KEY = "smtp-key-32-bytes";
   // NODE_ENV is read-only in @types/node; assign via index access.
   (process.env as Record<string, string>).NODE_ENV = "test";
 });

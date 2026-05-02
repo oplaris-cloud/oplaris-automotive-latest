@@ -46,6 +46,7 @@ beforeEach(() => {
   process.env.STATUS_PHONE_PEPPER = "pepper";
   process.env.KIOSK_PAIRING_SECRET = "kiosk-secret";
   process.env.SUPER_ADMIN_COOKIE_SECRET = "test-super-secret-min-32-chars-here";
+  process.env.SMTP_ENCRYPTION_KEY = "test-smtp-key";
   (process.env as Record<string, string>).NODE_ENV = "test";
   vi.resetModules();
 });

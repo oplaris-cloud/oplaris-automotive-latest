@@ -60,6 +60,10 @@ const serverEnvSchema = z.object({
   NEXT_SERVER_ACTIONS_ENCRYPTION_KEY: optionalNonEmpty,
   /** B6.1 — HMAC secret for the super_admin impersonation cookie. */
   SUPER_ADMIN_COOKIE_SECRET: nonEmpty,
+  /** B6.2 — symmetric key for pgcrypto.pgp_sym_encrypt of SMTP
+   *  passwords. Generated via `openssl rand -base64 32`. Never
+   *  reaches the client. */
+  SMTP_ENCRYPTION_KEY: nonEmpty,
 
   // P2.8 — bearer secret for the Dokploy-driven cron route handlers
   // (/api/cron/mot-refresh, /api/cron/mot-reminders). Generated with
