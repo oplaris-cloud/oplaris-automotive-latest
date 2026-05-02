@@ -38,7 +38,11 @@ describe("RegPlateInput side strip", () => {
     expect(wordmark).toBeDefined();
     // Must use a token-grade size, not the prior text-[9px] arbitrary
     // value that left the wordmark near-invisible against the strip.
-    expect(wordmark!.className).toMatch(/text-xs/);
+    // Bug-2 (2026-05-02): tightened to text-[10px] so the wordmark
+    // sits cleanly inside the slim h-12 plate strip — `text-xs` (12 px)
+    // overflowed the strip vertically when the surrounding plate
+    // shrank to match the lookup-button height.
+    expect(wordmark!.className).toMatch(/text-\[10px\]/);
     expect(wordmark!.className).toMatch(/text-white/);
     expect(wordmark!.className).toMatch(/font-bold/);
   });

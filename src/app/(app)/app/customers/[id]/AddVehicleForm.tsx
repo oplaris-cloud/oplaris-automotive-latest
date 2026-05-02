@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { RegPlateInput } from "@/components/ui/reg-plate";
-import { FormCard } from "@/components/ui/form-card";
 import { FormActions } from "@/components/ui/form-actions";
 import {
   Dialog,
@@ -162,9 +161,10 @@ export function AddVehicleForm({ customerId }: { customerId: string }) {
         <DialogHeader>
           <DialogTitle>Add Vehicle</DialogTitle>
         </DialogHeader>
-        <FormCard variant="plain">
-        <form onSubmit={handleSubmit}>
-          <FormCard.Fields>
+        <form onSubmit={handleSubmit} className="space-y-5">
+          {/* Bug-2: dropped FormCard wrapper — its `mx-auto max-w-xl`
+              + the dialog's `max-w-lg` were double-centring + clipping
+              the form. The dialog already provides padding/chrome. */}
           {/* Gov.uk style reg plate input with lookup */}
       <div>
         <Label htmlFor="registration" required>
@@ -176,7 +176,7 @@ export function AddVehicleForm({ customerId }: { customerId: string }) {
               id="registration"
               name="registration"
               required
-              placeholder="Enter reg"
+              placeholder="AB12 CDE"
               value={reg}
               onChange={(e) => {
                 setReg(e.target.value.toUpperCase());
@@ -189,11 +189,15 @@ export function AddVehicleForm({ customerId }: { customerId: string }) {
                   lookupReg();
                 }
               }}
-              variant="rear"
+              variant="front"
             />
           </div>
+          {/* Bug-2: size="lg" puts the button at h-12, matching the
+              new RegPlateInput height — was h-11 (44 px) against a
+              ~60 px plate, which read as visually broken. */}
           <Button
             type="button"
+            size="lg"
             variant="secondary"
             onClick={lookupReg}
             disabled={looking || reg.replace(/\s+/g, "").length < 2}
@@ -264,7 +268,6 @@ export function AddVehicleForm({ customerId }: { customerId: string }) {
 
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
 
-          </FormCard.Fields>
           <FormActions>
             <Button type="button" variant="outline" onClick={() => { setOpen(false); setReg(""); setDvlaData(null); setLooked(false); }}>
               Cancel
@@ -274,7 +277,6 @@ export function AddVehicleForm({ customerId }: { customerId: string }) {
             </Button>
           </FormActions>
         </form>
-        </FormCard>
       </DialogContent>
     </Dialog>
   );

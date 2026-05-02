@@ -105,16 +105,20 @@ export const RegPlateInput = forwardRef<HTMLInputElement, RegPlateInputProps>(
     return (
       <div
         className={cn(
-          "flex items-stretch overflow-hidden rounded-md border-2 border-black",
+          // Bug-2: explicit fixed height (h-12 = 48 px) so the wrapping
+          // form's Lookup button can match it via the same size token.
+          // Adds a focus-visible ring on the WRAPPER (the inner <input>
+          // intentionally has `outline-none` because the plate "is" the
+          // visual focus surface) so keyboard nav doesn't lose its
+          // affordance — WCAG 2.4.7.
+          "flex h-12 items-stretch overflow-hidden rounded-md border-2 border-black",
+          "focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-1",
           className,
         )}
       >
         {/* Blue side strip — modern post-2021 UK plate spec: Union Jack
-            mini-flag + "UK" wordmark in white. The previous SVG drew a
-            blue-on-blue circle (invisible) with sub-pixel "EU stars"
-            (also invisible), leaving the strip looking like a flat
-            blue void. */}
-        <div className="flex w-10 flex-shrink-0 flex-col items-center justify-center bg-[#003da5] py-2">
+            mini-flag + "UK" wordmark in white. */}
+        <div className="flex w-10 flex-shrink-0 flex-col items-center justify-center bg-[#003da5] px-1">
           <svg
             viewBox="0 0 60 36"
             className="h-3 w-5"
@@ -127,11 +131,13 @@ export const RegPlateInput = forwardRef<HTMLInputElement, RegPlateInputProps>(
             <path d="M30,0 V36 M0,18 H60" stroke="#FFFFFF" strokeWidth="10" />
             <path d="M30,0 V36 M0,18 H60" stroke="#C8102E" strokeWidth="6" />
           </svg>
-          <span className="mt-1 text-xs font-bold leading-none tracking-wider text-white">
+          <span className="mt-1 text-[10px] font-bold leading-none tracking-wider text-white">
             UK
           </span>
         </div>
-        {/* Plate input */}
+        {/* Plate input — text-xl (was text-2xl) so the actual entered
+            chars don't dwarf the placeholder/badge and so the input
+            sits naturally at h-12. */}
         <input
           ref={ref}
           type="text"
@@ -141,7 +147,7 @@ export const RegPlateInput = forwardRef<HTMLInputElement, RegPlateInputProps>(
           spellCheck={false}
           {...props}
           className={cn(
-            "flex-1 border-none px-3 py-3 text-center font-mono text-2xl font-black uppercase tracking-[0.15em] outline-none placeholder:text-gray-400 placeholder:font-normal placeholder:text-base placeholder:tracking-normal",
+            "flex-1 border-none px-3 text-center font-mono text-xl font-black uppercase tracking-[0.15em] outline-none placeholder:font-normal placeholder:text-sm placeholder:uppercase placeholder:tracking-wider placeholder:text-gray-400",
             isRear ? "bg-[#FFD307] text-black" : "bg-white text-black",
           )}
         />
