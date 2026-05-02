@@ -345,6 +345,14 @@ Not in scope for this plan; logged here so it doesn't get lost.
 
 ---
 
+## P1 sprint — Batch 5 (in-page search + global spotlight, 2026-05-02)
+
+| ID | Todoist | Title | Acceptance |
+|----|---------|-------|------------|
+| B5.1 ✓ | `6gVQJ3GxCjQ76mgG` | Jobs list search + date/time filter | New shared `<ListSearch>` primitive (debounced 200ms, optional date-range Popover with native datetime-local). New `composeJobsSearchPredicate` + `searchJobs` in `src/lib/search/jobs.ts` running multi-step RLS-scoped queries (customers ILIKE → vehicles ILIKE → jobs IN). Phone normalisation via `normalisePhoneSafe` expands a query like `07911 123456` to E.164 + local + bare-national + digits-only-with-country variants so storage-format mismatches don't hide a customer. `/app/jobs` rewired: search bar at top, status pills below, status pills now preserve the active text/date filters when toggled. CLAUDE.md addendum (BEFORE-trigger pattern under rule 3) committed first. 11 compose + 6 component unit + 5 RLS isolation tests; 433/433 unit + 162/162 RLS green.<br/>✓ TODO 2026-05-02 |
+
+---
+
 ## Phase 2 — Medium fixes (1–3 h each)
 
 ### P2.1 — Twilio hardening `6gRmF2xrXvGJPQ4p`

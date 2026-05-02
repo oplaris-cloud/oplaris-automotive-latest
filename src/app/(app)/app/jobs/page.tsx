@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Plus, Wrench } from "lucide-react";
+import { Plus } from "lucide-react";
 
 import { requireManager } from "@/lib/auth/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -10,6 +10,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { MissionAndVisionIllustration } from "@/components/illustrations";
 import { PageContainer } from "@/components/app/page-container";
+import { ListSearch } from "@/components/ui/list-search";
 import { JobsListRealtime } from "@/lib/realtime/shims";
 import {
   Table,
@@ -20,33 +21,27 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { JobStatus } from "@/lib/validation/job-schemas";
+import {
+  composeJobsSearchPredicate,
+  searchJobs,
+} from "@/lib/search/jobs";
 
 interface JobsPageProps {
-  searchParams: Promise<{ status?: string }>;
+  searchParams: Promise<{
+    status?: string;
+    q?: string;
+    from?: string;
+    to?: string;
+  }>;
 }
 
 export default async function JobsPage({ searchParams }: JobsPageProps) {
   const session = await requireManager();
-  const { status } = await searchParams;
+  const { status, q, from, to } = await searchParams;
   const supabase = await createSupabaseServerClient();
 
-  let query = supabase
-    .from("jobs")
-    .select(`
-      id, job_number, status, description, created_at, estimated_ready_at,
-      customer_id, vehicle_id,
-      customers!customer_id ( full_name, is_trader ),
-      vehicles!vehicle_id ( registration, make, model )
-    `)
-    .is("deleted_at", null)
-    .order("created_at", { ascending: false })
-    .limit(50);
-
-  if (status) {
-    query = query.eq("status", status);
-  }
-
-  const { data: jobs } = await query;
+  const predicate = composeJobsSearchPredicate({ q, from, to, status });
+  const jobs = await searchJobs(supabase, predicate, 50);
 
   return (
     <PageContainer width="full">
@@ -61,8 +56,15 @@ export default async function JobsPage({ searchParams }: JobsPageProps) {
         </Link>
       </div>
 
+      <div className="mt-4">
+        <ListSearch
+          placeholder="Search by reg, name, phone, email, make/model…"
+          dateRange
+        />
+      </div>
+
       {/* Status filter pills */}
-      <div className="mt-4 flex flex-wrap gap-2">
+      <div className="mt-3 flex flex-wrap gap-2">
         {[
           { value: "", label: "All" },
           { value: "checked_in", label: "Checked In" },
@@ -72,28 +74,43 @@ export default async function JobsPage({ searchParams }: JobsPageProps) {
           { value: "awaiting_customer_approval", label: "Awaiting Approval" },
           { value: "ready_for_collection", label: "Ready" },
           { value: "completed", label: "Completed" },
-        ].map((f) => (
-          <Link
-            key={f.value}
-            href={f.value ? `/app/jobs?status=${f.value}` : "/app/jobs"}
-          >
-            <Button
-              variant={status === f.value || (!status && !f.value) ? "default" : "outline"}
-              size="sm"
+        ].map((f) => {
+          // Preserve the active text/date filters when toggling status.
+          const sp = new URLSearchParams();
+          if (q) sp.set("q", q);
+          if (from) sp.set("from", from);
+          if (to) sp.set("to", to);
+          if (f.value) sp.set("status", f.value);
+          const qs = sp.toString();
+          return (
+            <Link
+              key={f.value}
+              href={qs ? `/app/jobs?${qs}` : "/app/jobs"}
             >
-              {f.label}
-            </Button>
-          </Link>
-        ))}
+              <Button
+                variant={status === f.value || (!status && !f.value) ? "default" : "outline"}
+                size="sm"
+              >
+                {f.label}
+              </Button>
+            </Link>
+          );
+        })}
       </div>
 
       {!jobs || jobs.length === 0 ? (
         <EmptyState
           illustration={MissionAndVisionIllustration}
           title="No jobs found"
-          description={status ? "No jobs with this status." : "Create your first job."}
-          actionLabel={status ? undefined : "New Job"}
-          actionHref={status ? undefined : "/app/jobs/new"}
+          description={
+            q || from || to
+              ? "No jobs match the current filters."
+              : status
+                ? "No jobs with this status."
+                : "Create your first job."
+          }
+          actionLabel={status || q || from || to ? undefined : "New Job"}
+          actionHref={status || q || from || to ? undefined : "/app/jobs/new"}
           className="mt-8"
         />
       ) : (
@@ -110,8 +127,8 @@ export default async function JobsPage({ searchParams }: JobsPageProps) {
             </TableHeader>
             <TableBody>
               {jobs.map((j) => {
-                const customer = Array.isArray(j.customers) ? j.customers[0] : j.customers;
-                const vehicle = Array.isArray(j.vehicles) ? j.vehicles[0] : j.vehicles;
+                const customer = j.customers;
+                const vehicle = j.vehicles;
                 return (
                   <TableRow key={j.id}>
                     <TableCell>
@@ -120,37 +137,26 @@ export default async function JobsPage({ searchParams }: JobsPageProps) {
                       </Link>
                     </TableCell>
                     <TableCell className="text-sm">
-                      {(customer as { full_name: string } | null)?.full_name ? (
+                      {customer?.full_name ? (
                         <CustomerNameLink
-                          customerId={
-                            (j as unknown as { customer_id: string | null })
-                              .customer_id
-                          }
-                          fullName={
-                            (customer as { full_name: string }).full_name
-                          }
-                          isTrader={
-                            (customer as { is_trader?: boolean | null })
-                              .is_trader ?? false
-                          }
+                          customerId={j.customer_id}
+                          fullName={customer.full_name}
+                          isTrader={customer.is_trader ?? false}
                         />
                       ) : (
                         "—"
                       )}
                     </TableCell>
                     <TableCell className="hidden sm:table-cell">
-                      {(vehicle as { registration: string } | null)?.registration && (
+                      {vehicle?.registration && (
                         <RegPlate
-                          reg={(vehicle as { registration: string }).registration}
+                          reg={vehicle.registration}
                           size="sm"
-                          vehicleId={
-                            (j as unknown as { vehicle_id: string | null })
-                              .vehicle_id
-                          }
+                          vehicleId={j.vehicle_id}
                         />
                       )}
                       <span className="ml-2 text-sm text-muted-foreground">
-                        {[(vehicle as { make?: string } | null)?.make, (vehicle as { model?: string } | null)?.model].filter(Boolean).join(" ")}
+                        {[vehicle?.make, vehicle?.model].filter(Boolean).join(" ")}
                       </span>
                     </TableCell>
                     <TableCell className="hidden text-sm text-muted-foreground md:table-cell max-w-[200px] truncate">
