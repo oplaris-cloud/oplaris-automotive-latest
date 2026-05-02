@@ -106,16 +106,25 @@ export async function searchVehicleJobs(
   vehicleId: string,
   pred: VehicleJobsSearchPredicate,
 ): Promise<JobRow[]> {
-  const { data: rawJobs } = await supabase
+  // Bug-4: must hint `!job_id` because `bookings` has TWO FK columns
+  // pointing at `jobs.id` (job_id + passed_from_job_id from mig 026).
+  // Without the hint PostgREST throws "more than one relationship",
+  // the query returns null `data`, and the page renders an empty
+  // list under a job-count header that came from a separate query.
+  const { data: rawJobs, error: rawJobsErr } = await supabase
     .from("jobs")
     .select(
       `id, job_number, status, description, created_at, completed_at,
        bays:bays!bay_id ( name ),
-       bookings ( service )`,
+       bookings!job_id ( service )`,
     )
     .eq("vehicle_id", vehicleId)
     .is("deleted_at", null)
     .order("created_at", { ascending: false });
+  if (rawJobsErr) {
+    console.error("[search-vehicle-jobs] query failed:", rawJobsErr.message);
+    return [];
+  }
 
   const jobs: JobRow[] = ((rawJobs ?? []) as unknown as RawJob[]).map((j) => {
     const bay = Array.isArray(j.bays) ? j.bays[0] : j.bays;

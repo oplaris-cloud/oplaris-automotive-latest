@@ -27,6 +27,17 @@ import { cn } from "@/lib/utils";
  * filter chips ("Has open job", message_type, etc.) are page-specific
  * and live next to <ListSearch> in the page.
  *
+ * Bug-5 (2026-05-02): the original useEffect synced local state from
+ * `searchParams` on every URL change. When debounce fires + the URL
+ * updates, that effect re-ran and could `setValue()` mid-keystroke,
+ * dropping characters the user had typed in the 200 ms window. Fixed
+ * by tracking the last value WE pushed; the URL→state sync now skips
+ * our own writes and fires only on external changes (back/forward).
+ *
+ * Also wraps `router.replace` in `useTransition` so the RSC re-fetch
+ * is non-blocking — the input stays responsive while the page below
+ * re-renders.
+ *
  * @example
  * <ListSearch placeholder="Search jobs…" dateRange />
  */
@@ -55,6 +66,7 @@ export function ListSearch({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const [, startTransition] = React.useTransition();
 
   const [value, setValue] = React.useState(
     () => searchParams.get(paramName) ?? "",
@@ -64,15 +76,37 @@ export function ListSearch({
   );
   const [to, setTo] = React.useState(() => searchParams.get(toParam) ?? "");
 
-  // Re-sync local state when the URL changes via back/forward navigation.
+  // Bug-5 fix: track what we last pushed to the URL. The URL→state
+  // sync below ignores our own writes so a fast typer doesn't get
+  // their value reset mid-debounce.
+  const lastPushedRef = React.useRef({
+    q: searchParams.get(paramName) ?? "",
+    from: searchParams.get(fromParam) ?? "",
+    to: searchParams.get(toParam) ?? "",
+  });
+
+  // External-only sync. Fires when the URL changes due to back/forward
+  // or another component pushing params; ignored when WE pushed.
   React.useEffect(() => {
-    setValue(searchParams.get(paramName) ?? "");
-    setFrom(searchParams.get(fromParam) ?? "");
-    setTo(searchParams.get(toParam) ?? "");
+    const urlQ = searchParams.get(paramName) ?? "";
+    const urlFrom = searchParams.get(fromParam) ?? "";
+    const urlTo = searchParams.get(toParam) ?? "";
+    if (
+      urlQ === lastPushedRef.current.q &&
+      urlFrom === lastPushedRef.current.from &&
+      urlTo === lastPushedRef.current.to
+    ) {
+      return; // our own write echoed back — nothing to do
+    }
+    setValue(urlQ);
+    setFrom(urlFrom);
+    setTo(urlTo);
+    lastPushedRef.current = { q: urlQ, from: urlFrom, to: urlTo };
   }, [searchParams, paramName, fromParam, toParam]);
 
   const pushParams = React.useCallback(
     (q: string, f: string, t: string) => {
+      lastPushedRef.current = { q, from: f, to: t };
       const params = new URLSearchParams(searchParams.toString());
       if (q) params.set(paramName, q);
       else params.delete(paramName);
@@ -83,7 +117,11 @@ export function ListSearch({
       // Reset pagination when the filter shifts.
       params.delete("page");
       const qs = params.toString();
-      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+      // Wrapping in startTransition keeps the input responsive while
+      // the RSC re-fetch / page-level re-render runs in the background.
+      startTransition(() => {
+        router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+      });
     },
     [router, pathname, searchParams, paramName, fromParam, toParam],
   );
@@ -92,7 +130,7 @@ export function ListSearch({
   // since it's already gated by an explicit "Apply" click.
   React.useEffect(() => {
     const t = setTimeout(() => {
-      if ((searchParams.get(paramName) ?? "") !== value) {
+      if (lastPushedRef.current.q !== value) {
         pushParams(value, from, to);
       }
     }, DEBOUNCE_MS);

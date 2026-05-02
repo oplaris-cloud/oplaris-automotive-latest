@@ -109,4 +109,41 @@ describe("<ListSearch>", () => {
       expect.objectContaining({ scroll: false }),
     );
   });
+
+  it("Bug-5: does NOT overwrite the input mid-typing when our own URL update echoes back", () => {
+    // The bug: after we pushed `?q=AB`, useSearchParams returns a new
+    // object with q=AB, and the URL→state useEffect fired and reset
+    // local `value` to "AB" — racing whatever the user typed in the
+    // 200 ms debounce window. The fix tracks `lastPushedRef` so our
+    // own writes are ignored.
+    const { rerender } = render(<ListSearch placeholder="Search…" />);
+    const input = screen.getByPlaceholderText("Search…") as HTMLInputElement;
+
+    fireEvent.change(input, { target: { value: "AB" } });
+    act(() => vi.advanceTimersByTime(200));
+    expect(mockReplace).toHaveBeenCalledTimes(1);
+
+    // Simulate URL update echoing back our own write.
+    mockSearchParams.current = new URLSearchParams("q=AB");
+
+    // User keeps typing — must not lose the "C" they just added.
+    fireEvent.change(input, { target: { value: "ABC" } });
+    rerender(<ListSearch placeholder="Search…" />);
+
+    // Local input value should still be "ABC" — not reset to "AB".
+    expect(input.value).toBe("ABC");
+  });
+
+  it("Bug-5: external URL change (back/forward) DOES sync local state", () => {
+    mockSearchParams.current = new URLSearchParams("q=initial");
+    const { rerender } = render(<ListSearch placeholder="Search…" />);
+    const input = screen.getByPlaceholderText("Search…") as HTMLInputElement;
+    expect(input.value).toBe("initial");
+
+    // Simulate browser back-button putting q=other in URL.
+    mockSearchParams.current = new URLSearchParams("q=other");
+    rerender(<ListSearch placeholder="Search…" />);
+
+    expect(input.value).toBe("other");
+  });
 });

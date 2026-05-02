@@ -203,10 +203,15 @@ export default async function VehicleDetailPage({
 
       {/* Full job history — moved above MOT History per Hossein
           2026-04-30 (Todoist 6gVQJ3Ggmg6mFwHG): job history is the
-          more frequently-accessed lookup when checking a vehicle. */}
+          more frequently-accessed lookup when checking a vehicle.
+          Bug-4 (2026-05-02): show the filtered count when filters
+          are active so the H2 always matches the rendered list. */}
       <Separator className="my-6" />
       <h2 className="flex items-center gap-2 text-lg font-semibold">
-        <History className="h-5 w-5" /> Job History ({jobs.length})
+        <History className="h-5 w-5" />{" "}
+        {isFiltering
+          ? `Job History (${filteredJobs.length} of ${jobs.length})`
+          : `Job History (${jobs.length})`}
       </h2>
       {jobs.length === 0 ? (
         <p className="mt-2 text-sm text-muted-foreground">

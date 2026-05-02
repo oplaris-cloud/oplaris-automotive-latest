@@ -89,6 +89,7 @@ export function AppShell({
         <TopBar
           userEmail={userEmail}
           userRole={userRole}
+          showGlobalSearch={isManager}
           onMenuClick={() => setDrawerOpen(true)}
         />
         <main

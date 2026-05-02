@@ -11,17 +11,22 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { GlobalSearchButton } from "@/components/spotlight/global-search-button";
 import { ThemeToggle } from "./theme-toggle";
 
 interface TopBarProps {
   userEmail: string;
   userRole: string;
+  /** Bug-6 — gate the Global Search button to managers (matches the
+   *  spotlight modal's own manager-only mount). */
+  showGlobalSearch?: boolean;
   onMenuClick?: () => void;
 }
 
 export function TopBar({
   userEmail,
   userRole,
+  showGlobalSearch = false,
   onMenuClick,
 }: TopBarProps) {
   const initials = userEmail
@@ -45,7 +50,9 @@ export function TopBar({
             drawer title; no need to repeat it here. */}
       </div>
 
-      <DropdownMenu>
+      <div className="flex items-center gap-2">
+        {showGlobalSearch ? <GlobalSearchButton /> : null}
+        <DropdownMenu>
         <DropdownMenuTrigger className="flex items-center gap-2 rounded-lg px-2 py-1 hover:bg-muted">
           <Avatar className="h-7 w-7">
             <AvatarFallback className="text-xs">{initials}</AvatarFallback>
@@ -73,6 +80,7 @@ export function TopBar({
           </form>
         </DropdownMenuContent>
       </DropdownMenu>
+      </div>
     </header>
   );
 }

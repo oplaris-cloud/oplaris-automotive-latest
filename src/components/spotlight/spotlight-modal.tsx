@@ -21,6 +21,8 @@ import {
   CommandSeparator,
 } from "@/components/ui/command";
 
+import { SPOTLIGHT_OPEN_EVENT } from "./spotlight-events";
+
 /**
  * B5.4 — Global Cmd+K spotlight modal.
  *
@@ -90,8 +92,18 @@ export function SpotlightModal() {
         setOpen((prev) => !prev);
       }
     }
+    // Bug-6 — also open on the SPOTLIGHT_OPEN_EVENT so the top-bar
+    // Global Search button reaches the same modal without sharing
+    // state through React context.
+    function onOpenEvent() {
+      setOpen(true);
+    }
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener(SPOTLIGHT_OPEN_EVENT, onOpenEvent);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener(SPOTLIGHT_OPEN_EVENT, onOpenEvent);
+    };
   }, []);
 
   // Reset state when the modal closes so the next open starts blank.
