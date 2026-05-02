@@ -58,6 +58,8 @@ const serverEnvSchema = z.object({
   STATUS_PHONE_PEPPER: nonEmpty,
   KIOSK_PAIRING_SECRET: nonEmpty,
   NEXT_SERVER_ACTIONS_ENCRYPTION_KEY: optionalNonEmpty,
+  /** B6.1 — HMAC secret for the super_admin impersonation cookie. */
+  SUPER_ADMIN_COOKIE_SECRET: nonEmpty,
 
   // P2.8 — bearer secret for the Dokploy-driven cron route handlers
   // (/api/cron/mot-refresh, /api/cron/mot-reminders). Generated with

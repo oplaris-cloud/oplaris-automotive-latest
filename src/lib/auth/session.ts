@@ -18,8 +18,11 @@ export type StaffRole = "manager" | "mot_tester" | "mechanic";
 export interface StaffSession {
   userId: string;
   email: string;
+  /** May be empty for a super_admin who hasn't entered a garage yet. */
   garageId: string;
   roles: StaffRole[];
+  /** B6.1 — true when the user is in private.platform_admins. */
+  isSuperAdmin: boolean;
 }
 
 /**
@@ -51,7 +54,14 @@ export async function getStaffSession(): Promise<StaffSession | null> {
   const [, payloadB64] = session.access_token.split(".");
   if (!payloadB64) return null;
 
-  let claims: { app_metadata?: { garage_id?: string; role?: string; roles?: string[] } };
+  let claims: {
+    app_metadata?: {
+      garage_id?: string;
+      role?: string;
+      roles?: string[];
+      is_super_admin?: boolean;
+    };
+  };
   try {
     claims = JSON.parse(Buffer.from(payloadB64, "base64url").toString("utf8"));
   } catch {
@@ -59,6 +69,7 @@ export async function getStaffSession(): Promise<StaffSession | null> {
   }
 
   const garageId = claims.app_metadata?.garage_id;
+  const isSuperAdmin = claims.app_metadata?.is_super_admin === true;
 
   // Support both new `roles` array and old `role` string (backward compat)
   let roles: StaffRole[];
@@ -67,16 +78,19 @@ export async function getStaffSession(): Promise<StaffSession | null> {
   } else if (claims.app_metadata?.role) {
     roles = [claims.app_metadata.role as StaffRole];
   } else {
-    return null;
+    roles = [];
   }
 
-  if (!garageId || roles.length === 0) return null;
+  // Super-admins won't have a staff row → no garage_id + no roles.
+  // Regular staff still need both.
+  if (!isSuperAdmin && (!garageId || roles.length === 0)) return null;
 
   return {
     userId: user.id,
     email: user.email ?? "",
-    garageId,
+    garageId: garageId ?? "",
     roles,
+    isSuperAdmin,
   };
 }
 
@@ -108,3 +122,14 @@ export async function requireRole(
 export const requireManager = () => requireRole(["manager"]);
 export const requireManagerOrTester = () => requireRole(["manager", "mot_tester"]);
 export const requireManagerOrMechanic = () => requireRole(["manager", "mechanic"]);
+
+/**
+ * B6.1 — gate `/admin/*` routes. A super_admin doesn't need a role
+ * assignment. Redirects unauthenticated → /login, non-super_admin → /403.
+ */
+export async function requireSuperAdmin(): Promise<StaffSession> {
+  const session = await getStaffSession();
+  if (!session) redirect("/login");
+  if (!session.isSuperAdmin) redirect("/403");
+  return session;
+}
