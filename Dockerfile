@@ -54,6 +54,8 @@ ENV NEXT_TELEMETRY_DISABLED=1 \
     APPROVAL_HMAC_SECRET=build-time-placeholder-32-bytes-padding \
     STATUS_PHONE_PEPPER=build-time-placeholder-32-bytes-padding \
     KIOSK_PAIRING_SECRET=build-time-placeholder-32-bytes-padding \
+    SUPER_ADMIN_COOKIE_SECRET=build-time-placeholder-64-bytes-padding-for-zod-nonempty-gate \
+    SMTP_ENCRYPTION_KEY=build-time-placeholder-32-bytes-padding \
     STATUS_DEV_BYPASS_SMS=false
 
 COPY --from=deps /app/node_modules ./node_modules
