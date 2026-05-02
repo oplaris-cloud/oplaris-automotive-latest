@@ -9,6 +9,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { SpotlightModal } from "@/components/spotlight/spotlight-modal";
 import { Sidebar, SidebarNavList } from "./sidebar";
 import { TopBar } from "./top-bar";
 import type { StaffRole } from "@/lib/auth/session";
@@ -44,8 +45,14 @@ export function AppShell({
   const pathname = usePathname();
   const [drawerOpen, setDrawerOpen] = useState(false);
 
+  // B5.4 — gate the spotlight to manager surfaces only. The modal
+  // itself listens for Cmd+K and renders nothing until a user opens
+  // it, so mounting it once at the shell root is the cheap path.
+  const isManager = roles.includes("manager");
+
   return (
     <div className="flex h-screen overflow-hidden">
+      {isManager ? <SpotlightModal /> : null}
       <Sidebar
         roles={roles}
         currentPath={pathname}
