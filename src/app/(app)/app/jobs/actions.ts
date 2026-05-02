@@ -5,7 +5,6 @@ import { z } from "zod";
 
 import {
   requireManager,
-  requireManagerOrTester,
   requireStaffSession,
 } from "@/lib/auth/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -62,7 +61,13 @@ export async function createJob(input: CreateJobInput): Promise<ActionResult> {
 export async function updateJobStatus(
   input: UpdateJobStatusInput,
 ): Promise<ActionResult> {
-  await requireManagerOrTester();
+  // Bug-1 — relaxed from requireManagerOrTester so an assigned mechanic
+  // can transition their own job from /app/tech/job/[id]. RLS on
+  // jobs_update is the actual gate (`is_staff_or_manager OR assigned`).
+  // The state machine still rejects illegal transitions, and the
+  // terminal `completed` step happens manager-side (ready_for_collection
+  // → completed in JobActionsRow.tsx).
+  await requireStaffSession();
   const parsed = updateJobStatusSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Validation failed" };
 

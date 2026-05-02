@@ -6,7 +6,8 @@ import {
   Play,
   Pause,
   PlayCircle,
-  CheckCircle2,
+  Square,
+  Flag,
   Phone,
   Clock,
 } from "lucide-react";
@@ -17,6 +18,7 @@ import {
   resumeWork,
   completeWork,
 } from "../../../jobs/work-logs/actions";
+import { updateJobStatus } from "../../../jobs/actions";
 import { getActiveChecklist } from "../../../jobs/completion/actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -25,7 +27,10 @@ import { Label } from "@/components/ui/label";
 import { CustomerNameLink } from "@/components/ui/customer-name-link";
 import { RegPlate } from "@/components/ui/reg-plate";
 import { StatusBadge } from "@/components/ui/status-badge";
-import type { JobStatus } from "@/lib/validation/job-schemas";
+import {
+  type JobStatus,
+  STATUS_TRANSITIONS,
+} from "@/lib/validation/job-schemas";
 import { cn } from "@/lib/utils";
 import { formatRunningTimer } from "@/lib/format";
 import {
@@ -158,51 +163,110 @@ export function TechJobClient({
     });
   };
 
-  const runComplete = () => {
+  // Bug-1: ending the work session is NOW just a session boundary —
+  // no checklist, no job-status flip. The tech may pause/stop several
+  // times across the lifetime of a job; the completion checklist is
+  // for the JOB, not the session. See `handleMarkJobDone` below.
+  const handleStopSession = () => {
     if (!activeWorkLog) return;
     setError(null);
     startTransition(async () => {
       const result = await completeWork({ workLogId: activeWorkLog.id });
       if (!result.ok) {
-        setError(result.error ?? "Failed to complete");
+        setError(result.error ?? "Failed to stop session");
         return;
       }
       router.refresh();
     });
   };
 
-  // P3.3 — gate Complete on the manager's per-role checklist. Fetch
-  // the active list; if absent or disabled, run completeWork() straight
-  // through (preserves the pre-P3.3 click-to-complete UX). Otherwise
-  // open the modal and chain on submit.
-  const handleComplete = () => {
-    if (!activeWorkLog) return;
+  // Bug-1: dedicated "Mark job done" path. Stops any running work
+  // session, opens the checklist (when the manager has enabled one),
+  // and on submit transitions the job to ready_for_collection. The
+  // terminal `completed` status is still manager-side (collected).
+  const handleMarkJobDone = () => {
     setError(null);
     startTransition(async () => {
+      // Stop the timer first if one is running, so the checklist UX
+      // matches "I'm finished" rather than "still ticking".
+      if (activeWorkLog) {
+        const stop = await completeWork({ workLogId: activeWorkLog.id });
+        if (!stop.ok) {
+          setError(stop.error ?? "Failed to stop session");
+          return;
+        }
+      }
       try {
         const active = await getActiveChecklist({
           jobId,
-          taskType: activeWorkLog.task_type,
+          taskType: activeWorkLog?.task_type ?? null,
         });
         if (!active) {
-          runComplete();
+          await runMarkJobDone();
           return;
         }
         setChecklist(active);
       } catch (err) {
         console.error("[checklist] load failed", err);
-        // Fail open — don't trap a tech behind a broken modal. The audit
-        // log won't capture an opt-out for this job, which is acceptable
-        // given the alternative is the timer never stopping.
-        runComplete();
+        // Fail open — don't trap a tech behind a broken modal.
+        await runMarkJobDone();
       }
     });
   };
 
+  // The actual status flip — used both when no checklist applies and
+  // after the dialog submits. Refresh after, so the page picks up the
+  // new status and the work_log timer stays stopped.
+  const runMarkJobDone = async () => {
+    const result = await updateJobStatus({
+      jobId,
+      status: "ready_for_collection",
+    });
+    if (!result.ok) {
+      setError(result.error ?? "Failed to mark job done");
+      return;
+    }
+    router.refresh();
+  };
+
   const handleChecklistSubmitted = () => {
     setChecklist(null);
-    runComplete();
+    startTransition(() => runMarkJobDone());
   };
+
+  const handleStatusChange = (next: JobStatus) => {
+    setError(null);
+    startTransition(async () => {
+      const result = await updateJobStatus({ jobId, status: next });
+      if (!result.ok) {
+        setError(result.error ?? "Failed to change status");
+        return;
+      }
+      router.refresh();
+    });
+  };
+
+  // Filter the state-machine's allowed transitions to the ones a tech
+  // should drive from this page. Manager-only terminals (`completed`,
+  // `cancelled`) are excluded; `ready_for_collection` has its own
+  // dedicated "Mark Job Done" button so the checklist gates it.
+  const TECH_STATUS_HIDDEN: JobStatus[] = [
+    "completed",
+    "cancelled",
+    "ready_for_collection",
+    "awaiting_mechanic",
+  ];
+  const techStatusOptions: JobStatus[] = (
+    STATUS_TRANSITIONS[status as JobStatus] ?? []
+  ).filter((s) => !TECH_STATUS_HIDDEN.includes(s));
+
+  const canMarkJobDone =
+    status !== "completed" &&
+    status !== "cancelled" &&
+    status !== "ready_for_collection" &&
+    (STATUS_TRANSITIONS[status as JobStatus] ?? []).includes(
+      "ready_for_collection",
+    );
 
   const isWorking = !!activeWorkLog;
 
@@ -372,17 +436,61 @@ export function TechJobClient({
               {isPending ? "..." : "Pause"}
             </Button>
           )}
+          {/* Bug-1: "Stop" only ends the work session — no checklist,
+              no job-status change. Use "Mark Job Done" below for the
+              actual job-done moment. */}
           <Button
             size="xl"
-            onClick={handleComplete}
+            onClick={handleStopSession}
             disabled={isPending}
+            variant="outline"
             className="flex-1"
           >
-            <CheckCircle2 />
-            {isPending ? "..." : "Complete"}
+            <Square />
+            {isPending ? "..." : "Stop"}
           </Button>
         </div>
       )}
+
+      {/* Bug-1: status management on the My Work / Tech Job page.
+          Only renders when there's at least one tech-driveable next
+          state from the current status (excludes terminal +
+          manager-only transitions). */}
+      {techStatusOptions.length > 0 ? (
+        <div>
+          <Label className="text-sm font-medium">Update status</Label>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {techStatusOptions.map((s) => (
+              <Button
+                key={s}
+                type="button"
+                size="default"
+                variant="outline"
+                onClick={() => handleStatusChange(s)}
+                disabled={isPending}
+              >
+                {s.replace(/_/g, " ")}
+              </Button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {/* Bug-1: dedicated "Mark Job Done" — fires the completion
+          checklist (when configured) and transitions the job to
+          ready_for_collection. The terminal `completed` flip stays
+          manager-side. */}
+      {canMarkJobDone ? (
+        <Button
+          size="xl"
+          onClick={handleMarkJobDone}
+          disabled={isPending}
+          className="w-full"
+        >
+          <Flag />
+          {isPending ? "..." : "Mark Job Done"}
+        </Button>
+      ) : null}
 
       {error && (
         <p role="alert" className="text-sm text-destructive">{error}</p>
