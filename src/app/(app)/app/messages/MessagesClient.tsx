@@ -240,32 +240,7 @@ export function MessagesClient({ initialKpis, initialPage }: Props) {
       </div>
 
       {/* Filter bar */}
-      <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <div>
-          <Label htmlFor="msg-type">Type</Label>
-          <Select
-            value={filter.type ?? "all"}
-            onValueChange={(v) => {
-              setFilter((f) => ({
-                ...f,
-                type: v === "all" ? "all" : (v as SmsType),
-              }));
-              setPageNumber(1);
-            }}
-          >
-            <SelectTrigger id="msg-type" className="mt-1">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All types</SelectItem>
-              {(Object.keys(TYPE_LABEL) as SmsType[]).map((t) => (
-                <SelectItem key={t} value={t}>
-                  {TYPE_LABEL[t]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+      <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <div>
           <Label htmlFor="msg-status">Status</Label>
           <Select
@@ -317,15 +292,63 @@ export function MessagesClient({ initialKpis, initialPage }: Props) {
             className="mt-1"
           />
         </div>
-        <div className="sm:col-span-2 lg:col-span-4">
+        <div className="sm:col-span-2 lg:col-span-3">
           <Label htmlFor="msg-search">Search</Label>
           <Input
             id="msg-search"
-            placeholder="Phone number or registration"
+            placeholder="Phone, registration, or message text"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             className="mt-1"
           />
+        </div>
+      </div>
+
+      {/* B5.3 — message_type multi-select chip group. Replaces the
+          legacy single-select dropdown so a manager can compare e.g.
+          MOT reminders + quote sends in one view. Uses internal state
+          (matches the page's existing client-state pattern); the
+          shared <FilterChips> URL primitive serves the other 4 list
+          pages. */}
+      <div className="mt-3">
+        <Label>Type</Label>
+        <div
+          role="group"
+          aria-label="Filter by message type"
+          className="mt-1 flex flex-wrap items-center gap-2"
+        >
+          {(Object.keys(TYPE_LABEL) as SmsType[]).map((t) => {
+            const active = (filter.types ?? []).includes(t);
+            return (
+              <button
+                key={t}
+                type="button"
+                role="switch"
+                aria-checked={active}
+                onClick={() => {
+                  setFilter((f) => {
+                    const cur = new Set(f.types ?? []);
+                    if (cur.has(t)) cur.delete(t);
+                    else cur.add(t);
+                    return {
+                      ...f,
+                      type: undefined, // legacy single-select must not collide
+                      types: cur.size === 0 ? undefined : Array.from(cur),
+                    };
+                  });
+                  setPageNumber(1);
+                }}
+                className={cn(
+                  "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+                  active
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-input hover:bg-accent",
+                )}
+              >
+                {TYPE_LABEL[t]}
+              </button>
+            );
+          })}
         </div>
       </div>
 

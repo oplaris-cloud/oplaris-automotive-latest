@@ -1,4 +1,4 @@
-import { Package, AlertTriangle, Shield } from "lucide-react";
+import { AlertTriangle, Shield } from "lucide-react";
 
 import { requireManager } from "@/lib/auth/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -9,6 +9,7 @@ import {
 } from "@/components/illustrations";
 import { Badge } from "@/components/ui/badge";
 import { PageContainer } from "@/components/app/page-container";
+import { ListSearch } from "@/components/ui/list-search";
 import {
   Table,
   TableBody,
@@ -23,6 +24,10 @@ import { WarrantyRowActions } from "../warranties/WarrantyRowActions";
 import { getStockLocations } from "../settings/stock/actions";
 import { StockTabs } from "./StockTabs";
 import { StockRealtime } from "@/lib/realtime/shims";
+import {
+  composeStockSearchPredicate,
+  composeWarrantiesSearchPredicate,
+} from "@/lib/search/list-pages";
 
 function isExpired(d: string): boolean {
   return new Date(d) < new Date();
@@ -45,26 +50,66 @@ function claimBadge(status: string) {
   }
 }
 
-export default async function StockPage() {
+interface StockPageProps {
+  searchParams: Promise<{ q?: string; wq?: string }>;
+}
+
+export default async function StockPage({ searchParams }: StockPageProps) {
   const session = await requireManager();
   const supabase = await createSupabaseServerClient();
+  const { q, wq } = await searchParams;
+  const stockPred = composeStockSearchPredicate({ q });
+  const warrantyPred = composeWarrantiesSearchPredicate({ q: wq });
+
+  // Inventory query — ILIKE across description / sku / location.
+  let stockQuery = supabase
+    .from("stock_items")
+    .select("id, sku, description, quantity_on_hand, reorder_point, unit_cost_pence, location")
+    .order("description", { ascending: true });
+  if (stockPred.q) {
+    stockQuery = stockQuery.or(
+      `description.ilike.%${stockPred.q}%,sku.ilike.%${stockPred.q}%,location.ilike.%${stockPred.q}%`,
+    );
+  }
+
+  // Warranties query — ILIKE across supplier / invoice_reference /
+  // claim_reason. Joined stock_items.description match needs a
+  // sub-query because PostgREST .or() can't span tables.
+  let stockItemIdsByDescription: string[] = [];
+  if (warrantyPred.q) {
+    const { data: stockMatches } = await supabase
+      .from("stock_items")
+      .select("id")
+      .ilike("description", `%${warrantyPred.q}%`)
+      .limit(500);
+    stockItemIdsByDescription = (stockMatches ?? []).map((r) => r.id as string);
+  }
+  let warrantiesQuery = supabase
+    .from("warranties")
+    .select(`
+      id, supplier, purchase_date, expiry_date,
+      invoice_reference, notes, claim_status, claim_reason, claim_resolution,
+      voided_at,
+      stock_items!stock_item_id ( id, description, sku )
+    `)
+    .is("voided_at", null)
+    .order("expiry_date", { ascending: true });
+  if (warrantyPred.q) {
+    const ors = [
+      `supplier.ilike.%${warrantyPred.q}%`,
+      `invoice_reference.ilike.%${warrantyPred.q}%`,
+      `claim_reason.ilike.%${warrantyPred.q}%`,
+    ];
+    if (stockItemIdsByDescription.length > 0) {
+      ors.push(`stock_item_id.in.(${stockItemIdsByDescription.join(",")})`);
+    }
+    warrantiesQuery = warrantiesQuery.or(ors.join(","));
+  }
 
   const [{ data: items }, locations, { data: warranties }] = await Promise.all([
-    supabase
-      .from("stock_items")
-      .select("id, sku, description, quantity_on_hand, reorder_point, unit_cost_pence, location")
-      .order("description", { ascending: true }),
+    stockQuery,
     getStockLocations(),
-    supabase
-      .from("warranties")
-      .select(`
-        id, supplier, purchase_date, expiry_date,
-        invoice_reference, notes, claim_status, claim_reason, claim_resolution,
-        voided_at,
-        stock_items!stock_item_id ( id, description, sku )
-      `)
-      .is("voided_at", null)
-      .order("expiry_date", { ascending: true }),
+    warrantiesQuery,
   ]);
 
   const activeWarranties = (warranties ?? []).filter((w) => !isExpired(w.expiry_date));
@@ -73,6 +118,12 @@ export default async function StockPage() {
 
   const inventoryTab = (
     <>
+      <div className="mt-4">
+        <ListSearch
+          paramName="q"
+          placeholder="Search items, SKU, or location…"
+        />
+      </div>
       {!items || items.length === 0 ? (
         <EmptyState
           illustration={OrganizedFilingSystemIllustration}
@@ -208,6 +259,12 @@ export default async function StockPage() {
 
   const warrantiesTab = (
     <>
+      <div className="mt-4">
+        <ListSearch
+          paramName="wq"
+          placeholder="Search part name, supplier, invoice ref…"
+        />
+      </div>
       {(warranties ?? []).length === 0 ? (
         <EmptyState
           illustration={DataSecurityIllustration}

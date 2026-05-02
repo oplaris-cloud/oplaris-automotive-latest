@@ -69,13 +69,16 @@ export interface MessageKpis {
 }
 
 export interface MessagesFilter {
+  /** Legacy single-type filter — kept for back-compat. Prefer `types`. */
   type?: SmsType | "all";
+  /** B5.3 — multi-select chip group. When set, supersedes `type`. */
+  types?: SmsType[];
   status?: SmsStatus | "all";
   /** ISO date string (YYYY-MM-DD) — inclusive lower bound */
   dateFrom?: string;
   /** ISO date string — inclusive upper bound (we treat as end-of-day) */
   dateTo?: string;
-  /** Free text — phone or registration substring */
+  /** Free text — phone, registration, or message body substring (B5.3). */
   search?: string;
 }
 
@@ -157,7 +160,10 @@ export async function getMessages(
     .order("created_at", { ascending: false })
     .range(from, to);
 
-  if (filter.type && filter.type !== "all") {
+  // B5.3: types[] takes precedence over the legacy single-value `type`.
+  if (filter.types && filter.types.length > 0) {
+    query = query.in("message_type", filter.types);
+  } else if (filter.type && filter.type !== "all") {
     query = query.eq("message_type", filter.type);
   }
   if (filter.status && filter.status !== "all") {
@@ -170,12 +176,12 @@ export async function getMessages(
     query = query.lte("created_at", `${filter.dateTo}T23:59:59.999Z`);
   }
   if (filter.search && filter.search.trim().length > 0) {
-    // Phone OR registration substring. Postgrest's .or syntax wants
-    // a single string — escape commas in the search term to avoid
-    // breaking the parser.
-    const term = filter.search.trim().replace(/,/g, "");
+    // Phone OR registration OR message_body substring (B5.3 added the
+    // message_body dimension). Strip PostgREST-reserved chars so a
+    // user typing `"(hello)"` doesn't break the parser.
+    const term = filter.search.trim().replace(/[,()*\\"']/g, " ");
     query = query.or(
-      `phone.ilike.%${term}%,vehicles.registration.ilike.%${term}%`,
+      `phone.ilike.%${term}%,message_body.ilike.%${term}%,vehicles.registration.ilike.%${term}%`,
     );
   }
 

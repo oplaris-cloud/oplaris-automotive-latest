@@ -1,13 +1,14 @@
 import Link from "next/link";
-import { Plus, Search } from "lucide-react";
+import { Plus } from "lucide-react";
 
 import { requireManager } from "@/lib/auth/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/ui/empty-state";
 import { GarageOwnerWelcomingCustomersIllustration } from "@/components/illustrations";
 import { PageContainer } from "@/components/app/page-container";
+import { ListSearch } from "@/components/ui/list-search";
+import { FilterChips } from "@/components/ui/filter-chips";
 import {
   Table,
   TableBody,
@@ -22,14 +23,22 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { CustomersListRealtime } from "@/lib/realtime/shims";
 import { TelLink } from "@/components/ui/tel-link";
 import { TraderBadge } from "@/components/ui/trader-badge";
+import { composeCustomersSearchPredicate } from "@/lib/search/list-pages";
 
 interface CustomersPageProps {
-  searchParams: Promise<{ q?: string; page?: string; openJob?: string; deleted?: string }>;
+  searchParams: Promise<{
+    q?: string;
+    page?: string;
+    openJob?: string;
+    deleted?: string;
+    /** Comma-separated chip values — currently just "trader". */
+    filters?: string;
+  }>;
 }
 
 export default async function CustomersPage({ searchParams }: CustomersPageProps) {
   const session = await requireManager();
-  const { q, page, openJob, deleted } = await searchParams;
+  const { q, page, openJob, deleted, filters } = await searchParams;
   const filterOpenJob = openJob === "true";
   const showDeleted = deleted === "true";
   const isManager = session.roles.includes("manager");
@@ -37,7 +46,28 @@ export default async function CustomersPage({ searchParams }: CustomersPageProps
   const currentPage = Math.max(1, parseInt(page ?? "1", 10));
   const perPage = 25;
 
-  // TODO: trader filter chip — wires up when Batch 5 in-page search ships.
+  const predicate = composeCustomersSearchPredicate({ q, filters });
+
+  // For the "owned-vehicle reg" search dimension we sub-query vehicles
+  // first to get the customer IDs, then OR that into the main filter.
+  // Tenant scoping is enforced by RLS at every step.
+  let customerIdsByVehicleReg: string[] = [];
+  if (predicate.q) {
+    const { data: vmatches } = await supabase
+      .from("vehicles")
+      .select("customer_id")
+      .ilike("registration", `%${predicate.q.toUpperCase()}%`)
+      .not("customer_id", "is", null)
+      .limit(200);
+    customerIdsByVehicleReg = Array.from(
+      new Set(
+        (vmatches ?? [])
+          .map((r) => r.customer_id as string | null)
+          .filter((id): id is string => Boolean(id)),
+      ),
+    );
+  }
+
   let customers:
     | {
         id: string;
@@ -52,19 +82,32 @@ export default async function CustomersPage({ searchParams }: CustomersPageProps
 
   if (filterOpenJob) {
     // Use inner join: only customers with at least one non-terminal job
-    const result = await supabase
+    let result = supabase
       .from("customers")
       .select("id, full_name, phone, email, is_trader, created_at, jobs!inner(status)", { count: "exact" })
       .is("deleted_at", null)
       .not("jobs.status", "in", "(completed,cancelled)")
       .order("created_at", { ascending: false })
       .range((currentPage - 1) * perPage, currentPage * perPage - 1);
+    if (predicate.traderOnly) result = result.eq("is_trader", true);
+    if (predicate.q) {
+      const ors = [
+        `full_name.ilike.%${predicate.q}%`,
+        `email.ilike.%${predicate.q}%`,
+        ...predicate.phonePatterns.map((p) => `phone.ilike.%${p}%`),
+      ];
+      if (customerIdsByVehicleReg.length > 0) {
+        ors.push(`id.in.(${customerIdsByVehicleReg.join(",")})`);
+      }
+      result = result.or(ors.join(","));
+    }
+    const r = await result;
     // Deduplicate (inner join may repeat customers with multiple jobs)
     const seen = new Set<string>();
-    customers = (result.data ?? [])
+    customers = (r.data ?? [])
       .filter((c) => { if (seen.has(c.id)) return false; seen.add(c.id); return true; })
       .map(({ id, full_name, phone, email, is_trader, created_at }) => ({ id, full_name, phone, email, is_trader, created_at }));
-    count = result.count;
+    count = r.count;
   } else {
     let query = supabase
       .from("customers")
@@ -73,8 +116,17 @@ export default async function CustomersPage({ searchParams }: CustomersPageProps
       .order("created_at", { ascending: false })
       .range((currentPage - 1) * perPage, currentPage * perPage - 1);
 
-    if (q) {
-      query = query.ilike("full_name", `%${q}%`);
+    if (predicate.traderOnly) query = query.eq("is_trader", true);
+    if (predicate.q) {
+      const ors = [
+        `full_name.ilike.%${predicate.q}%`,
+        `email.ilike.%${predicate.q}%`,
+        ...predicate.phonePatterns.map((p) => `phone.ilike.%${p}%`),
+      ];
+      if (customerIdsByVehicleReg.length > 0) {
+        ors.push(`id.in.(${customerIdsByVehicleReg.join(",")})`);
+      }
+      query = query.or(ors.join(","));
     }
 
     const result = await query;
@@ -111,16 +163,16 @@ export default async function CustomersPage({ searchParams }: CustomersPageProps
         </Link>
       </div>
 
-      <form className="mt-4 flex flex-wrap items-center gap-3" action="/app/customers">
-        <div className="relative max-w-sm flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            name="q"
-            placeholder="Search by name..."
-            defaultValue={q}
-            className="pl-9"
-          />
-        </div>
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        <ListSearch
+          placeholder="Search by name, phone, email, or vehicle reg…"
+          className="max-w-sm flex-1"
+        />
+        <FilterChips
+          paramName="filters"
+          options={[{ value: "trader", label: "Trader only" }]}
+          ariaLabel="Customer flags"
+        />
         <Link
           href={filterOpenJob ? "/app/customers" : "/app/customers?openJob=true"}
           className={`rounded-full border px-3 py-2 text-sm font-medium transition-colors ${
@@ -143,7 +195,7 @@ export default async function CustomersPage({ searchParams }: CustomersPageProps
             Recently Deleted
           </Link>
         )}
-      </form>
+      </div>
 
       {showDeleted && isManager && (
         deletedCustomers.length === 0 ? (

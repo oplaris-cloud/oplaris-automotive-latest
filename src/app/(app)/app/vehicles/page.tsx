@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { Search } from "lucide-react";
 
 import { requireManager } from "@/lib/auth/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -10,7 +9,12 @@ import { CarImage } from "@/components/ui/car-image";
 import { RegPlate } from "@/components/ui/reg-plate";
 import { TraderBadge } from "@/components/ui/trader-badge";
 import { PageContainer } from "@/components/app/page-container";
+import { ListSearch } from "@/components/ui/list-search";
 import { VehiclesListRealtime } from "@/lib/realtime/shims";
+import {
+  composeVehiclesSearchPredicate,
+  searchVehicles,
+} from "@/lib/search/list-pages";
 
 interface VehiclesPageProps {
   searchParams: Promise<{ q?: string }>;
@@ -21,27 +25,8 @@ export default async function VehiclesPage({ searchParams }: VehiclesPageProps) 
   const { q } = await searchParams;
   const supabase = await createSupabaseServerClient();
 
-  let query = supabase
-    .from("vehicles")
-    .select(
-      `
-      id, registration, make, model, year, colour,
-      customer:customers!customer_id ( id, full_name, phone, is_trader )
-    `,
-    )
-    .is("deleted_at", null)
-    .order("created_at", { ascending: false })
-    .limit(50);
-
-  if (q && q.trim().length > 0) {
-    const term = q.trim().toUpperCase();
-    // Search by reg, make, or model
-    query = query.or(
-      `registration.ilike.%${term}%,make.ilike.%${term}%,model.ilike.%${term}%`,
-    );
-  }
-
-  const { data: vehicles } = await query;
+  const predicate = composeVehiclesSearchPredicate({ q });
+  const vehicles = await searchVehicles(supabase, predicate, 50);
 
   return (
     <PageContainer width="full">
@@ -50,25 +35,14 @@ export default async function VehiclesPage({ searchParams }: VehiclesPageProps) 
         <div>
           <h1 className="text-2xl font-semibold">Vehicles</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Search by registration, make, or model.
+            Search by registration, make, model, or owner name.
           </p>
         </div>
       </div>
 
-      {/* Search bar */}
-      <form className="mt-4" action="/app/vehicles" method="GET">
-        <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <input
-            type="text"
-            name="q"
-            defaultValue={q ?? ""}
-            placeholder="e.g. AB12 CDE or Ford Focus"
-            className="w-full rounded-lg border bg-background py-2 pl-10 pr-4 text-sm outline-none focus:ring-2 focus:ring-primary/30"
-            autoComplete="off"
-          />
-        </div>
-      </form>
+      <div className="mt-4">
+        <ListSearch placeholder="e.g. AB12 CDE, Ford Focus, John Smith…" />
+      </div>
 
       {/* Results */}
       {!vehicles || vehicles.length === 0 ? (
@@ -85,9 +59,7 @@ export default async function VehiclesPage({ searchParams }: VehiclesPageProps) 
       ) : (
         <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {vehicles.map((v) => {
-            const customer = Array.isArray(v.customer)
-              ? v.customer[0]
-              : v.customer;
+            const customer = v.customer;
             return (
               <Link key={v.id} href={`/app/vehicles/${v.id}`}>
                 <Card className="overflow-hidden transition-shadow hover:shadow-md">
@@ -109,13 +81,8 @@ export default async function VehiclesPage({ searchParams }: VehiclesPageProps) 
                     </div>
                     {customer && (
                       <div className="mt-1 text-xs text-muted-foreground">
-                        {(customer as { full_name: string }).full_name}
-                        <TraderBadge
-                          isTrader={
-                            (customer as { is_trader?: boolean }).is_trader ??
-                            false
-                          }
-                        />
+                        {customer.full_name}
+                        <TraderBadge isTrader={customer.is_trader ?? false} />
                       </div>
                     )}
                   </CardContent>
