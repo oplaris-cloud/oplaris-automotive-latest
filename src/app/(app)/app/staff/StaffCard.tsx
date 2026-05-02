@@ -111,10 +111,19 @@ function StaffAvatarBorder({
   roles: string[];
   busy: boolean;
 }) {
+  // Bug-3: dropped `overflow-hidden`. The MOT-tester badge inside
+  // `<StaffAvatar>` is absolute-positioned at the avatar's top-right
+  // corner — i.e. just OUTSIDE the visible circle of this rounded-full
+  // wrapper. Combined with `rounded-full` on this parent, overflow-hidden
+  // clipped the badge to the curved corner so the MOT logo rendered as
+  // a partial sliver (or vanished entirely on smaller avatars). The
+  // inner StaffAvatar's `<img className="rounded-full object-cover">`
+  // already provides the avatar's own circular clip; the wrapper just
+  // draws the busy/free border ring + tinted background.
   return (
     <div
       className={cn(
-        "flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full border-2",
+        "flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-2",
         busy
           ? "border-destructive bg-destructive/10 text-destructive"
           : "border-success bg-success/10 text-success",

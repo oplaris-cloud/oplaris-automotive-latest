@@ -68,4 +68,30 @@ describe("<StaffCard>", () => {
     expect(screen.getByText(/Free now · 3 jobs done today/i)).toBeInTheDocument();
     expect(screen.queryByLabelText("Timer running")).toBeNull();
   });
+
+  it("Bug-3: MOT-tester avatar wrapper does NOT use overflow-hidden (would clip the corner badge)", () => {
+    // Reproducer for the bug Hossein flagged: rounded-full + overflow-hidden
+    // on the StaffAvatarBorder clipped the absolute-positioned MOT badge in
+    // the avatar's top-right corner so the logo rendered as a sliver (or
+    // disappeared on the smallest 16-px badge). Removing overflow-hidden
+    // keeps the visual circle (the bordered ring + the inner image's own
+    // rounded-full) without clipping the badge.
+    const row = makeRow({
+      staff: {
+        ...makeRow().staff,
+        roles: ["mechanic", "mot_tester"],
+      },
+    });
+    const { container } = render(<StaffCard data={row} />);
+    // The bordered wrapper is the first rounded-full descendant of the
+    // card body; assert overflow-hidden is absent.
+    const wrapper = container.querySelector(
+      ".rounded-full.border-2",
+    ) as HTMLElement | null;
+    expect(wrapper).not.toBeNull();
+    expect(wrapper!.className).not.toMatch(/\boverflow-hidden\b/);
+
+    // And the MOT badge IS in the DOM (not just hidden under a clip).
+    expect(screen.getByTitle("MOT tester")).toBeInTheDocument();
+  });
 });
