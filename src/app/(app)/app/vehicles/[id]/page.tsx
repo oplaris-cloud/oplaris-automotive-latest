@@ -6,15 +6,12 @@ import {
   Mail,
   Wrench,
   Plus,
-  Shield,
-  AlertTriangle,
-  CheckCircle2,
-  XCircle,
   History,
 } from "lucide-react";
 
 import { requireManager } from "@/lib/auth/session";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -23,22 +20,42 @@ import { CustomerNameLink } from "@/components/ui/customer-name-link";
 import { RegPlate } from "@/components/ui/reg-plate";
 import { TelLink } from "@/components/ui/tel-link";
 import { PageContainer } from "@/components/app/page-container";
+import { ListSearch } from "@/components/ui/list-search";
+import { FilterChips } from "@/components/ui/filter-chips";
 import { getVehicleDetail } from "../actions";
 import { MotHistorySection } from "./MotHistorySection";
 import { DeleteVehicleButton } from "./DeleteVehicleButton";
 import { VehicleDetailRealtime } from "@/lib/realtime/shims";
 import type { JobStatus } from "@/lib/validation/job-schemas";
+import {
+  composeVehicleJobsSearchPredicate,
+  searchVehicleJobs,
+  REPAIR_CHIP_OPTIONS,
+} from "@/lib/search/vehicle-jobs";
 
 interface VehicleDetailProps {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ q?: string; repair?: string }>;
 }
 
-export default async function VehicleDetailPage({ params }: VehicleDetailProps) {
+export default async function VehicleDetailPage({
+  params,
+  searchParams,
+}: VehicleDetailProps) {
   await requireManager();
   const { id } = await params;
+  const { q, repair } = await searchParams;
   const { vehicle, jobs, motHistory, error } = await getVehicleDetail(id);
 
   if (error || !vehicle) notFound();
+
+  // Filtered job history runs through the new search predicate. The
+  // first call above kept its full-list contract for active-jobs +
+  // header counts; this second pass is the searchable view.
+  const supabase = await createSupabaseServerClient();
+  const predicate = composeVehicleJobsSearchPredicate({ q, repair });
+  const filteredJobs = await searchVehicleJobs(supabase, id, predicate);
+  const isFiltering = predicate.q !== null || predicate.repairChips.length > 0;
 
   const activeJobs = jobs.filter(
     (j) => j.status !== "completed" && j.status !== "cancelled",
@@ -196,33 +213,59 @@ export default async function VehicleDetailPage({ params }: VehicleDetailProps) 
           No jobs recorded for this vehicle yet.
         </p>
       ) : (
-        <div className="mt-3 space-y-2">
-          {jobs.map((j) => (
-            <Link key={j.id} href={`/app/jobs/${j.id}`}>
-              <Card className="transition-shadow hover:shadow-md">
-                <CardContent className="flex items-center justify-between p-4">
-                  <div>
-                    <span className="font-mono text-sm font-medium">
-                      {j.job_number}
-                    </span>
-                    {j.description && (
-                      <span className="ml-2 text-sm text-muted-foreground">
-                        {j.description.slice(0, 80)}
-                      </span>
-                    )}
-                    <div className="mt-1 text-xs text-muted-foreground">
-                      {j.bay_name && `${j.bay_name} · `}
-                      {new Date(j.created_at).toLocaleDateString("en-GB")}
-                      {j.completed_at &&
-                        ` — completed ${new Date(j.completed_at).toLocaleDateString("en-GB")}`}
-                    </div>
-                  </div>
-                  <StatusBadge status={j.status as JobStatus} />
-                </CardContent>
-              </Card>
-            </Link>
-          ))}
-        </div>
+        <>
+          <div className="mt-3 flex flex-col gap-3 md:flex-row md:items-center">
+            <ListSearch
+              placeholder="Search descriptions, parts, charges…"
+              className="md:flex-1"
+            />
+            <FilterChips
+              paramName="repair"
+              options={REPAIR_CHIP_OPTIONS}
+              ariaLabel="Filter by repair type"
+            />
+          </div>
+          {filteredJobs.length === 0 ? (
+            <p className="mt-3 text-sm text-muted-foreground">
+              {isFiltering
+                ? "No jobs match the current filters."
+                : "No jobs recorded for this vehicle yet."}
+            </p>
+          ) : (
+            <div className="mt-3 space-y-2">
+              {filteredJobs.map((j) => (
+                <Link key={j.id} href={`/app/jobs/${j.id}`}>
+                  <Card className="transition-shadow hover:shadow-md">
+                    <CardContent className="flex items-center justify-between p-4">
+                      <div>
+                        <span className="font-mono text-sm font-medium">
+                          {j.job_number}
+                        </span>
+                        {j.description && (
+                          <span className="ml-2 text-sm text-muted-foreground">
+                            {j.description.slice(0, 80)}
+                          </span>
+                        )}
+                        <div className="mt-1 text-xs text-muted-foreground">
+                          {j.bay_name && `${j.bay_name} · `}
+                          {new Date(j.created_at).toLocaleDateString("en-GB")}
+                          {j.completed_at &&
+                            ` — completed ${new Date(j.completed_at).toLocaleDateString("en-GB")}`}
+                          {j.service && (
+                            <Badge variant="secondary" className="ml-2 capitalize">
+                              {j.service}
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                      <StatusBadge status={j.status as JobStatus} />
+                    </CardContent>
+                  </Card>
+                </Link>
+              ))}
+            </div>
+          )}
+        </>
       )}
 
       {/* MOT History */}
